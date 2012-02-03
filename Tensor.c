@@ -18,6 +18,16 @@ static const void *torch_CudaTensor_id = NULL;
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
+static void THCudaTensor_maskedFill(THCudaTensor *tensor, THByteTensor *mask, float value)
+{
+  THError("not yet implemented for CUDA");
+}
+
+static void THCudaTensor_maskedCopy(THCudaTensor *tensor, THByteTensor *mask, THCudaTensor* src)
+{
+  THError("not yet implemented for CUDA");
+}
+
 #define real float
 #define Real Cuda
 
