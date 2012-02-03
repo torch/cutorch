@@ -144,9 +144,9 @@ interface:wrap("dot",
                 {name="CudaTensor"},
                 {name="float", creturned=true}})
 
-for _,name in ipairs({"minall", "maxall", "sumall"}) do
+for _,name in ipairs({"min", "max", "sum"}) do
    interface:wrap(name,
-                  cname(name),
+                  cname(name .. "all"),
                   {{name="CudaTensor"},            
                    {name="float", creturned=true}})
 end
@@ -187,9 +187,9 @@ interface:wrap("pow",
                {{name="CudaTensor", returned=true},
                 {name="float"}})
 
-for _,name in ipairs({"meanall", "varall", "stdall"}) do
+for _,name in ipairs({"mean", "var", "std"}) do
    interface:wrap(name,
-                  cname(name),
+                  cname(name .. "all"),
                   {{name="CudaTensor"},
                    {name="float", creturned=true}})
 end
