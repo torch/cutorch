@@ -1,4 +1,4 @@
-SET(src Storage.c init.c Tensor.c TensorMathWrap.c)
+SET(src Storage.c init.c Tensor.c TensorMath.c)
 SET(luasrc init.lua Tensor.lua)
 
 ADD_TORCH_WRAP(cudatensormathwrap TensorMath.lua)
