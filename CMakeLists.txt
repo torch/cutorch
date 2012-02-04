@@ -1,7 +1,7 @@
 SET(src Storage.c init.c Tensor.c TensorMathWrap.c)
 SET(luasrc init.lua Tensor.lua)
 
-ADD_TORCH_WRAP(cudatensormathwrap TensorMathWrap.lua)
+ADD_TORCH_WRAP(cudatensormathwrap TensorMath.lua)
 
 INCLUDE_DIRECTORIES("${Torch_SOURCE_PKG}/torch")
   
