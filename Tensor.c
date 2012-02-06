@@ -28,6 +28,11 @@ static void THCudaTensor_maskedCopy(THCudaTensor *tensor, THByteTensor *mask, TH
   THError("not yet implemented for CUDA");
 }
 
+void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTensor *mask)
+{
+  THError("not yet implemented for CUDA");
+}
+
 #define real float
 #define Real Cuda
 
