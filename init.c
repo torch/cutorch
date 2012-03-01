@@ -1,6 +1,10 @@
 #include "luaT.h"
 #include "THCGeneral.h"
 
+extern void cutorch_CudaStorage_init(lua_State* L);
+extern void cutorch_CudaTensor_init(lua_State* L);
+extern void cutorch_CudaTensorMath_init(lua_State* L);
+
 static int cutorch_getDevice(lua_State *L)
 {
   int device;
