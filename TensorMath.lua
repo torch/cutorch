@@ -9,15 +9,22 @@ interface:print('static const void *torch_CudaTensor_id = NULL;')
 interface:print('')
 
 -- specific to CUDA
+local typename = 'CudaTensor'
+
+-- cut and paste from wrap/types.lua
 wrap.argtypes.CudaTensor = {
    
    helpname = function(arg)
-                 return 'CudaTensor'
+                 if arg.dim then
+                    return string.format('%s~%dD', typename, arg.dim)
+                 else
+                    return typename
+                 end
               end,
    
    declare = function(arg)
                 local txt = {}
-                table.insert(txt, string.format("THCudaTensor *arg%d = NULL;", arg.i))
+                table.insert(txt, string.format("TH%s *arg%d = NULL;", typename, arg.i))
                 if arg.returned then
                    table.insert(txt, string.format("int arg%d_idx = 0;", arg.i));
                 end
@@ -25,7 +32,11 @@ wrap.argtypes.CudaTensor = {
              end,
    
    check = function(arg, idx)
-              return string.format("(arg%d = luaT_toudata(L, %d, torch_CudaTensor_id))", arg.i, idx)
+              if arg.dim then
+                 return string.format("(arg%d = luaT_toudata(L, %d, torch_%s_id)) && (arg%d->nDimension == %d)", arg.i, idx, typename, arg.i, arg.dim)
+              else
+                 return string.format("(arg%d = luaT_toudata(L, %d, torch_%s_id))", arg.i, idx, typename)
+              end
            end,
    
    read = function(arg, idx)
@@ -35,14 +46,20 @@ wrap.argtypes.CudaTensor = {
           end,
    
    init = function(arg)
-             return string.format('arg%d = TH%s_new();', arg.i, typename)
+             if type(arg.default) == 'boolean' then
+                return string.format('arg%d = TH%s_new();', arg.i, typename)
+             elseif type(arg.default) == 'number' then
+                return string.format('arg%d = %s;', arg.i, arg.args[arg.default]:carg())
+             else
+                error('unknown default tensor type value')
+             end
           end,
    
-   carg = function(arg, idx)
+   carg = function(arg)
              return string.format('arg%d', arg.i)
           end,
    
-   creturn = function(arg, idx)
+   creturn = function(arg)
                 return string.format('arg%d', arg.i)
              end,
    
@@ -51,10 +68,21 @@ wrap.argtypes.CudaTensor = {
                 if arg.default and arg.returned then
                    table.insert(txt, string.format('if(arg%d_idx)', arg.i)) -- means it was passed as arg
                    table.insert(txt, string.format('lua_pushvalue(L, arg%d_idx);', arg.i))
-                   table.insert(txt, string.format('else')) -- means we did a new()
-                   table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_CudaTensor_id);', arg.i))
+                   table.insert(txt, string.format('else'))
+                   if type(arg.default) == 'boolean' then -- boolean: we did a new()
+                      table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_%s_id);', arg.i, typename))
+                   else  -- otherwise: point on default tensor --> retain
+                      table.insert(txt, string.format('{'))
+                      table.insert(txt, string.format('TH%s_retain(arg%d);', typename, arg.i)) -- so we need a retain
+                      table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_%s_id);', arg.i, typename))
+                      table.insert(txt, string.format('}'))
+                   end
                 elseif arg.default then
-                   error('a tensor cannot be optional if not returned')
+                   -- we would have to deallocate the beast later if we did a new
+                   -- unlikely anyways, so i do not support it for now
+                   if type(arg.default) == 'boolean' then
+                      error('a tensor cannot be optional if not returned')
+                   end
                 elseif arg.returned then
                    table.insert(txt, string.format('lua_pushvalue(L, arg%d_idx);', arg.i))
                 end
@@ -65,8 +93,8 @@ wrap.argtypes.CudaTensor = {
                  local txt = {}
                  if arg.creturned then
                     -- this next line is actually debatable
-                    table.insert(txt, string.format('THCudaTensor_retain(arg%d);', arg.i))
-                    table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_CudaTensor_id);', arg.i))
+                    table.insert(txt, string.format('TH%s_retain(arg%d);', typename, arg.i))
+                    table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_%s_id);', arg.i, typename))
                  end
                  return table.concat(txt, '\n')
               end
@@ -155,7 +183,13 @@ for _,name in ipairs({"addmv", "addmm"}) do
    interface:wrap(name,
                   cname(name),
                   {{name="CudaTensor", returned=true},
-                   {name="float"}, -- because of ambiguity, see default in Tensor.lua
+                   {name="float", default=1, invisible=true}, -- ambiguity
+                   {name="float", default=1},
+                   {name="CudaTensor"},
+                   {name="CudaTensor"}},
+                  cname(name),
+                  {{name="CudaTensor", returned=true},
+                   {name="float"}, -- ambiguity
                    {name="float"},
                    {name="CudaTensor"},
                    {name="CudaTensor"}})
