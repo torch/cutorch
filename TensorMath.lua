@@ -5,7 +5,6 @@ interface:print('')
 interface:print('#include "THC.h"')
 interface:print('#include "luaT.h"')
 interface:print('')
-interface:print('static const void *torch_CudaTensor_id = NULL;')
 interface:print('')
 
 -- specific to CUDA
@@ -33,9 +32,9 @@ wrap.argtypes.CudaTensor = {
    
    check = function(arg, idx)
               if arg.dim then
-                 return string.format("(arg%d = luaT_toudata(L, %d, torch_%s_id)) && (arg%d->nDimension == %d)", arg.i, idx, typename, arg.i, arg.dim)
+                 return string.format('(arg%d = luaT_toudata(L, %d, "torch.%s")) && (arg%d->nDimension == %d)', arg.i, idx, typename, arg.i, arg.dim)
               else
-                 return string.format("(arg%d = luaT_toudata(L, %d, torch_%s_id))", arg.i, idx, typename)
+                 return string.format('(arg%d = luaT_toudata(L, %d, "torch.%s"))', arg.i, idx, typename)
               end
            end,
    
@@ -70,11 +69,11 @@ wrap.argtypes.CudaTensor = {
                    table.insert(txt, string.format('lua_pushvalue(L, arg%d_idx);', arg.i))
                    table.insert(txt, string.format('else'))
                    if type(arg.default) == 'boolean' then -- boolean: we did a new()
-                      table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_%s_id);', arg.i, typename))
+                      table.insert(txt, string.format('luaT_pushudata(L, arg%d, "torch.%s");', arg.i, typename))
                    else  -- otherwise: point on default tensor --> retain
                       table.insert(txt, string.format('{'))
                       table.insert(txt, string.format('TH%s_retain(arg%d);', typename, arg.i)) -- so we need a retain
-                      table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_%s_id);', arg.i, typename))
+                      table.insert(txt, string.format('luaT_pushudata(L, arg%d, "torch.%s");', arg.i, typename))
                       table.insert(txt, string.format('}'))
                    end
                 elseif arg.default then
@@ -94,7 +93,7 @@ wrap.argtypes.CudaTensor = {
                  if arg.creturned then
                     -- this next line is actually debatable
                     table.insert(txt, string.format('TH%s_retain(arg%d);', typename, arg.i))
-                    table.insert(txt, string.format('luaT_pushudata(L, arg%d, torch_%s_id);', arg.i, typename))
+                    table.insert(txt, string.format('luaT_pushudata(L, arg%d, "torch.%s");', arg.i, typename))
                  end
                  return table.concat(txt, '\n')
               end
@@ -246,9 +245,7 @@ interface:register("cutorch_CudaTensorMath__")
    interface:print([[
 void cutorch_CudaTensorMath_init(lua_State *L)
 {
-  torch_CudaTensor_id = luaT_checktypename2id(L, "torch.CudaTensor");
-
-  luaT_pushmetaclass(L, torch_CudaTensor_id);
+  luaT_pushmetatable(L, "torch.CudaTensor");
   luaL_register(L, NULL, cutorch_CudaTensorMath__);
   lua_pop(L, 1);
 }

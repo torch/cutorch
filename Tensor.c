@@ -2,20 +2,6 @@
 #include "THFile.h"
 #include "luaT.h"
 
-/* ids */
-static const void *torch_File_id = NULL;
-static const void *torch_LongStorage_id = NULL;
-static const void *torch_CudaStorage_id = NULL;
-
-static const void *torch_ByteTensor_id = NULL;
-static const void *torch_CharTensor_id = NULL;
-static const void *torch_ShortTensor_id = NULL;
-static const void *torch_IntTensor_id = NULL;
-static const void *torch_LongTensor_id = NULL;
-static const void *torch_FloatTensor_id = NULL;
-static const void *torch_DoubleTensor_id = NULL;
-static const void *torch_CudaTensor_id = NULL;
-
 /* everything is as the generic Storage.c, except few things (see below) */
 
 static void THCudaTensor_maskedFill(THCudaTensor *tensor, THByteTensor *mask, float value)
@@ -37,11 +23,9 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
 #define Real Cuda
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
-#define torch_Storage_id TH_CONCAT_3(torch_,Real,Storage_id)
-#define STRING_torchStorage TH_CONCAT_STRING_3(torch.,Real,Storage)
+#define torch_Storage TH_CONCAT_STRING_3(torch.,Real,Storage)
 #define torch_Tensor_(NAME) TH_CONCAT_4(torch_,Real,Tensor_,NAME)
-#define torch_Tensor_id TH_CONCAT_3(torch_,Real,Tensor_id)
-#define STRING_torchTensor TH_CONCAT_STRING_3(torch.,Real,Tensor)
+#define torch_Tensor TH_CONCAT_STRING_3(torch.,Real,Tensor)
 
 #define TH_GENERIC_FILE "generic/Tensor.c"
 #include "generic/Tensor.c"
@@ -52,28 +36,28 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
 
 /* now we overwrite some methods specific to CudaTensor */
 
-#define CUDA_IMPLEMENT_TENSOR_COPY(TYPEC)                              \
+#define CUDA_IMPLEMENT_TENSOR_COPY(TYPEC)                               \
   static int cutorch_##TYPEC##Tensor_copy(lua_State *L)                 \
   {                                                                     \
-    TH##TYPEC##Tensor *storage = luaT_checkudata(L, 1, torch_##TYPEC##Tensor_id); \
+    TH##TYPEC##Tensor *storage = luaT_checkudata(L, 1, "torch." #TYPEC "Tensor"); \
     void *src;                                                          \
-    if( (src = luaT_toudata(L, 2, torch_##TYPEC##Tensor_id)) )          \
+    if( (src = luaT_toudata(L, 2, "torch." #TYPEC "Tensor")) )          \
       TH##TYPEC##Tensor_copy(storage, src);                             \
-    else if( (src = luaT_toudata(L, 2, torch_ByteTensor_id)) )          \
+    else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )           \
       TH##TYPEC##Tensor_copyByte(storage, src);                         \
-    else if( (src = luaT_toudata(L, 2, torch_CharTensor_id)) )          \
+    else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )           \
       TH##TYPEC##Tensor_copyChar(storage, src);                         \
-    else if( (src = luaT_toudata(L, 2, torch_ShortTensor_id)) )         \
+    else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )          \
       TH##TYPEC##Tensor_copyShort(storage, src);                        \
-    else if( (src = luaT_toudata(L, 2, torch_IntTensor_id)) )           \
+    else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )            \
       TH##TYPEC##Tensor_copyInt(storage, src);                          \
-    else if( (src = luaT_toudata(L, 2, torch_LongTensor_id)) )          \
+    else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )           \
       TH##TYPEC##Tensor_copyLong(storage, src);                         \
-    else if( (src = luaT_toudata(L, 2, torch_FloatTensor_id)) )         \
+    else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )          \
       TH##TYPEC##Tensor_copyFloat(storage, src);                        \
-    else if( (src = luaT_toudata(L, 2, torch_DoubleTensor_id)) )        \
+    else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )         \
       TH##TYPEC##Tensor_copyDouble(storage, src);                       \
-    else if( (src = luaT_toudata(L, 2, torch_CudaTensor_id)) )          \
+    else if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )           \
       TH##TYPEC##Tensor_copyCuda(storage, src);                         \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Tensor");                             \
@@ -150,8 +134,8 @@ void THFloatTensor_kernel_copy(float *dst,
 
 static int cuda_FloatTensor_fakecopy(lua_State *L)
 {
-  THFloatTensor *self = luaT_checkudata(L, 1, torch_FloatTensor_id);
-  THFloatTensor *src = luaT_checkudata(L, 2, torch_FloatTensor_id);
+  THFloatTensor *self = luaT_checkudata(L, 1, "torch.FloatTensor");
+  THFloatTensor *src = luaT_checkudata(L, 2, "torch.FloatTensor");
   long *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
   long nElement = THFloatTensor_nElement(self);
 
@@ -177,20 +161,11 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
 
 void cutorch_CudaTensor_init(lua_State* L)
 {
-  /* the ids */
-  torch_ByteTensor_id = luaT_checktypename2id(L, "torch.ByteTensor");
-  torch_CharTensor_id = luaT_checktypename2id(L, "torch.CharTensor");
-  torch_ShortTensor_id = luaT_checktypename2id(L, "torch.ShortTensor");
-  torch_IntTensor_id = luaT_checktypename2id(L, "torch.IntTensor");
-  torch_LongTensor_id = luaT_checktypename2id(L, "torch.LongTensor");
-  torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
-  torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-  
   /* the standard stuff */
   torch_CudaTensor_init(L);
 
   /* additional methods */
-  luaT_pushmetaclass(L, torch_FloatTensor_id);
+  luaT_pushmetatable(L, "torch.FloatTensor");
   lua_pushcfunction(L, cuda_FloatTensor_fakecopy);
   lua_setfield(L, -2, "fakecopy");
   lua_pop(L, 1);
@@ -199,15 +174,15 @@ void cutorch_CudaTensor_init(lua_State* L)
   {
     int i;
 
-    const void* ids[8] = {torch_ByteTensor_id,
-                          torch_CharTensor_id,
-                          torch_ShortTensor_id,
-                          torch_IntTensor_id,
-                          torch_LongTensor_id,
-                          torch_FloatTensor_id,
-                          torch_DoubleTensor_id,
-                          torch_CudaTensor_id};
-    
+    const void* tnames[8] = {"torch.ByteTensor",
+                             "torch.CharTensor",
+                             "torch.ShortTensor",
+                             "torch.IntTensor",
+                             "torch.LongTensor",
+                             "torch.FloatTensor",
+                             "torch.DoubleTensor",
+                             "torch.CudaTensor"};
+
     static int (*funcs[8])(lua_State*) = {cutorch_ByteTensor_copy,
                                           cutorch_CharTensor_copy,
                                           cutorch_ShortTensor_copy,
@@ -219,7 +194,7 @@ void cutorch_CudaTensor_init(lua_State* L)
 
     for(i = 0; i < 8; i++)
     {
-      luaT_pushmetaclass(L, ids[i]);
+      luaT_pushmetatable(L, tnames[i]);
       lua_pushcfunction(L, funcs[i]);
       lua_setfield(L, -2, "copy");
       lua_pop(L, 1);
