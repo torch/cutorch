@@ -1,5 +1,6 @@
 #include "luaT.h"
 #include "THCGeneral.h"
+#include "THCTensorRandom.h"
 
 extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
@@ -84,6 +85,8 @@ DLL_EXPORT int luaopen_libcutorch(lua_State *L)
   luaL_register(L, NULL, cutorch_stuff__);
 
   THCudaInit();
+
+  THCRandom_initialSeed();
 
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);
