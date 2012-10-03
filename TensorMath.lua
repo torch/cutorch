@@ -186,6 +186,11 @@ interface:wrap("add",
                cname("cadd"),
                {{name="CudaTensor", returned=true},
                 {name="float", default=1},
+                {name="CudaTensor"}},
+               cname("cadd_tst"),
+               {{name="CudaTensor", returned=true},
+                {name="CudaTensor"},
+                {name="float", default=1},
                 {name="CudaTensor"}})
 
 interface:wrap("mul",
