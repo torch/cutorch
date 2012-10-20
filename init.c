@@ -6,6 +6,12 @@ extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 
+static int cutorch_synchronize(lua_State *L)
+{
+  cudaDeviceSynchronize();  
+  return 0;
+}
+
 static int cutorch_getDevice(lua_State *L)
 {
   int device;
@@ -71,6 +77,7 @@ static int cutorch_getDeviceProperties(lua_State *L)
 }
 
 static const struct luaL_Reg cutorch_stuff__ [] = {
+  {"synchronize", cutorch_synchronize},
   {"getDevice", cutorch_getDevice},
   {"deviceReset", cutorch_deviceReset},
   {"getDeviceCount", cutorch_getDeviceCount},
