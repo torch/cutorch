@@ -125,6 +125,8 @@ void THFloatTensor_kernel_copy(float *dst,
 
   for(k = 0; k < n_elem; k++)
   {
+    long src_idx = 0;
+    long src_rest = k;
     long dst_idx = 0;
     long dst_rest = k;
     int dim;
@@ -135,8 +137,6 @@ void THFloatTensor_kernel_copy(float *dst,
       dst_rest = dst_rest % dst_sz[dim];
     }
 
-    long src_idx = 0;
-    long src_rest = k;
     for(dim = 0; dim < src_dim; dim++)
     {
       src_idx += (src_rest/src_sz[dim])*src_st[dim];
