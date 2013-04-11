@@ -110,7 +110,9 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {NULL, NULL}
 };
 
-DLL_EXPORT int luaopen_libcutorch(lua_State *L)
+LUA_EXTERNC DLL_EXPORT int luaopen_libcutorch(lua_State *L);
+
+int luaopen_libcutorch(lua_State *L)
 {
   lua_newtable(L);
   luaL_register(L, NULL, cutorch_stuff__);
