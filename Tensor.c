@@ -19,17 +19,17 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
   THError("not yet implemented for CUDA");
 }
 
-static void THCudaTensor_indexFill(THCudaTensor *tensor, int dim, THLongTensor *index, real val)
+static void THCudaTensor_indexFill(THCudaTensor *tensor, int dim, THLongTensor *index, float val)
 {
   THError("not yet implemented for CUDA");
 }
 
-static void THCudaTensor_indexCopy(THTensor *tensor, int dim, THLongTensor *index, THTensor *src)
+static void THCudaTensor_indexCopy(THCudaTensor *tensor, int dim, THLongTensor *index, THCudaTensor *src)
 {
   THError("not yet implemented for CUDA");
 }
 
-static void THCudaTensor_indexSelect(THTensor *tensor, THTensor *src, int dim, THLongTensor *index)
+static void THCudaTensor_indexSelect(THCudaTensor *tensor, THCudaTensor *src, int dim, THLongTensor *index)
 {
   THError("not yet implemented for CUDA");
 }
