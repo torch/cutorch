@@ -206,6 +206,7 @@ interface:wrap("div",
 interface:wrap("cmul",
                cname("cmul"),
                {{name="CudaTensor", returned=true},
+                {name="CudaTensor", default=1},
                 {name="CudaTensor"}})
 
 interface:wrap("cdiv",
