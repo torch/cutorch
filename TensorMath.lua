@@ -371,6 +371,11 @@ interface:wrap("dist",
                 {name="float", default=2},
                 {name="float", creturned=true}})
 
+interface:wrap("sign",
+                cname("sign"),
+                {{name="CudaTensor", returned=true},
+                 {name="CudaTensor", default=1}})
+
 interface:register("cutorch_CudaTensorMath__")
 
    interface:print([[
