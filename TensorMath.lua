@@ -290,6 +290,20 @@ interface:wrap("pow",
                 {name="CudaTensor", default=1},
                 {name="float"}})
 
+
+for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
+   interface:wrap(name,
+                  cname(name .. 'Value'),
+                  {{name="CudaTensor", returned=true},
+                   {name="CudaTensor"},
+                   {name="float"}},
+                  cname(name .. 'Tensor'),
+                  {{name="CudaTensor", returned=true},
+                   {name="CudaTensor"},
+                   {name="CudaTensor"}})
+end
+
+
 interface:wrap('random',
                'THCRandom_random2',
                {{name='long'},
