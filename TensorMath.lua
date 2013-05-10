@@ -287,6 +287,7 @@ end
 interface:wrap("pow",
                cname("pow"),
                {{name="CudaTensor", returned=true},
+                {name="CudaTensor", default=1},
                 {name="float"}})
 
 interface:wrap('random',
