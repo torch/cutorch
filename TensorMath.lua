@@ -234,22 +234,17 @@ interface:wrap("dot",
                 {name="CudaTensor"},
                 {name="float", creturned=true}})
 
-for _,name in ipairs({"min", "max"}) do
+for _,name in ipairs({"min", "max", "sum"}) do
    interface:wrap(name,
                   cname(name .. "all"),
-                  {{name="CudaTensor"},            
-                   {name="float", creturned=true}})
+                  {{name="CudaTensor"},
+                   {name="float", creturned=true}},
+                  cname(name),
+                  {{name="CudaTensor", returned=true},
+                   {name="CudaTensor"},
+                   {name="index"}})
 end
 
-
-interface:wrap("sum",
-              cname("sum" .. "all"),
-              {{name="CudaTensor"},
-               {name="float", creturned=true}},
-              cname("sum"),
-              {{name="CudaTensor", returned=true},
-               {name="CudaTensor"},
-               {name="index"}})
 
 
 for _,name in ipairs({"addmv", "addmm"}) do
