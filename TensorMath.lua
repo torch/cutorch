@@ -381,10 +381,15 @@ for _,name in ipairs({"mean", "var", "std"}) do
 end
 
 interface:wrap("norm",
-               cname("norm"),
+               cname("normall"),
                      {{name="CudaTensor"},
                       {name="float", default=2},
-                      {name="float", creturned=true}})
+                      {name="float", creturned=true}},
+               cname("norm"),
+                     {{name="CudaTensor", default=true, returned=true},
+                      {name="CudaTensor"},
+                      {name="float"},
+                      {name="index"}})
 
 interface:wrap("dist",
                cname("dist"),
