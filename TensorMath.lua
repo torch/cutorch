@@ -240,7 +240,7 @@ for _,name in ipairs({"min", "max", "sum"}) do
                   {{name="CudaTensor"},
                    {name="float", creturned=true}},
                   cname(name),
-                  {{name="CudaTensor", returned=true},
+                  {{name="CudaTensor", default=true, returned=true},
                    {name="CudaTensor"},
                    {name="index"}})
 end
