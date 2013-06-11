@@ -8,10 +8,18 @@ local msize = 100
 local function compareFloatAndCuda(x, fn, ...)
    x_cpu    = x:float()
    x_cuda   = x_cpu:cuda()
-   tester:assertne(x_cuda[fn], nil,
-      string.format("Missing function CudaTensor.%s", fn))
-   res_cpu  = x_cpu[fn](x, ...)
-   res_cuda = x_cuda[fn](x_cuda, ...):float()
+   local res_cpu, res_cuda
+   if type(fn) == 'string' then
+      tester:assertne(x_cuda[fn], nil,
+         string.format("Missing function CudaTensor.%s", fn))
+      res_cpu  = x_cpu[fn](x_cpu, ...)
+      res_cuda = x_cuda[fn](x_cuda, ...):float()
+   elseif type(fn) == 'function' then
+      res_cpu  = fn(x_cpu, ...)
+      res_cuda = fn(x_cuda, ...):float()
+   else
+      error("Incorrect function type")
+   end
    local tolerance = 1e-5
    tester:assertTensorEq(res_cpu, res_cuda, tolerance,
       string.format("Divergent results between CPU and CUDA for function '%s'", fn)) 
@@ -24,6 +32,15 @@ function test.expand()
 
    x = torch.FloatTensor():rand(1, msize)
    compareFloatAndCuda(x, 'expand', msize, msize)
+end
+
+
+function test.copyNoncontiguous()
+   local x = torch.FloatTensor():rand(msize, 1)
+   local f = function(src)
+      return src.new(msize, msize):copy(src:expand(msize, msize))
+   end
+   compareFloatAndCuda(x, f)
 end
 
 
