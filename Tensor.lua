@@ -53,3 +53,10 @@ for _,func in ipairs({'addmv',
                                end
                             end      
 end
+
+do
+    local metatable = torch.getmetatable('torch.CudaTensor')
+    for _,func in pairs{'expand', 'expandAs'} do
+        rawset(metatable, func, torch[func])
+    end
+end
