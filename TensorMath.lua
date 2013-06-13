@@ -373,7 +373,17 @@ for _,f in ipairs({{name='exponential'}}) do
                    {name="float", default=f.a}})
 end
 
-for _,name in ipairs({"mean", "var", "std"}) do
+
+interface:wrap("mean",
+              cname("meanall"),
+              {{name="CudaTensor"},
+               {name="float", creturned=true}},
+              cname("mean"),
+              {{name="CudaTensor", default=true, returned=true},
+               {name="CudaTensor"},
+               {name="index"}})
+
+for _,name in ipairs({"var", "std"}) do
    interface:wrap(name,
                   cname(name .. "all"),
                   {{name="CudaTensor"},
