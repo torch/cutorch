@@ -304,43 +304,21 @@ for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
 end
 
 
-interface:wrap('random',
-               'THCRandom_random2',
-               {{name='long'},
-                {name='long'},
-                {name='long', creturned=true}},
-               'THCRandom_random1',
-               {{name='long'},
-                {name='long', creturned=true}},
-               'THCRandom_random',
-               {{name='long', creturned=true}},
-               cname("random2"),
-               {{name="CudaTensor", returned=true},
-                {name='long'},
-                {name='long'}},
-               cname("random1"),
-               {{name="CudaTensor", returned=true},
-                {name='long'}},
-               cname("random"),
-               {{name="CudaTensor", returned=true}})
-
-interface:wrap("rand",
-               cname("rand"),
-               {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-                {name="LongArg"}})
-
-interface:wrap("randn",
-               cname("randn"),
-               {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-                {name="LongArg"}})
+-- interface:wrap('random',
+--                cname("random2"),
+--                {{name="CudaTensor", returned=true},
+--                 {name='long'},
+--                 {name='long'}},
+--                cname("random1"),
+--                {{name="CudaTensor", returned=true},
+--                 {name='long'}},
+--                cname("random"),
+--                {{name="CudaTensor", returned=true}})
 
 for _,f in ipairs({{name='geometric'},
                    {name='bernoulli', a=0.5}}) do
    
    interface:wrap(f.name,
-                  string.format("THCRandom_%s", f.name),
-                  {{name="float", default=f.a},
-                   {name="float", creturned=true}},
                   cname(f.name),
                   {{name="CudaTensor", returned=true},
                    {name="float", default=f.a}})
@@ -352,10 +330,6 @@ for _,f in ipairs({{name='uniform', a=0, b=1},
                    {name='logNormal', a=1, b=2}}) do
 
    interface:wrap(f.name,
-                  string.format("THCRandom_%s", f.name),
-                  {{name="float", default=f.a},
-                   {name="float", default=f.b},
-                   {name="float", creturned=true}},
                   cname(f.name),
                   {{name="CudaTensor", returned=true},
                    {name="float", default=f.a},
@@ -365,9 +339,6 @@ end
 for _,f in ipairs({{name='exponential'}}) do
    
    interface:wrap(f.name,
-                  string.format("THCRandom_%s", f.name),
-                  {{name="float", default=f.a},
-                   {name="float", creturned=true}},
                   cname(f.name),
                   {{name="CudaTensor", returned=true},
                    {name="float", default=f.a}})

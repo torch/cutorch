@@ -76,6 +76,27 @@ static int cutorch_getDeviceProperties(lua_State *L)
   return 1;
 }
 
+static int cutorch_seed(lua_State *L)
+{
+  unsigned long seed = THCRandom_seed();
+  lua_pushnumber(L, seed);
+  return 1;
+}
+
+static int cutorch_initialSeed(lua_State *L)
+{
+  unsigned long seed = THCRandom_initialSeed();
+  lua_pushnumber(L, seed);
+  return 1;
+}
+
+static int cutorch_manualSeed(lua_State *L)
+{
+  unsigned long seed = luaL_checknumber(L, 1);
+  THCRandom_manualSeed(seed);
+  return 0;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"getDevice", cutorch_getDevice},
@@ -83,6 +104,9 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getDeviceCount", cutorch_getDeviceCount},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"setDevice", cutorch_setDevice},
+  {"seed", cutorch_seed},
+  {"initialSeed", cutorch_initialSeed},
+  {"manualSeed", cutorch_manualSeed},
   {NULL, NULL}
 };
 
@@ -93,7 +117,7 @@ DLL_EXPORT int luaopen_libcutorch(lua_State *L)
 
   THCudaInit();
 
-  THCRandom_initialSeed();
+  THCRandom_seed();
 
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);
