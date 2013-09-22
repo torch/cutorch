@@ -39,6 +39,7 @@ static int cutorch_setDevice(lua_State *L)
 {
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
+  THCRandom_manualSeed(THCRandom_initialSeed());
   return 0;
 }
 
