@@ -70,6 +70,9 @@ static int cutorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(totalConstMem);
   SET_DEVN_PROP(totalGlobalMem);
   SET_DEVN_PROP(warpSize);
+  SET_DEVN_PROP(pciBusID);
+  SET_DEVN_PROP(pciDeviceID);
+  SET_DEVN_PROP(pciDomainID);
 
   lua_pushstring(L, prop.name);
   lua_setfield(L, -2, "name");
