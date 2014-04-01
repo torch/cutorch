@@ -12,11 +12,6 @@ IF(APPLE)
     set(CUDA_HOST_COMPILER /usr/bin/gcc CACHE FILEPATH "Host side compiler used by NVCC")
     message(STATUS "Setting CMAKE_HOST_COMPILER to /usr/bin/gcc instead of ${CMAKE_C_COMPILER}.")
   endif()
-
-  # set the stdlib explicitly to libstdc++ for OSX Maverick since by default it assumes 
-  # libc++ instead
-  SET(CMAKE_CXX_FLAGS "-stdlib=libstdc++")
-
 ENDIF()
 
 FIND_PACKAGE(CUDA 4.0 REQUIRED)
