@@ -103,6 +103,26 @@ function test.std()
    -- compareFloatAndCuda(x, 'std', 2, false)
 end
 
+function test.index()
+  local sz1 = math.floor(torch.uniform(minsize,maxsize))
+  local sz2 = math.floor(torch.uniform(minsize,maxsize))
+  local x = torch.FloatTensor():rand(sz1, sz2)
+
+  local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  local index = 1
+  compareFloatAndCuda(x, 'index', index, longIndex)
+
+  index = 2
+  longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+  compareFloatAndCuda(x, 'index', index, longIndex)
+
+  x = torch.FloatTensor():rand(sz1)
+  index = 1
+  longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  compareFloatAndCuda(x, 'index', index, longIndex)
+
+end
+
 
 function cutorch.test()
    math.randomseed(os.time())

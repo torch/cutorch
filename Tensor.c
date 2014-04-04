@@ -31,7 +31,44 @@ static void THCudaTensor_indexCopy(THCudaTensor *tensor, int dim, THLongTensor *
 
 static void THCudaTensor_indexSelect(THCudaTensor *tensor, THCudaTensor *src, int dim, THLongTensor *index)
 {
-  THError("not yet implemented for CUDA");
+  long i, numel;
+  THLongStorage *newSize;
+  THCudaTensor *tSlice, *sSlice;
+  long *index_data;
+
+  THArgCheck(index->nDimension == 1, 3, "Index is supposed to be a vector");
+  THArgCheck(dim < src->nDimension,4,"Indexing dim is out of bounds");
+  THArgCheck(src->nDimension > 0,2,"Source tensor is empty");
+
+  numel = THLongTensor_nElement(index);
+
+  newSize = THLongStorage_newWithSize(src->nDimension);
+  THLongStorage_rawCopy(newSize,src->size);
+  newSize->data[dim] = numel;
+  THCudaTensor_resize(tensor,newSize,NULL);
+  THLongStorage_free(newSize);
+
+  index = THLongTensor_newContiguous(index);
+  index_data = THLongTensor_data(index);
+  for (i=0; i<numel; i++)
+  {
+    if (src->nDimension > 1)
+    {
+      tSlice = THCudaTensor_new();
+      sSlice = THCudaTensor_new();
+      THCudaTensor_select(tSlice, tensor, dim, i);
+      THCudaTensor_select(sSlice, src, dim, index_data[i]-1);
+      THCudaTensor_copy(tSlice, sSlice);
+      THCudaTensor_free(tSlice);
+      THCudaTensor_free(sSlice);
+    }
+    else
+    { 
+      THCudaCheck(cudaMemcpy(tensor->storage->data + tensor->storageOffset + i,\
+        src->storage->data + src->storageOffset + index_data[i]-1, sizeof(float), cudaMemcpyDeviceToDevice));
+    }
+  }
+  THLongTensor_free(index);
 }
 
 #define real float
