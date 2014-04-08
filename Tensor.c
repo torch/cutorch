@@ -19,14 +19,78 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
   THError("not yet implemented for CUDA");
 }
 
+/*
+ * Based on the implementation of the THTensor_(indexCopy) in torch7
+ */
 static void THCudaTensor_indexFill(THCudaTensor *tensor, int dim, THLongTensor *index, float val)
 {
-  THError("not yet implemented for CUDA");
+  long i, numel;
+  THCudaTensor *tSlice;
+  long *index_data;
+
+  numel = THLongTensor_nElement(index);
+  THArgCheck(index->nDimension == 1, 3, "Index is supposed to be a vector");
+  THArgCheck(dim < tensor->nDimension,4,"Indexing dim is out of bounds");
+
+  index = THLongTensor_newContiguous(index);
+  index_data = THLongTensor_data(index);
+  
+  for (i=0; i<numel; i++)
+  {
+    if (tensor->nDimension > 1 )
+    {
+      // create a new CudaTensor
+      tSlice = THCudaTensor_new();
+      // set its storage to point to the corresponding storage in tensor
+      THCudaTensor_select(tSlice, tensor,dim,index_data[i]-1);
+      THCudaTensor_fill(tSlice, val);
+      THCudaTensor_free(tSlice);
+    }
+    else
+    {
+      THCudaTensor_set1d(tensor,index_data[i]-1,val);
+    }
+  }
+  THLongTensor_free(index);
 }
 
+/*
+ * Based on the implementation of the THTensor_(indexCopy) in torch7
+ */
 static void THCudaTensor_indexCopy(THCudaTensor *tensor, int dim, THLongTensor *index, THCudaTensor *src)
 {
-  THError("not yet implemented for CUDA");
+  long i, numel;
+  THCudaTensor *tSlice, *sSlice;
+  long *index_data;
+
+  numel = THLongTensor_nElement(index);
+  THArgCheck(index->nDimension == 1, 3, "Index is supposed to be a vector");
+  THArgCheck(dim < src->nDimension,4,"Indexing dim is out of bounds");
+
+  index = THLongTensor_newContiguous(index);
+  index_data = THLongTensor_data(index);
+
+  for (i=0; i<numel; i++)
+  {
+    if (tensor->nDimension > 1 )
+    {
+      tSlice = THCudaTensor_new();
+      sSlice = THCudaTensor_new();
+      THCudaTensor_select(tSlice, tensor, dim, index_data[i]-1);
+      THCudaTensor_select(sSlice, src, dim, i);
+      THCudaTensor_copy(tSlice, sSlice);
+      THCudaTensor_free(tSlice);
+      THCudaTensor_free(sSlice);
+    }
+    else
+    {
+      // It's faster to copy a float from an address in the device to another address in the device than 
+      // retrieving it to the host memory and recopy it to the device memory
+      THCudaCheck(cudaMemcpy(tensor->storage->data + tensor->storageOffset + index_data[i]-1,\
+        src->storage->data + src->storageOffset + i, sizeof(float), cudaMemcpyDeviceToDevice));
+    }
+  }
+  THLongTensor_free(index);
 }
 /*
  * Based on the implementation of the THTensor_(indexSelect) in torch7
