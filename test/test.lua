@@ -48,6 +48,39 @@ local function compareFloatAndCuda(x, fn, ...)
 end
 
 
+local function compareFloatAndCudaTensorArgs(x, fn, ...)
+  local x_cpu = x:float()
+  local x_cuda = x_cpu:cuda()
+  local res_cpu, res_cuda
+  -- Transformation of args 
+  local tranform_args = function(t, type)
+      for k,v in pairs(t) do
+        local v_type = torch.Tensor.type(v)
+        if v_type == 'torch.FloatTensor' or v_type == 'torch.CudaTensor' or v_type == 'torch.DoubleTensor' then
+          t[k] = v:type(type)
+        end
+      end
+    return t
+  end
+  local cpu_args = tranform_args({...}, 'torch.FloatTensor')
+  local cuda_args = tranform_args({...}, 'torch.CudaTensor')
+  if type(fn) == 'string' then
+      tester:assertne(x_cuda[fn], nil,
+         string.format("Missing function CudaTensor.%s", fn))
+      res_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
+      res_cuda = float(x_cuda[fn](x_cuda, unpack(cuda_args)))
+   elseif type(fn) == 'function' then
+      res_cpu  = fn(x_cpu, unpack(cpu_args))
+      res_cuda = float(fn(x_cuda, unpack(cuda_args)))
+   else
+      error("Incorrect function type")
+   end
+  local tolerance = 1e-5
+  tester:assert(isEqual(res_cpu, res_cuda, tolerance),
+      string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+end
+
+
 function test.expand()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1)
@@ -101,6 +134,72 @@ function test.std()
    -- compareFloatAndCuda(x, 'std', 1, false)
    -- compareFloatAndCuda(x, 'std', 2, true)
    -- compareFloatAndCuda(x, 'std', 2, false)
+end
+
+function test.index()
+  local sz1 = math.floor(torch.uniform(minsize,maxsize))
+  local sz2 = math.floor(torch.uniform(minsize,maxsize))
+  local x = torch.FloatTensor():rand(sz1, sz2)
+
+  local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  local index = 1
+  compareFloatAndCuda(x, 'index', index, longIndex)
+
+  index = 2
+  longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+  compareFloatAndCuda(x, 'index', index, longIndex)
+
+  x = torch.FloatTensor():rand(sz1)
+  index = 1
+  longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  compareFloatAndCuda(x, 'index', index, longIndex)
+
+end
+
+function test.indexCopy()
+  local sz1 = math.floor(torch.uniform(minsize,maxsize))
+  local sz2 = math.floor(torch.uniform(minsize,maxsize))
+  local x = torch.FloatTensor():rand(sz1, sz2)
+
+  local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  local index = 1
+  local src = x:clone():uniform()
+  compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+
+  index = 2
+  longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+  src = x:clone():uniform():cuda()
+  compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+
+  x = torch.FloatTensor():rand(sz1)
+  index = 1
+  longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  src = x:clone():uniform()
+  compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+
+end
+
+function test.indexFill()
+  local sz1 = math.floor(torch.uniform(minsize,maxsize))
+  local sz2 = math.floor(torch.uniform(minsize,maxsize))
+  local x = torch.FloatTensor():rand(sz1, sz2)
+
+  local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  local index = 1
+  local val = torch.randn(1)[1]
+  compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+
+  index = 2
+  longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+  val = torch.randn(1)[1]
+  compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+
+  x = torch.FloatTensor():rand(sz1)
+  index = 1
+  longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+  val = torch.randn(1)[1]
+  compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+
 end
 
 
