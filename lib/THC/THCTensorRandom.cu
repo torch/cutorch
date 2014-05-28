@@ -284,9 +284,9 @@ TH_API void THCudaTensor_multinomial(THCudaTensor *self, THCudaTensor *prob_dist
       if (!with_replacement)
       {
         /* update cumulative distribution so that sample cannot be drawn again */
-        real diff;
-        real new_val = 0;
-        real sum;
+        float diff;
+        float new_val = 0;
+        float sum;
         
         if (*sample_idx != 0)
         {
@@ -325,11 +325,11 @@ TH_API void THCudaTensor_multinomial(THCudaTensor *self, THCudaTensor *prob_dist
     }
   }
   
-  THTensor_(free)(cum_dist);
+  THCudaTensor_free(cum_dist);
   
   if (start_dim == 1)
   {
-    THLongTensor_resize1d(self, n_sample);
-    THTensor_(resize1d)(prob_dist, n_categories);
+    THCudaTensor_resize1d(self, n_sample);
+    THCudaTensor_resize1d(prob_dist, n_categories);
   }
 }
