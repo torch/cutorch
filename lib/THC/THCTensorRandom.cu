@@ -180,7 +180,7 @@ __global__ void find_sampleidx(float* cum_dist, int *sample_idx, int uniform_sam
   }
 }
 
-TH_API void THTensor_multinomial(THCudaTensor *self, THCudaTensor *prob_dist, int n_sample, int with_replacement)
+TH_API void THCudaTensor_multinomial(THCudaTensor *self, THCudaTensor *prob_dist, int n_sample, int with_replacement)
 {
   int start_dim = THCudaTensor_nDimension(prob_dist);
   long n_dist;
