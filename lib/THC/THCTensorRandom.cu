@@ -166,6 +166,7 @@ THC_API void THCudaTensor_cauchy(THCudaTensor *self_, double median, double sigm
 
   THCudaTensor_freeCopyTo(self, self_);
 };
+<<<<<<< HEAD
 
 __global__ void find_sampleidx(float* cum_dist, float *sample_idx, float uniform_sample, long n_categories)
 {
@@ -323,3 +324,5 @@ THC_API void THCudaTensor_multinomial(THCudaTensor *self, THCudaTensor *prob_dis
     THCudaTensor_resize1d(prob_dist, n_categories);
   }
 }
+=======
+>>>>>>> parent of ec0f992... added multinomial cuda
