@@ -166,6 +166,8 @@ THC_API void THCudaTensor_cauchy(THCudaTensor *self_, double median, double sigm
 
   THCudaTensor_freeCopyTo(self, self_);
 };
+
+
 __global__ void find_sampleidx(float* cum_dist, float *sample_idx, float uniform_sample, long n_categories)
 {
   int k = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;

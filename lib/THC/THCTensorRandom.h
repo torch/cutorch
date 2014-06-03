@@ -13,5 +13,6 @@ THC_API void THCudaTensor_normal(THCudaTensor *self, double mean, double stdv);
 THC_API void THCudaTensor_exponential(THCudaTensor *self, double lambda);
 THC_API void THCudaTensor_cauchy(THCudaTensor *self, double median, double sigma);
 THC_API void THCudaTensor_logNormal(THCudaTensor *self, double mean, double stdv);
+THC_API void THCudaTensor_multinomial(THCudaTensor *self, THCudaTensor *prob_dist, int n_sample, int with_replacement);
 
 #endif
