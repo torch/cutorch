@@ -236,6 +236,13 @@ interface:wrap("dot",
                 {name="CudaTensor"},
                 {name="float", creturned=true}})
 
+interface:wrap("multinomial",
+           cname("multinomial"),
+           {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
+            {name="CudaTensor"},
+            {name="int"}, 
+            {name="boolean", default=false}})
+
 for _,name in ipairs({"min", "max", "sum"}) do
    interface:wrap(name,
                   cname(name .. "all"),
