@@ -100,6 +100,15 @@ function test.copyNoncontiguous()
    compareFloatAndCuda(x, f)
 end
 
+function test.largeNoncontiguous()
+  local x = torch.FloatTensor():randn(20, 1, 60, 60)
+  local sz = math.floor(torch.uniform(maxsize, 2*maxsize))
+  local f = function(src)
+    return src.new(20, sz, 60, 60):copy(src:expand(20, sz, 60, 60))
+  end
+  compareFloatAndCuda(x, f)
+end
+
 
 function test.mean()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
