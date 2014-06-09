@@ -1073,6 +1073,7 @@ void THCudaTensor_randn(THCudaTensor *r_, THLongStorage *size)
   THCudaTensor_resize(r_, size, NULL);
   THCudaTensor_normal(r_, 0, 1);
 }
+
 __global__ void copyIndexTensor(float *tensor, float *src, long* src_size, long src_nDim, 
                                int dim, long *index, long idx_size, long tensor_size )
 {
