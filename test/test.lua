@@ -202,6 +202,17 @@ function test.indexFill()
 
 end
 
+function test.renorm()
+  local x = torch.randn(10,5)
+  local maxnorm = x:norm(2,1):mean()
+  
+  compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+
+  x = torch.randn(3,4,5)
+  
+  compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+end
+
 
 function cutorch.test()
    math.randomseed(os.time())
