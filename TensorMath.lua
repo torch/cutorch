@@ -376,8 +376,8 @@ interface:wrap("norm",
                       
 interface:wrap("renorm",
                cname("renorm"),
-                     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-                      {name="CudaTensor", method={default=1}},
+                     {{name="CudaTensor", returned=true},
+                      {name="CudaTensor", default=1},
                       {name="float"},
                       {name="index"},
                       {name="float"}})
