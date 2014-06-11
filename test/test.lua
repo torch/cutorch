@@ -203,21 +203,31 @@ function test.indexFill()
 end
 
 function test.renorm()
-  local x = torch.randn(10,5)
+  local x = torch.randn(10,5):float()
   local maxnorm = x:norm(2,1):mean()
   
   compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
 
   x = torch.randn(3,4,5)
-  
   compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+    
+  x = torch.randn(3,4,5)
+  compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
+  
+  x = torch.randn(3,4,5,100)
+  compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
+  
+  x = torch.randn(3,4,5,100)
+  compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
 end
 
 
-function cutorch.test()
+function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
    tester = torch.Tester()
    tester:add(test)
-   tester:run()
+   tester:run(tests)
 end
+
+cutorch.test()
