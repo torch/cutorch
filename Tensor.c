@@ -95,7 +95,7 @@ static void THCudaTensor_indexCopy(THCudaTensor *tensor, int dim, THLongTensor *
 /*
  * Based on the implementation of the THTensor_(indexSelect) in torch7
  */
-static void THCudaTensor_indexSelect(THCudaTensor *tensor, THCudaTensor *src, int dim, THLongTensor *index)
+static void THCudaTensor_indexSelect2(THCudaTensor *tensor, THCudaTensor *src, int dim, THLongTensor *index)
 {
   long i, numel;
   THLongStorage *newSize;
