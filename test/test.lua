@@ -150,6 +150,7 @@ end
 function test.index()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz3 = math.floor(torch.uniform(10,20))
    local x = torch.FloatTensor():rand(sz1, sz2)
 
    local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
@@ -165,6 +166,10 @@ function test.index()
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    compareFloatAndCuda(x, 'index', index, longIndex)
 
+   x = torch.FloatTensor():rand(sz1,sz2,sz3)
+   index = 3
+   longIndex = torch.randperm(sz3):long()
+   compareFloatAndCuda(x, 'index', index, longIndex)
 end
 
 function test.indexCopy()
