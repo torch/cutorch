@@ -5,6 +5,8 @@ local test = {}
 local msize = 100
 local minsize = 100
 local maxsize = 1000
+local nloop = 100
+local times = {}
 
 
 local function float(x)
@@ -146,9 +148,10 @@ function test.std()
 end
 
 function test.index()
-  local sz1 = math.floor(torch.uniform(minsize,maxsize))
-  local sz2 = math.floor(torch.uniform(minsize,maxsize))
-  local x = torch.FloatTensor():rand(sz1, sz2)
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz3 = math.floor(torch.uniform(10,20))
+   local x = torch.FloatTensor():rand(sz1, sz2)
 
   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
   local index = 1
@@ -163,6 +166,10 @@ function test.index()
   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
   compareFloatAndCuda(x, 'index', index, longIndex)
 
+   x = torch.FloatTensor():rand(sz1,sz2,sz3)
+   index = 3
+   longIndex = torch.randperm(sz3):long()
+   compareFloatAndCuda(x, 'index', index, longIndex)
 end
 
 function test.indexCopy()
@@ -211,11 +218,53 @@ function test.indexFill()
 
 end
 
+function test.indexSelect()
+   --  test for speed
+   local n_row = math.random(minsize,maxsize)
+   local n_col = math.random(minsize,maxsize)
+   local n_idx = math.random(n_col)
+   
+   local x = torch.randn(n_row, n_col):float()
+   local indices = torch.randperm(n_idx):long()
+   local z = torch.FloatTensor()
+   
+   local tm = {}
+   local title = string.format('indexSelect ')
+   times[title] = tm
 
-function cutorch.test()
+   z:index(x, 2, indices)
+   local groundtruth = z:clone()
+   local a = torch.Timer()
+   for i=1,nloop do
+      z:index(x, 2, indices)
+   end
+   tm.cpu = a:time().real
+   
+   x = x:cuda()
+   z = torch.CudaTensor()
+   
+   z:index(x, 2, indices)
+   local rescuda = z:clone():float()
+   a:reset()
+   for i=1,nloop do
+      z:index(x, 2, indices)
+   end
+   tm.gpu = a:time().real
+   
+   tester:assertTensorEq(groundtruth, rescuda, 0.00001, "blah")
+end
+
+
+function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
    tester = torch.Tester()
    tester:add(test)
-   tester:run()
+   tester:run(tests)
+   print ''
+   for module,tm in pairs(times) do
+      print(module .. ': \t average speedup is ' .. (tm.cpu / (tm.gpu or 1e6)))
+   end
 end
+
+cutorch.test()
