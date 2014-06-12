@@ -5,7 +5,7 @@ local test = {}
 local msize = 100
 local minsize = 100
 local maxsize = 1000
-local nloop = 1000
+local nloop = 100
 local times = {}
 
 
@@ -215,13 +215,13 @@ end
 
 function test.indexSelect()
    --  test for speed
-   local n_row = math.random(1,1000)
-   local n_col = math.random(1,1000)
+   local n_row = math.random(minsize,maxsize)
+   local n_col = math.random(minsize,maxsize)
    local n_idx = math.random(n_col)
    
-   local x = torch.randn(n_row, n_col)
-   local indices = torch.LongTensor(n_idx)
-   local z = torch.Tensor(n_row, n_idx)
+   local x = torch.randn(n_row, n_col):float()
+   local indices = torch.randperm(n_idx):long()
+   local z = torch.FloatTensor()
    
    local tm = {}
    local title = string.format('indexSelect ')
@@ -236,17 +236,17 @@ function test.indexSelect()
    tm.cpu = a:time().real
    
    x = x:cuda()
-   z = z:cuda():zero()
+   z = torch.CudaTensor()
    
    z:index(x, 2, indices)
-   local rescuda = z:index(x, 2, indices)
+   local rescuda = z:clone():float()
    a:reset()
    for i=1,nloop do
       z:index(x, 2, indices)
    end
    tm.gpu = a:time().real
    
-   tester:assertTensorEq(groundtruth, rescuda, 0.00001)
+   tester:assertTensorEq(groundtruth, rescuda, 0.00001, "blah")
 end
 
 
