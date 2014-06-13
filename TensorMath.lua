@@ -373,6 +373,14 @@ interface:wrap("norm",
                       {name="CudaTensor"},
                       {name="float"},
                       {name="index"}})
+                      
+interface:wrap("renorm",
+               cname("renorm"),
+                     {{name="CudaTensor", returned=true},
+                      {name="CudaTensor", default=1},
+                      {name="float"},
+                      {name="index"},
+                      {name="float"}})
 
 interface:wrap("dist",
                cname("dist"),
