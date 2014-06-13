@@ -234,24 +234,24 @@ function test.indexSelect()
 
    z:index(x, 2, indices)
    local groundtruth = z:clone()
-   local a = torch.Timer()
+   local clock = torch.Timer()
    for i=1,nloop do
       z:index(x, 2, indices)
    end
-   tm.cpu = a:time().real
+   tm.cpu = clock:time().real
    
    x = x:cuda()
    z = torch.CudaTensor()
    
    z:index(x, 2, indices)
    local rescuda = z:clone():float()
-   a:reset()
+   clock:reset()
    for i=1,nloop do
       z:index(x, 2, indices)
    end
-   tm.gpu = a:time().real
+   tm.gpu = clock:time().real
    
-   tester:assertTensorEq(groundtruth, rescuda, 0.00001, "blah")
+   tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end
 
 
