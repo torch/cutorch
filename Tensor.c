@@ -19,40 +19,6 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
   THError("not yet implemented for CUDA");
 }
 
-/*
- * Based on the implementation of the THTensor_(indexCopy) in torch7
- */
-static void THCudaTensor_indexFill(THCudaTensor *tensor, int dim, THLongTensor *index, float val)
-{
-  long i, numel;
-  THCudaTensor *tSlice;
-  long *index_data;
-
-  numel = THLongTensor_nElement(index);
-  THArgCheck(index->nDimension == 1, 3, "Index is supposed to be a vector");
-  THArgCheck(dim < tensor->nDimension,4,"Indexing dim is out of bounds");
-
-  index = THLongTensor_newContiguous(index);
-  index_data = THLongTensor_data(index);
-  
-  for (i=0; i<numel; i++)
-  {
-    if (tensor->nDimension > 1 )
-    {
-      // create a new CudaTensor
-      tSlice = THCudaTensor_new();
-      // set its storage to point to the corresponding storage in tensor
-      THCudaTensor_select(tSlice, tensor,dim,index_data[i]-1);
-      THCudaTensor_fill(tSlice, val);
-      THCudaTensor_free(tSlice);
-    }
-    else
-    {
-      THCudaTensor_set1d(tensor,index_data[i]-1,val);
-    }
-  }
-  THLongTensor_free(index);
-}
 
 /*
  * Based on the implementation of the THTensor_(indexCopy) in torch7
