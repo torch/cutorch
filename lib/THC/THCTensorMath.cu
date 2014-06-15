@@ -1200,7 +1200,8 @@ void THCudaTensor_indexCopy(THCudaTensor *res_, int dim, THLongTensor *indices, 
   THCudaTensor_kernel_indexCopy<<<nblocks, nthreads>>>(
     THCudaTensor_data(res_), THCudaTensor_data(src), 
     stride_, THCudaTensor_data(indices_), 
-    res_->nDimension, dim, indices->size[0], THCudaTensor_nElement(src), res_->size[dim]
+    res_->nDimension, dim, indices_->size[0], 
+    THCudaTensor_nElement(src), res_->size[dim]
   );
     
   THCudaCheck(cudaFree(stride_));
