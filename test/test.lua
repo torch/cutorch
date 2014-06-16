@@ -179,18 +179,18 @@ function test.indexCopy()
 
   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
   local index = 1
-  local src = x:clone():uniform()
+  local src = torch.Tensor(2, sz2):uniform(100, 200)
   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
   index = 2
   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
-  src = x:clone():uniform():cuda()
+  src = torch.Tensor(sz1, 2):uniform(100, 200):cuda()
   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
   x = torch.FloatTensor():rand(sz1)
   index = 1
   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
-  src = x:clone():uniform()
+  src = torch.Tensor(2, sz2):uniform(100, 200)
   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
 end
