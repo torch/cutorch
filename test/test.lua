@@ -190,7 +190,7 @@ function test.indexCopy()
   x = torch.FloatTensor():rand(sz1)
   index = 1
   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
-  src = torch.Tensor(2, sz2):uniform(100, 200)
+  src = torch.Tensor(2):uniform(100, 200)
   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
 end
