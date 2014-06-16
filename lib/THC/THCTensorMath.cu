@@ -1186,7 +1186,7 @@ void THCudaTensor_indexCopy(THCudaTensor *res_, int dim, THLongTensor *indices, 
   THArgCheck(indices->nDimension == 1, 3, "expecting vector of indices");
   THArgCheck(dim < src->nDimension, 4, "Indexing dim is out of bounds");
   THArgCheck(src->nDimension > 0, 2, "Source tensor is empty");
-  THArgCheck(nIndex == src->size[dim], "length of src.size[dim] is not equal to length of indices");
+  THArgCheck(nIndex == src->size[dim], 4, "length of src.size[dim] is not equal to length of indices");
 
   indices_ = THCudaTensor_newWithSize1d(nIndex);
   THCudaTensor_copyLong(indices_, indices);
