@@ -273,6 +273,25 @@ function test.indexSelect()
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end
 
+function test.addmm()
+  --[[ Size ]]--
+  local sizes = {
+    {16, 3, 1},
+    {1, 12, 1},
+    {24, 23, 22},
+    {1, 1, 1},
+    {1, 1, 7},
+    {12, 1, 12},
+    {10, 10, 10},
+  }
+  for _, size in pairs(sizes) do
+    local n, k, m = unpack(size)
+    local c = torch.zeros(n, m)
+    local a = torch.randn(n, k)
+    local b = torch.randn(k, m)
+    compareFloatAndCudaTensorArgs(c, 'addmm', 0, 1, a, b)
+  end
+end
 
 function cutorch.test(tests)
    math.randomseed(os.time())
