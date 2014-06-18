@@ -173,20 +173,25 @@ function test.index()
 end
 
 function test.indexCopy()
-  local sz1 = math.floor(torch.uniform(minsize,maxsize))
-  local sz2 = math.floor(torch.uniform(minsize,maxsize))
-  local x = torch.FloatTensor():rand(sz1, sz2)
+  local sz1 = math.floor(torch.uniform(minsize,maxsize)) -- dim1
+  local sz2 = math.floor(torch.uniform(minsize,maxsize)) -- dim2
+  local x = torch.FloatTensor():rand(sz1, sz2) -- input
 
+
+  -- Case 1: 2D tensor, indexCopy over first dimension, 2 indices
+  -- choose two indices from the first dimension, i.e. [1,sz1]
   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
   local index = 1
   local src = x:clone():uniform()
   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
+  -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
   index = 2
   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
   src = x:clone():uniform():cuda()
   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
+  -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
   x = torch.FloatTensor():rand(sz1)
   index = 1
   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
