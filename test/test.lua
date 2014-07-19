@@ -134,6 +134,16 @@ function test.largeNoncontiguous()
    compareFloatAndCuda(x, f)
 end
 
+function test.add()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'add', y)
+   compareFloatAndCudaTensorArgs(x, 'add', y, z)
+end
+
 function test.cmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
