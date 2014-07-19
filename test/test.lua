@@ -134,6 +134,67 @@ function test.largeNoncontiguous()
    compareFloatAndCuda(x, f)
 end
 
+function test.add()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'add', y)
+   compareFloatAndCudaTensorArgs(x, 'add', y, z)
+end
+
+function test.cmul()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'cmul', y)
+end
+
+function test.cdiv()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'cdiv', y)
+end
+
+function test.addcmul()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'addcmul', y, z)
+end
+
+function test.addcdiv()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'addcdiv', y, z)
+end
+
+function test.logicalValue()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
+end
+
+function test.logicalTensor()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'gt', y, z)
+end
+
 function test.mean()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
