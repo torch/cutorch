@@ -1,5 +1,3 @@
-require 'cutorch'
-
 local tester
 local test = {}
 local msize = 100
@@ -7,7 +5,6 @@ local minsize = 100
 local maxsize = 1000
 local nloop = 100
 local times = {}
-
 
 local function float(x)
    if type(x) == 'number' then
@@ -299,5 +296,3 @@ function cutorch.test(tests)
       print(module .. ': \t average speedup is ' .. (tm.cpu / (tm.gpu or 1e6)))
    end
 end
-
-cutorch.test()
