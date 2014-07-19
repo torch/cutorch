@@ -6,7 +6,7 @@ local maxsize = 1000
 local nloop = 100
 local times = {}
 
---e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view'}"
+--e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
 local function float(x)
    if type(x) == 'number' then
@@ -94,6 +94,26 @@ function test.view()
 
    x = x:cuda()
    compareFloatAndCuda(x, 'view', sz, 3, 1)
+end
+
+function test.viewAs()
+   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz, 3)
+   local y = torch.FloatTensor():rand(sz, 3, 1)
+   compareFloatAndCuda(x, 'viewAs', y)
+
+   x = x:cuda()
+   y = y:cuda()
+   compareFloatAndCuda(x, 'viewAs', y)
+end
+
+function test.repeatTensor()
+   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz, 3)
+   compareFloatAndCuda(x, 'repeatTensor', sz, 2)
+
+   x = x:cuda()
+   compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
 
 function test.copyNoncontiguous()
