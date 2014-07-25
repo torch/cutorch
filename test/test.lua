@@ -383,9 +383,9 @@ function test.isSameSizeAs()
    local t3 = torch.CudaTensor(1, 9, 3, 3)
    local t4 = torch.CudaTensor(3, 4, 9, 10)
 
-   mytester:assert(t1:isSameSizeAs(t2) == false, "wrong answer ")
-   mytester:assert(t1:isSameSizeAs(t3) == false, "wrong answer ")
-   mytester:assert(t1:isSameSizeAs(t4) == true, "wrong answer ")
+   tester:assert(t1:isSameSizeAs(t2) == false, "wrong answer ")
+   tester:assert(t1:isSameSizeAs(t3) == false, "wrong answer ")
+   tester:assert(t1:isSameSizeAs(t4) == true, "wrong answer ")
 end
 
 function cutorch.test(tests)
