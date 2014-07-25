@@ -377,6 +377,17 @@ function test.addmm()
    end
 end
 
+function test.isSameSizeAs()
+   local t1 = torch.CudaTensor(3, 4, 9, 10)
+   local t2 = torch.CudaTensor(3, 4)
+   local t3 = torch.CudaTensor(1, 9, 3, 3)
+   local t4 = torch.CudaTensor(3, 4, 9, 10)
+
+   tester:assert(t1:isSameSizeAs(t2) == false, "wrong answer ")
+   tester:assert(t1:isSameSizeAs(t3) == false, "wrong answer ")
+   tester:assert(t1:isSameSizeAs(t4) == true, "wrong answer ")
+end
+
 function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
