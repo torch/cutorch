@@ -58,7 +58,7 @@ static int cutorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(computeMode);
   SET_DEVN_PROP(deviceOverlap);
   SET_DEVN_PROP(integrated);
-  SET_DEVN_PROP(kernelExecTimeoutEnabled)
+  SET_DEVN_PROP(kernelExecTimeoutEnabled);
   SET_DEVN_PROP(major);
   SET_DEVN_PROP(maxThreadsPerBlock);
   SET_DEVN_PROP(memPitch);
@@ -73,7 +73,9 @@ static int cutorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(pciBusID);
   SET_DEVN_PROP(pciDeviceID);
   SET_DEVN_PROP(pciDomainID);
-
+  SET_DEVN_PROP(maxTexture1D);
+  SET_DEVN_PROP(maxTexture1DLinear);
+  
   lua_pushstring(L, prop.name);
   lua_setfield(L, -2, "name");
 
