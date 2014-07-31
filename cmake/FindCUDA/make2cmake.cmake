@@ -37,16 +37,6 @@
 
 file(READ ${input_file} depend_text)
 
-GET_DIRECTORY_PROPERTY(includedirs INCLUDE_DIRECTORIES)
-
-FILE(READ "${inc_file}" CUDA_NVCC_INCLUDE_ARGS)
-
-SET(CUDA_NVCC_INCLUDES "/")
-FOREACH(inc ${CUDA_NVCC_INCLUDE_ARGS})
-  STRING(REGEX REPLACE "^\\-I" "" inc-out ${inc})
-  SET(CUDA_NVCC_INCLUDES ${CUDA_NVCC_INCLUDES} ${inc-out})
-ENDFOREACH(inc ${CUDA_NVCC_INCLUDE_ARGS})
-
 if (${depend_text} MATCHES ".+")
 
   # message("FOUND DEPENDS")
@@ -62,7 +52,6 @@ if (${depend_text} MATCHES ".+")
 
   foreach(file ${depend_text})
 
-    
     string(REGEX REPLACE "^ +" "" file ${file})
 
     # OK, now if we had a UNC path, nvcc has a tendency to only output the first '/'
@@ -71,24 +60,13 @@ if (${depend_text} MATCHES ".+")
     # path.
 
     if(NOT EXISTS "${file}")
-      SET(filenotfound ON)
-      FOREACH(incdir ${CUDA_NVCC_INCLUDES})
-        IF(filenotfound)
-          if (EXISTS "${incdir}/${file}")
-            set(file "${incdir}/${file}")
-            SET(filenotfound OFF)
-          endif()
-        ENDIF()
-      ENDFOREACH(incdir ${CUDA_NVCC_INCLUDES})
-
-      IF(filenotfound)
-        message(WARNING " Removing non-existant dependency file: ${file}")
+      if (EXISTS "/${file}")
+        set(file "/${file}")
+      else()
+        message(WARNING " Removing non-existent dependency file: ${file}")
         set(file "")
       endif()
-
     endif()
-
-    
 
     if(NOT IS_DIRECTORY "${file}")
       # If softlinks start to matter, we should change this to REALPATH.  For now we need
@@ -98,7 +76,7 @@ if (${depend_text} MATCHES ".+")
       list(APPEND dependency_list "${file_absolute}")
     endif()
 
-  endforeach(file)
+  endforeach()
 
 else()
   # message("FOUND NO DEPENDS")
