@@ -76,6 +76,11 @@ static int cutorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(maxTexture1D);
   SET_DEVN_PROP(maxTexture1DLinear);
   
+  size_t freeMem;
+  THCudaCheck(cudaMemGetInfo (&freeMem, NULL));
+  lua_pushnumber(L, freeMem);
+  lua_setfield(L, -2, "freeGlobalMem");
+
   lua_pushstring(L, prop.name);
   lua_setfield(L, -2, "name");
 
