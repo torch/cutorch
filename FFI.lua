@@ -43,7 +43,7 @@ typedef struct THCudaTensor
    rawset(Tensor, "data", 
           function(self) 
              self = Tensor_tt(self)[0] 
-             return self.storage.data + self.storageOffset 
+             return self.storage ~= nil and self.storage.data + self.storageOffset or nil             
           end
    )
 
