@@ -160,6 +160,15 @@ function test.cdiv()
    compareFloatAndCudaTensorArgs(x, 'cdiv', y)
 end
 
+function test.cdiv3()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor(sz1, sz2)
+   compareFloatAndCudaTensorArgs(z, 'cdiv', x, y)
+end
+
 function test.addcmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
