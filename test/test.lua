@@ -3,6 +3,8 @@ local test = {}
 local msize = 100
 local minsize = 100
 local maxsize = 1000
+local minvalue = 2
+local maxvalue = 20
 local nloop = 100
 local times = {}
 
@@ -241,6 +243,58 @@ function test.std()
    -- compareFloatAndCuda(x, 'std', 1, false)
    -- compareFloatAndCuda(x, 'std', 2, true)
    -- compareFloatAndCuda(x, 'std', 2, false)
+end
+
+-- Test element-wise unary operators with both one and two arguments.
+local function testUnary1(fn)
+   local function test()
+      local sz1 = math.floor(torch.uniform(minsize,maxsize))
+      local sz2 = math.floor(torch.uniform(minsize,maxsize))
+      local x = torch.FloatTensor():rand(sz1, sz2)
+      compareFloatAndCudaTensorArgs(x, fn)
+   end
+   return test
+end
+
+local function testUnary2(fn)
+   local function test()
+      local sz1 = math.floor(torch.uniform(minsize,maxsize))
+      local sz2 = math.floor(torch.uniform(minsize,maxsize))
+      local x = torch.FloatTensor():rand(sz1, sz2)
+      local y = torch.FloatTensor()
+      compareFloatAndCudaTensorArgs(y, fn, x)
+   end
+   return test
+end
+
+for _,name in ipairs({"log", "log1p", "exp",
+                      "cos", "acos", "cosh",
+                      "sin", "asin", "sinh",
+                      "tan", "atan", "tanh",
+                      "sqrt",
+                      "ceil", "floor",
+                      "abs", "sign"}) do
+
+   test[name .. "1"] = testUnary1(name)
+   test[name .. "2"] = testUnary2(name)
+
+end
+
+function test.pow1()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local pow = torch.uniform(minvalue,maxvalue)
+   compareFloatAndCudaTensorArgs(x, 'pow', pow)
+end
+
+function test.pow2()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor()
+   local pow = torch.uniform(minvalue,maxvalue)
+   compareFloatAndCudaTensorArgs(y, 'pow', x, pow)
 end
 
 function test.index()

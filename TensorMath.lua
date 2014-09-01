@@ -279,11 +279,12 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "tan", "atan", "tanh",
                       "sqrt",
                       "ceil", "floor",
-                      "abs"}) do
+                      "abs", "sign"}) do
    
    interface:wrap(name,
                   cname(name),
-                  {{name="CudaTensor", returned=true}})
+                  {{name="CudaTensor", returned=true},
+                   {name="CudaTensor", default=1}})
    
 end
 
@@ -389,11 +390,6 @@ interface:wrap("dist",
                 {name="CudaTensor"},
                 {name="float", default=2},
                 {name="float", creturned=true}})
-
-interface:wrap("sign",
-                cname("sign"),
-                {{name="CudaTensor", returned=true},
-                 {name="CudaTensor", default=1}})
 
 interface:register("cutorch_CudaTensorMath__")
 
