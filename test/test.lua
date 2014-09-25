@@ -1,3 +1,8 @@
+local runtests = false
+if not cutorch then 
+   require 'cutorch' 
+   runtests = true
+end
 local tester
 local test = {}
 local msize = 100
@@ -467,4 +472,8 @@ function cutorch.test(tests)
    for module,tm in pairs(times) do
       print(module .. ': \t average speedup is ' .. (tm.cpu / (tm.gpu or 1e6)))
    end
+end
+
+if runtests then
+   cutorch.test()
 end
