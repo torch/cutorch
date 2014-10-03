@@ -136,6 +136,30 @@ function test.copyNoncontiguous()
       return src.new(sz, sz):copy(src[{{},{},{2}}])
    end
    compareFloatAndCuda(x, f)
+   
+   x = torch.FloatTensor():rand(2, sz, sz)
+   local f = function(src)
+      return src.new(sz, sz):copy(src[{{2},{},{}}])
+   end
+   compareFloatAndCuda(x, f)
+   
+   x = torch.FloatTensor():rand(sz, 2, sz)
+   local f = function(src)
+      return src.new(sz, sz):copy(src[{{},{2},{}}])
+   end
+   compareFloatAndCuda(x, f)
+   
+   x = torch.FloatTensor():rand(sz, 2, sz)
+   local f = function(src)
+      return src.new(sz, 1, sz):copy(src[{{},{2},{}}])
+   end
+   compareFloatAndCuda(x, f)
+   
+   x = torch.FloatTensor():rand(sz, sz):transpose(1,2)
+   local f = function(src)
+      return src.new(sz, sz):copy(src)
+   end
+   compareFloatAndCuda(x, f)
 end
 
 function test.largeNoncontiguous()
