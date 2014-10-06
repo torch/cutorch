@@ -390,6 +390,39 @@ interface:wrap("dist",
                 {name="CudaTensor"},
                 {name="float", default=2},
                 {name="float", creturned=true}})
+                
+interface:wrap("squeeze",
+        cname("squeeze"),
+        {{name="CudaTensor", default=true, returned=true, postcall=function(arg)
+                                                                local txt = {}
+                                                                if arg.returned then
+                                                                   table.insert(txt, string.format('if(arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
+                                                                   table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg%d)));', arg.i))
+                                                                end
+                                                                return table.concat(txt, '\n')
+                                                             end},
+         {name="CudaTensor"}},
+        cname("squeeze1d"),
+        {{name="CudaTensor", default=true, returned=true,
+
+          postcall=
+             function(arg)
+                local txt = {}
+                if arg.returned then
+                   table.insert(txt, string.format('if(!hasdims && arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
+                   table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg%d)));}', arg.i))
+                end
+                return table.concat(txt, '\n')
+             end},
+
+         {name="CudaTensor",
+
+          precall=
+             function(arg)
+                return string.format('{int hasdims = arg%d->nDimension > 1;', arg.i)
+             end},
+
+         {name="index"}})
 
 interface:register("cutorch_CudaTensorMath__")
 

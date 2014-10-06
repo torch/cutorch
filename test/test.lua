@@ -85,6 +85,21 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
       string.format("Divergent results between CPU and CUDA for function '%s'", fn))
 end
 
+function test.squeeze()
+   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz, 1, sz, 1)
+   compareFloatAndCuda(x, 'squeeze')
+   
+   local y = x:cuda():squeeze()
+   tester:assert(y:dim() == 2, "squeeze err")
+   
+   x = torch.FloatTensor():rand(sz, 1, 1, sz)
+   compareFloatAndCuda(x, 'squeeze', 2)
+   
+   local y = x:cuda():squeeze(2)
+   tester:assert(y:dim() == 3, "squeeze1d err")
+end
+
 function test.expand()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1)
@@ -98,28 +113,18 @@ function test.view()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 3)
    compareFloatAndCuda(x, 'view', sz, 3, 1)
-
-   x = x:cuda()
-   compareFloatAndCuda(x, 'view', sz, 3, 1)
 end
 
 function test.viewAs()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 3)
    local y = torch.FloatTensor():rand(sz, 3, 1)
-   compareFloatAndCuda(x, 'viewAs', y)
-
-   x = x:cuda()
-   y = y:cuda()
-   compareFloatAndCuda(x, 'viewAs', y)
+   compareFloatAndCudaTensorArgs(x, 'viewAs', y)
 end
 
 function test.repeatTensor()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 3)
-   compareFloatAndCuda(x, 'repeatTensor', sz, 2)
-
-   x = x:cuda()
    compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
 
