@@ -1,6 +1,6 @@
 local runtests = false
-if not cutorch then 
-   require 'cutorch' 
+if not cutorch then
+   require 'cutorch'
    runtests = true
 end
 local tester
@@ -24,6 +24,9 @@ local function float(x)
 end
 
 local function isEqual(a, b, tolerance, ...)
+   if a == nil and b == nil then return true end
+   if a == nil and b ~= nil then return false end
+   if a ~= nil and b == nil then return false end
    local diff = a-b
    tolerance = tolerance or 0.000001
    if type(a) == 'number' then
@@ -36,28 +39,36 @@ end
 local function compareFloatAndCuda(x, fn, ...)
    x_cpu    = x:float()
    x_cuda   = x_cpu:cuda()
-   local res_cpu, res_cuda
+   local res1_cpu, res2_cpu, res3_cpu, res4_cpu
+   local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
          string.format("Missing function CudaTensor.%s", fn))
-      res_cpu  = x_cpu[fn](x_cpu, ...)
-      res_cuda = float(x_cuda[fn](x_cuda, ...))
+      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, ...)
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(x_cuda[fn](x_cuda, ...))
    elseif type(fn) == 'function' then
-      res_cpu  = fn(x_cpu, ...)
-      res_cuda = float(fn(x_cuda, ...))
+      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, ...)
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(fn(x_cuda, ...))
    else
       error("Incorrect function type")
    end
    local tolerance = 1e-5
-   tester:assert(isEqual(res_cpu, res_cuda, tolerance),
+   tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
       string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
 end
 
 local function compareFloatAndCudaTensorArgs(x, fn, ...)
    local x_cpu = x:float()
    local x_cuda = x_cpu:cuda()
-   local res_cpu, res_cuda
-   -- Transformation of args 
+   local res1_cpu, res2_cpu, res3_cpu, res4_cpu
+   local res1_cuda, res2_cuda, res3_cuda, res4_cuda
+   -- Transformation of args
    local tranform_args = function(t, type)
       for k,v in pairs(t) do
          local v_type = torch.Tensor.type(v)
@@ -72,30 +83,36 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
          string.format("Missing function CudaTensor.%s", fn))
-      res_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
-      res_cuda = float(x_cuda[fn](x_cuda, unpack(cuda_args)))
+      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(x_cuda[fn](x_cuda, unpack(cuda_args)))
    elseif type(fn) == 'function' then
-      res_cpu  = fn(x_cpu, unpack(cpu_args))
-      res_cuda = float(fn(x_cuda, unpack(cuda_args)))
+      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, unpack(cpu_args))
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(fn(x_cuda, unpack(cuda_args)))
    else
       error("Incorrect function type")
    end
    local tolerance = 1e-5
-   tester:assert(isEqual(res_cpu, res_cuda, tolerance),
-      string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
+                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
 end
 
 function test.squeeze()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1, sz, 1)
    compareFloatAndCuda(x, 'squeeze')
-   
+
    local y = x:cuda():squeeze()
    tester:assert(y:dim() == 2, "squeeze err")
-   
+
    x = torch.FloatTensor():rand(sz, 1, 1, sz)
    compareFloatAndCuda(x, 'squeeze', 2)
-   
+
    local y = x:cuda():squeeze(2)
    tester:assert(y:dim() == 3, "squeeze1d err")
 end
@@ -141,25 +158,25 @@ function test.copyNoncontiguous()
       return src.new(sz, sz):copy(src[{{},{},{2}}])
    end
    compareFloatAndCuda(x, f)
-   
+
    x = torch.FloatTensor():rand(2, sz, sz)
    local f = function(src)
       return src.new(sz, sz):copy(src[{{2},{},{}}])
    end
    compareFloatAndCuda(x, f)
-   
+
    x = torch.FloatTensor():rand(sz, 2, sz)
    local f = function(src)
       return src.new(sz, sz):copy(src[{{},{2},{}}])
    end
    compareFloatAndCuda(x, f)
-   
+
    x = torch.FloatTensor():rand(sz, 2, sz)
    local f = function(src)
       return src.new(sz, 1, sz):copy(src[{{},{2},{}}])
    end
    compareFloatAndCuda(x, f)
-   
+
    x = torch.FloatTensor():rand(sz, sz):transpose(1,2)
    local f = function(src)
       return src.new(sz, sz):copy(src)
@@ -255,6 +272,15 @@ function test.mean()
    compareFloatAndCuda(x, 'mean', 2)
 end
 
+function test.max()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'max')
+   compareFloatAndCuda(x, 'max', 1)
+   compareFloatAndCuda(x, 'max', 2)
+end
+
 function test.var()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
@@ -340,11 +366,11 @@ function test.index()
    local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    local index = 1
    compareFloatAndCuda(x, 'index', index, longIndex)
-   
+
    index = 2
    longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
    compareFloatAndCuda(x, 'index', index, longIndex)
-   
+
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
@@ -387,7 +413,7 @@ function test.indexFill()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   
+
    local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    local index = 1
    local val = torch.randn(1)[1]
@@ -397,7 +423,7 @@ function test.indexFill()
    longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
    val = torch.randn(1)[1]
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
-   
+
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
@@ -408,18 +434,18 @@ end
 function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
-   
+
    compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
-   
+
    x = torch.randn(3,4,5)
    compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
-     
+
    x = torch.randn(3,4,5)
    compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
-    
+
    x = torch.randn(3,4,5,100)
    compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
-    
+
    x = torch.randn(3,4,5,100)
    compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
 end
@@ -429,11 +455,11 @@ function test.indexSelect()
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)
    local n_idx = math.random(n_col)
-   
+
    local x = torch.randn(n_row, n_col):float()
    local indices = torch.randperm(n_idx):long()
    local z = torch.FloatTensor()
-   
+
    local tm = {}
    local title = string.format('indexSelect ')
    times[title] = tm
@@ -445,10 +471,10 @@ function test.indexSelect()
       z:index(x, 2, indices)
    end
    tm.cpu = clock:time().real
-   
+
    x = x:cuda()
    z = torch.CudaTensor()
-   
+
    z:index(x, 2, indices)
    local rescuda = z:clone():float()
    clock:reset()
@@ -456,7 +482,7 @@ function test.indexSelect()
       z:index(x, 2, indices)
    end
    tm.gpu = clock:time().real
-   
+
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end
 
