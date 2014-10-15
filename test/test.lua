@@ -455,6 +455,46 @@ function test.indexSelect()
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end
 
+function test.addmv()
+   --[[ Size ]]--
+   local sizes = {
+      {2,1},
+      {1,2},
+      {1,1},
+      {3,4},
+      {3,3},
+      {15,18},
+      {19,15}
+   }
+   for _, size in pairs(sizes) do
+      local n, m = unpack(size)
+      local c = torch.zeros(n)
+      local a = torch.randn(n, m)
+      local b = torch.randn(m)
+      compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
+   end
+end
+
+function test.addr()
+   --[[ Size ]]--
+   local sizes = {
+      {2,1},
+      {1,2},
+      {1,1},
+      {3,4},
+      {3,3},
+      {15,18},
+      {19,15}
+   }
+   for _, size in pairs(sizes) do
+      local n, m = unpack(size)
+      local c = torch.zeros(n,m)
+      local a = torch.randn(n)
+      local b = torch.randn(m)
+      compareFloatAndCudaTensorArgs(c, 'addr', torch.normal(), a, b)
+   end
+end
+
 function test.addmm()
    --[[ Size ]]--
    local sizes = {
@@ -471,7 +511,7 @@ function test.addmm()
       local c = torch.zeros(n, m)
       local a = torch.randn(n, k)
       local b = torch.randn(k, m)
-      compareFloatAndCudaTensorArgs(c, 'addmm', 0, 1, a, b)
+      compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
    end
 end
 
