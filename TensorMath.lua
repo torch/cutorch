@@ -298,7 +298,7 @@ interface:wrap("pow",
 for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
    interface:wrap(name,
                   cname(name .. 'Value'),
-                  {{name="CudaTensor", returned=true},
+                  {{name="CudaTensor", default=true, returned=true},
                    {name="CudaTensor"},
                    {name="float"}},
                   cname(name .. 'Tensor'),

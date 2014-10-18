@@ -24,11 +24,17 @@ local function float(x)
 end
 
 local function isEqual(a, b, tolerance, ...)
+   if torch.type(b) ~= torch.type(a) then
+      b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
+   end
    local diff = a-b
    tolerance = tolerance or 0.000001
    if type(a) == 'number' then
       return math.abs(diff) < tolerance
    else
+      if torch.type(diff) ~= 'torch.FloatTensor' then
+         diff = diff:float() -- TODO: remove the need for this (byteTensor and abs)
+      end
       return diff:abs():max() < tolerance
    end
 end
@@ -230,6 +236,7 @@ function test.logicalValue()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
+   compareFloatAndCuda(x, 'gt', 0.3)
 end
 
 function test.logicalTensor()
