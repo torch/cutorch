@@ -39,6 +39,7 @@ static int cutorch_setDevice(lua_State *L)
 {
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
+  THCRandom_setGenerator(device);
   return 0;
 }
 
@@ -128,8 +129,6 @@ int luaopen_libcutorch(lua_State *L)
   luaL_register(L, NULL, cutorch_stuff__);
 
   THCudaInit();
-
-  THCRandom_seed();
 
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);
