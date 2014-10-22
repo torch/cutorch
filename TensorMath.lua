@@ -294,6 +294,12 @@ interface:wrap("pow",
                 {name="CudaTensor", default=1},
                 {name="float"}})
 
+interface:wrap("clamp",
+               cname("clamp"),
+               {{name="CudaTensor", returned=true},
+                {name="CudaTensor", default=1},
+                {name="float"},
+                {name="float"}})
 
 for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
    interface:wrap(name,
