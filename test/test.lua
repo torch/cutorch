@@ -591,6 +591,133 @@ function test.isSameSizeAs()
    tester:assert(t1:isSameSizeAs(t4) == true, "wrong answer ")
 end
 
+-- Test random number generation.
+local function checkIfUniformlyDistributed(t, min, max)
+   tester:assertge(t:min(), min - 1e-6, "values are too low")
+   tester:assertle(t:max(), max + 1e-6, "values are too high")
+   tester:assertalmosteq(t:mean(), (min + max) / 2, 0.1, "mean is wrong")
+end
+
+function test.uniform()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local min = torch.uniform()
+   local max = min + torch.uniform()
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:uniform(min, max)
+   checkIfUniformlyDistributed(t, min, max, tolerance)
+end
+
+function test.bernoulli()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local p = torch.uniform()
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:bernoulli(p)
+   tester:assertalmosteq(t:mean(), p, 0.1, "mean is not equal to p")
+   local f = t:float()
+   tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
+                         torch.FloatTensor(sz1, sz2):fill(1),
+                         1e-6,
+                         "each value must be either 0 or 1")
+end
+
+function test.normal()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local mean, std = torch.uniform(), torch.uniform()
+   local tolerance = 0.01
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:normal(mean, std)
+   tester:assertalmosteq(t:mean(), mean, tolerance, "mean is wrong")
+   tester:assertalmosteq(t:std(), std, tolerance, "standard deviation is wrong")
+end
+
+function test.logNormal()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local mean, std = torch.uniform(), torch.uniform()
+   local tolerance = 0.01
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:logNormal(mean, std)
+   local logt = t:log()
+   tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
+   tester:assertalmosteq(logt:std(), std, tolerance, "standard deviation is wrong")
+end
+
+function test.geometric()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local p = torch.uniform()
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:geometric(p)
+   local u = torch.FloatTensor(sz1, sz2):fill(1) -
+                 ((t:float() - 1) * math.log(p)):exp()
+   checkIfUniformlyDistributed(u, 0, 1)
+end
+
+function test.exponential()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local lambda = torch.uniform()
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:exponential(lambda)
+   local u = torch.FloatTensor(sz1, sz2):fill(1) -
+                 (t:float() * -lambda):exp()
+   checkIfUniformlyDistributed(u, 0, 1)
+end
+
+function test.cauchy()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local median, sigma = torch.uniform(), torch.uniform()
+   local t = torch.CudaTensor(sz1, sz2)
+
+   t:cauchy(median, sigma)
+   local u = ((t:float() - median) / sigma):atan() / math.pi + 0.5
+   checkIfUniformlyDistributed(u, 0, 1)
+end
+
+function test.random_seed()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local mean, std = torch.uniform(), torch.uniform()
+   local tolerance = 0.01
+   local t = torch.CudaTensor(sz1, sz2)
+   local u = torch.CudaTensor(sz1, sz2)
+
+   local seed = cutorch.seed()
+   t:normal(mean, std)
+   cutorch.manualSeed(seed)
+   u:normal(mean, std)
+   tester:assertTensorEq(t:float(), u:float(), 1e-6, "values not equal after resetting the seed")
+end
+
+function test.restore_rng()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local mean, std = torch.uniform(), torch.uniform()
+   local tolerance = 0.01
+   local t = torch.CudaTensor(sz1, sz2)
+   local u = torch.CudaTensor(sz1, sz2)
+
+   local seed = cutorch.seed()
+   local rng = cutorch.getRNGState()
+   t:normal(mean, std)
+   -- Change the seed so we can check that restoring the RNG state also restores the seed.
+   cutorch.manualSeed(seed + 123)
+   cutorch.setRNGState(rng)
+   u:normal(mean, std)
+   tester:assertTensorEq(t:float(), u:float(), 1e-6, "values not equal after restoring the RNG state")
+   tester:asserteq(cutorch.initialSeed(), seed, "seed was not restored")
+end
+
 function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
