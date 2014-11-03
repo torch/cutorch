@@ -8,7 +8,7 @@ extern void cutorch_CudaTensorMath_init(lua_State* L);
 
 static int cutorch_synchronize(lua_State *L)
 {
-  cudaDeviceSynchronize();  
+  cudaDeviceSynchronize();
   return 0;
 }
 
@@ -75,7 +75,7 @@ static int cutorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(pciDomainID);
   SET_DEVN_PROP(maxTexture1D);
   SET_DEVN_PROP(maxTexture1DLinear);
-  
+
   size_t freeMem;
   THCudaCheck(cudaMemGetInfo (&freeMem, NULL));
   lua_pushnumber(L, freeMem);
@@ -150,6 +150,7 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaTensorMath_init(L);
+  cutorch_CudaTensorOperator_init(L);
 
   return 1;
 }

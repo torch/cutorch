@@ -15,7 +15,7 @@ IF(${CUDA_VERSION} LESS 6.0)
       message(STATUS "Setting CMAKE_HOST_COMPILER to /usr/bin/gcc instead of ${CMAKE_C_COMPILER}.")
     endif()
   ENDIF()
-  
+
   #LIST(APPEND CUDA_NVCC_FLAGS "-arch=sm_20;--use_fast_math")
   # bug on Apple
   IF(APPLE)
@@ -39,10 +39,10 @@ ADD_SUBDIRECTORY(lib)
 INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/lib/THC")
 INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/torch")
 
-SET(src Storage.c init.c Tensor.c TensorMath.c torch/utils.c)
+SET(src Storage.c init.c Tensor.c TensorMath.c TensorOperator.c torch/utils.c)
 SET(luasrc init.lua Tensor.lua FFI.lua test/test.lua)
 
 ADD_TORCH_WRAP(cudatensormathwrap TensorMath.lua)
-  
+
 ADD_TORCH_PACKAGE(cutorch "${src}" "${luasrc}")
 TARGET_LINK_LIBRARIES(cutorch luaT THC)

@@ -15,7 +15,7 @@ local typename = 'CudaTensor'
 
 -- cut and paste from wrap/types.lua
 wrap.types.CudaTensor = {
-   
+
    helpname = function(arg)
                  if arg.dim then
                     return string.format('%s~%dD', typename, arg.dim)
@@ -23,7 +23,7 @@ wrap.types.CudaTensor = {
                     return typename
                  end
               end,
-   
+
    declare = function(arg)
                 local txt = {}
                 table.insert(txt, string.format("TH%s *arg%d = NULL;", typename, arg.i))
@@ -32,7 +32,7 @@ wrap.types.CudaTensor = {
                 end
                 return table.concat(txt, '\n')
              end,
-   
+
    check = function(arg, idx)
               if arg.dim then
                  return string.format('(arg%d = luaT_toudata(L, %d, "torch.%s")) && (arg%d->nDimension == %d)', arg.i, idx, typename, arg.i, arg.dim)
@@ -40,13 +40,13 @@ wrap.types.CudaTensor = {
                  return string.format('(arg%d = luaT_toudata(L, %d, "torch.%s"))', arg.i, idx, typename)
               end
            end,
-   
+
    read = function(arg, idx)
              if arg.returned then
                 return string.format("arg%d_idx = %d;", arg.i, idx)
              end
           end,
-   
+
    init = function(arg)
              if type(arg.default) == 'boolean' then
                 return string.format('arg%d = TH%s_new();', arg.i, typename)
@@ -56,15 +56,15 @@ wrap.types.CudaTensor = {
                 error('unknown default tensor type value')
              end
           end,
-   
+
    carg = function(arg)
              return string.format('arg%d', arg.i)
           end,
-   
+
    creturn = function(arg)
                 return string.format('arg%d', arg.i)
              end,
-   
+
    precall = function(arg)
                 local txt = {}
                 if arg.default and arg.returned then
@@ -90,7 +90,7 @@ wrap.types.CudaTensor = {
                 end
                 return table.concat(txt, '\n')
              end,
-   
+
    postcall = function(arg)
                  local txt = {}
                  if arg.creturned then
@@ -119,7 +119,7 @@ wrap.types.LongArg = {
                 error('LongArg cannot have a default value')
              end
           end,
-   
+
    check = function(arg, idx)
             return string.format("torch_islongargs(L, %d)", idx)
          end,
@@ -127,7 +127,7 @@ wrap.types.LongArg = {
    read = function(arg, idx)
              return string.format("arg%d = torch_checklongargs(L, %d);", arg.i, idx)
           end,
-   
+
    carg = function(arg, idx)
              return string.format('arg%d', arg.i)
           end,
@@ -135,7 +135,7 @@ wrap.types.LongArg = {
    creturn = function(arg, idx)
                 return string.format('arg%d', arg.i)
              end,
-   
+
    precall = function(arg)
                 local txt = {}
                 if arg.returned then
@@ -155,7 +155,7 @@ wrap.types.LongArg = {
                     table.insert(txt, string.format('THLongStorage_free(arg%d);', arg.i))
                  end
                  return table.concat(txt, '\n')
-              end   
+              end
 }
 
 function interface.luaname2wrapname(self, name)
@@ -183,7 +183,8 @@ interface:wrap("fill",
 
 interface:wrap("add",
                cname("add"),
-               {{name="CudaTensor",returned=true},
+               {{name="CudaTensor", default=2, returned=true},
+                {name="CudaTensor"},
                 {name="float"}},
                cname("cadd"),
                {{name="CudaTensor", returned=true},
@@ -197,12 +198,14 @@ interface:wrap("add",
 
 interface:wrap("mul",
                cname("mul"),
-               {{name="CudaTensor", returned=true},
+               {{name="CudaTensor", default=2, returned=true},
+                {name="CudaTensor"},
                 {name="float"}})
 
 interface:wrap("div",
                cname("div"),
-               {{name="CudaTensor", returned=true},
+               {{name="CudaTensor", default=2, returned=true},
+                {name="CudaTensor"},
                 {name="float"}})
 
 interface:wrap("cmul",
@@ -248,31 +251,6 @@ for _,name in ipairs({"min", "max", "sum"}) do
                    {name="index"}})
 end
 
-
-
-for _,name in ipairs({"addmv", "addmm"}) do
-   interface:wrap(name,
-                  cname(name),
-                  {{name="CudaTensor", returned=true},
-                   {name="float", default=1, invisible=true}, -- ambiguity
-                   {name="float", default=1},
-                   {name="CudaTensor"},
-                   {name="CudaTensor"}},
-                  cname(name),
-                  {{name="CudaTensor", returned=true},
-                   {name="float"}, -- ambiguity
-                   {name="float"},
-                   {name="CudaTensor"},
-                   {name="CudaTensor"}})
-end
-
-interface:wrap("addr",
-               cname("addr"),
-               {{name="CudaTensor", returned=true},
-                {name="float", default=1},
-                {name="CudaTensor"},
-                {name="CudaTensor"}})
-
 for _,name in ipairs({"log", "log1p", "exp",
                       "cos", "acos", "cosh",
                       "sin", "asin", "sinh",
@@ -280,12 +258,12 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "sqrt",
                       "ceil", "floor",
                       "abs", "sign"}) do
-   
+
    interface:wrap(name,
                   cname(name),
                   {{name="CudaTensor", returned=true},
                    {name="CudaTensor", default=1}})
-   
+
 end
 
 interface:wrap("pow",
@@ -313,6 +291,101 @@ for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
                    {name="CudaTensor"}})
 end
 
+do
+   local Tensor = "CudaTensor"
+   local real = "float"
+   interface:wrap("mv",
+        cname("addmv"),
+        {{name=Tensor, default=true, returned=true, method={default='nil'},
+          init=function(arg)
+             return table.concat(
+                {
+                   arg.__metatable.init(arg),
+                   string.format("TH%s_resize1d(%s, %s->size[0]);", Tensor, arg:carg(), arg.args[5]:carg())
+                }, '\n')
+          end,
+          precall=function(arg)
+             return table.concat(
+                {
+                   string.format("TH%s_zero(%s);", Tensor, arg:carg()),
+                   arg.__metatable.precall(arg)
+                }, '\n')
+          end
+         },
+           {name=real, default=1, invisible=true},
+           {name=Tensor, default=1, invisible=true},
+           {name=real, default=1, invisible=true},
+           {name=Tensor, dim=2},
+           {name=Tensor, dim=1}}
+   )
+
+   interface:wrap("mm",
+        cname("addmm"),
+        {{name=Tensor, default=true, returned=true, method={default='nil'},
+          init=function(arg)
+             return table.concat(
+                {
+                   arg.__metatable.init(arg),
+                   string.format("TH%s_resize2d(%s, %s->size[0], %s->size[1]);", Tensor, arg:carg(), arg.args[5]:carg(), arg.args[6]:carg())
+                }, '\n')
+          end,
+          precall=function(arg)
+             return table.concat(
+                {
+                   string.format("TH%s_zero(%s);", Tensor, arg:carg()),
+                   arg.__metatable.precall(arg)
+                }, '\n')
+          end
+         },
+           {name=real, default=1, invisible=true},
+           {name=Tensor, default=1, invisible=true},
+           {name=real, default=1, invisible=true},
+           {name=Tensor, dim=2},
+           {name=Tensor, dim=2}}
+   )
+
+   interface:wrap("ger",
+        cname("addr"),
+        {{name=Tensor, default=true, returned=true, method={default='nil'},
+          init=function(arg)
+             return table.concat(
+                {
+                   arg.__metatable.init(arg),
+                   string.format("TH%s_resize2d(%s, %s->size[0], %s->size[0]);", Tensor, arg:carg(), arg.args[5]:carg(), arg.args[6]:carg())
+                }, '\n')
+          end,
+          precall=function(arg)
+             return table.concat(
+                {
+                   string.format("TH%s_zero(%s);", Tensor, arg:carg()),
+                   arg.__metatable.precall(arg)
+                }, '\n')
+          end
+         },
+           {name=real, default=1, invisible=true},
+           {name=Tensor, default=1, invisible=true},
+           {name=real, default=1, invisible=true},
+           {name=Tensor, dim=1},
+           {name=Tensor, dim=1}}
+   )
+
+   for _,f in ipairs({
+         {name="addmv", dim1=1, dim2=2, dim3=1},
+         {name="addmm", dim1=2, dim2=2, dim3=2},
+         {name="addr",  dim1=2, dim2=1, dim3=1},
+                     }
+   ) do
+
+      interface:wrap(f.name,
+                     cname(f.name),
+                     {{name=Tensor, default=true, returned=true},
+                        {name=real, default=1},
+                        {name=Tensor, dim=f.dim1},
+                        {name=real, default=1},
+                        {name=Tensor, dim=f.dim2},
+                        {name=Tensor, dim=f.dim3}})
+end
+
 
 -- interface:wrap('random',
 --                cname("random2"),
@@ -327,7 +400,7 @@ end
 
 for _,f in ipairs({{name='geometric'},
                    {name='bernoulli', a=0.5}}) do
-   
+
    interface:wrap(f.name,
                   cname(f.name),
                   {{name="CudaTensor", returned=true},
@@ -347,7 +420,7 @@ for _,f in ipairs({{name='uniform', a=0, b=1},
 end
 
 for _,f in ipairs({{name='exponential'}}) do
-   
+
    interface:wrap(f.name,
                   cname(f.name),
                   {{name="CudaTensor", returned=true},
@@ -381,7 +454,7 @@ interface:wrap("norm",
                       {name="CudaTensor"},
                       {name="float"},
                       {name="index"}})
-                      
+
 interface:wrap("renorm",
                cname("renorm"),
                      {{name="CudaTensor", returned=true},
@@ -396,7 +469,7 @@ interface:wrap("dist",
                 {name="CudaTensor"},
                 {name="float", default=2},
                 {name="float", creturned=true}})
-                
+
 interface:wrap("squeeze",
         cname("squeeze"),
         {{name="CudaTensor", default=true, returned=true, postcall=function(arg)
