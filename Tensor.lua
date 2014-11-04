@@ -39,21 +39,6 @@ rawset(torch.getmetatable('torch.CudaTensor'), 'typeAs', Tensor__typeAs)
 rawset(torch.getmetatable('torch.CudaTensor'), 'double', Tensor__double)
 rawset(torch.getmetatable('torch.CudaTensor'), 'float', Tensor__float)
 
-for _,func in ipairs({'addmv',
-                      'addmm'}) do
-      
-   local torchfunc = torch.CudaTensor[func]
-   torch.CudaTensor[func] = function(self, next1, next2, ...)
-                               if type(next1) == 'number' and type(next2) == 'number' then -- beta=next1, alpha=next2
-                                  return torchfunc(self, next1, next2, ...)
-                               elseif type(next1) == 'number' then -- beta=1, alpha=next1
-                                  return torchfunc(self, 1, next1, next2, ...)
-                               else -- beta=1, alpha=1
-                                  return torchfunc(self, 1, 1, next1, next2, ...)
-                               end
-                            end      
-end
-
 do
     local metatable = torch.getmetatable('torch.CudaTensor')
     for _,func in pairs{'expand', 'expandAs', 'view', 'viewAs', 'repeatTensor'} do
