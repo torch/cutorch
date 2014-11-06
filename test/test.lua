@@ -241,6 +241,11 @@ function test.addcmul()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'addcmul', y, z)
+   compareFloatAndCudaTensorArgs(x, 'addcmul', torch.uniform(), y, z)
+
+   local r = torch.zeros(sz1, sz2)
+   compareFloatAndCudaTensorArgs(r, 'addcmul', x, y, z)
+   compareFloatAndCudaTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
 end
 
 function test.addcdiv()
@@ -250,6 +255,11 @@ function test.addcdiv()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'addcdiv', y, z)
+   compareFloatAndCudaTensorArgs(x, 'addcdiv', torch.uniform(), y, z)
+
+   local r = torch.zeros(sz1, sz2)
+   compareFloatAndCudaTensorArgs(r, 'addcdiv', x, y, z)
+   compareFloatAndCudaTensorArgs(r, 'addcdiv', x, torch.uniform(), y, z)
 end
 
 function test.logicalValue()
