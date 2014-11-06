@@ -248,17 +248,19 @@ wrap("cdiv",
 
 wrap("addcmul",
      cname("addcmul"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="float", default=1},
-      {name="CudaTensor"},
-      {name="CudaTensor"}})
+     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
+        {name="CudaTensor", method={default=1}},
+        {name="float", default=1},
+        {name="CudaTensor"},
+        {name="CudaTensor"}})
 
 wrap("addcdiv",
      cname("addcdiv"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="float", default=1},
-      {name="CudaTensor"},
-      {name="CudaTensor"}})
+     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
+        {name="CudaTensor", method={default=1}},
+        {name="float", default=1},
+        {name="CudaTensor"},
+        {name="CudaTensor"}})
 
 do
    local Tensor = "CudaTensor"
