@@ -205,8 +205,11 @@ function test.add()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'add', y)
+   local v = torch.uniform()
+   compareFloatAndCudaTensorArgs(x, 'add', z)
+   compareFloatAndCudaTensorArgs(x, 'add', z, v)
    compareFloatAndCudaTensorArgs(x, 'add', y, z)
+   compareFloatAndCudaTensorArgs(x, 'add', y, v, z)
 end
 
 function test.cmul()

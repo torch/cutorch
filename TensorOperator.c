@@ -30,7 +30,7 @@ static int cutorch_CudaTensorOperator___add__(lua_State *L)
     {
       THCudaTensor_resizeAs(r, tensor1);
       THCudaTensor_copy(r, tensor1);
-      THCudaTensor_cadd_tst(r, r, 1, tensor2);
+      THCudaTensor_cadd(r, r, 1, tensor2);
     }
   }
   return 1;
@@ -53,7 +53,7 @@ static int cutorch_CudaTensorOperator___sub__(lua_State *L)
     {
       THCudaTensor_resizeAs(r, tensor2);
       THCudaTensor_fill(r, luaL_checknumber(L, 1));
-      THCudaTensor_cadd_tst(r, r, -1, tensor2);
+      THCudaTensor_cadd(r, r, -1, tensor2);
     }
     else if(tensor1 && !tensor2)
     {
@@ -65,7 +65,7 @@ static int cutorch_CudaTensorOperator___sub__(lua_State *L)
     {
       THCudaTensor_resizeAs(r, tensor1);
       THCudaTensor_copy(r, tensor1);
-      THCudaTensor_cadd_tst(r, r, -1, tensor2);
+      THCudaTensor_cadd(r, r, -1, tensor2);
     }
   }
   return 1;

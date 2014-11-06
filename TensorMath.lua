@@ -213,14 +213,10 @@ wrap("add",
       {name="CudaTensor", method={default=1}},
       {name="float"}},
      cname("cadd"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="float", default=1},
-      {name="CudaTensor"}},
-     cname("cadd_tst"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="CudaTensor"},
-      {name="float", default=1},
-      {name="CudaTensor"}})
+     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
+        {name="CudaTensor", method={default=1}},
+        {name="float", default=1},
+        {name="CudaTensor"}})
 
 wrap("mul",
      cname("mul"),
