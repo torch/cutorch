@@ -540,6 +540,26 @@ function test.addmv()
    end
 end
 
+function test.mv()
+   --[[ Size ]]--
+   local sizes = {
+      {2,1},
+      {1,2},
+      {1,1},
+      {3,4},
+      {3,3},
+      {15,18},
+      {19,15}
+   }
+   for _, size in pairs(sizes) do
+      local n, m = unpack(size)
+      local c = torch.zeros(n)
+      local a = torch.randn(n, m)
+      local b = torch.randn(m)
+      compareFloatAndCudaTensorArgs(c, 'mv', a, b)
+   end
+end
+
 function test.addr()
    --[[ Size ]]--
    local sizes = {
@@ -577,6 +597,46 @@ function test.addmm()
       local a = torch.randn(n, k)
       local b = torch.randn(k, m)
       compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
+   end
+end
+
+function test.mm()
+   --[[ Size ]]--
+   local sizes = {
+      {16, 3, 1},
+      {1, 12, 1},
+      {24, 23, 22},
+      {1, 1, 1},
+      {1, 1, 7},
+      {12, 1, 12},
+      {10, 10, 10},
+   }
+   for _, size in pairs(sizes) do
+      local n, k, m = unpack(size)
+      local c = torch.zeros(n, m)
+      local a = torch.randn(n, k)
+      local b = torch.randn(k, m)
+      compareFloatAndCudaTensorArgs(c, 'mm', a, b)
+   end
+end
+
+function test.ger()
+   --[[ Size ]]--
+   local sizes = {
+      {16, 1},
+      {1, 12},
+      {24, 23},
+      {1, 1},
+      {33, 7},
+      {12, 14},
+      {10, 10},
+   }
+   for _, size in pairs(sizes) do
+      local n, m = unpack(size)
+      local c = torch.zeros(n, m)
+      local a = torch.randn(n)
+      local b = torch.randn(m)
+      compareFloatAndCudaTensorArgs(c, 'ger', a, b)
    end
 end
 
