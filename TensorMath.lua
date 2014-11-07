@@ -377,15 +377,25 @@ wrap("dot",
       {name="CudaTensor"},
       {name="float", creturned=true}})
 
-for _,name in ipairs({"min", "max", "sum"}) do
+wrap("sum",
+     cname("sumall"),
+     {{name="CudaTensor"},
+        {name="float", creturned=true}},
+     cname("sum"),
+     {{name="CudaTensor", default=true, returned=true},
+        {name="CudaTensor"},
+        {name="index"}})
+
+for _,name in ipairs({"min", "max"}) do
    wrap(name,
         cname(name .. "all"),
         {{name="CudaTensor"},
-         {name="float", creturned=true}},
+           {name="float", creturned=true}},
         cname(name),
         {{name="CudaTensor", default=true, returned=true},
-         {name="CudaTensor"},
-         {name="index"}})
+           {name="CudaTensor", default=true, returned=true},
+           {name="CudaTensor"},
+           {name="index"}})
 end
 
 for _,name in ipairs({"log", "log1p", "exp",
