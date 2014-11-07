@@ -376,6 +376,15 @@ function test.prod()
    compareFloatAndCuda(x, 'prod', 2)
 end
 
+function test.cumprod()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'cumprod')
+   compareFloatAndCuda(x, 'cumprod', 1)
+   compareFloatAndCuda(x, 'cumprod', 2)
+end
+
 function test.round()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))

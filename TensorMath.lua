@@ -437,7 +437,7 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "tan", "atan", "tanh",
                       "sqrt",
                       "ceil", "floor",
-                      "abs", "sign"}) do
+                      "abs", "sign", "round"}) do
 
    wrap(name,
         cname(name),
