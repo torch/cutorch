@@ -302,6 +302,40 @@ function test.min()
    compareFloatAndCuda(x, 'min', 2)
 end
 
+function test.sum()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'sum')
+   compareFloatAndCuda(x, 'sum', 1)
+   compareFloatAndCuda(x, 'sum', 2)
+end
+
+function test.cumsum()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'cumsum')
+   compareFloatAndCuda(x, 'cumsum', 1)
+   compareFloatAndCuda(x, 'cumsum', 2)
+end
+
+function test.prod()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'prod')
+   compareFloatAndCuda(x, 'prod', 1)
+   compareFloatAndCuda(x, 'prod', 2)
+end
+
+function test.round()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'round')
+end
+
 function test.var()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
