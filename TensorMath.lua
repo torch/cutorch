@@ -452,6 +452,16 @@ wrap("pow",
       {name=Tensor, default=1},
       {name=real}})
 
+wrap("rand",
+     cname("rand"),
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name="LongArg"}})
+
+wrap("randn",
+     cname("randn"),
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name="LongArg"}})
+
 wrap("clamp",
      cname("clamp"),
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
