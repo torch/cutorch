@@ -191,6 +191,49 @@ function test.largeNoncontiguous()
    compareFloatAndCuda(x, f)
 end
 
+function test.zero()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'zero')
+end
+
+function test.fill()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local v = torch.uniform()
+   compareFloatAndCudaTensorArgs(x, 'fill', v)
+end
+
+function test.reshape()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))*2
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'reshape', sz1/2, sz2*2)
+end
+
+function test.zeros()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local t = torch.getdefaulttensortype()
+   torch.setdefaulttensortype('torch.CudaTensor')
+   local x = torch.zeros(sz1, sz2)
+   assert(x:sum() == 0)
+   torch.setdefaulttensortype(t)
+end
+
+function test.ones()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local t = torch.getdefaulttensortype()
+   torch.setdefaulttensortype('torch.CudaTensor')
+   local x = torch.ones(sz1, sz2)
+   assert(x:sum() == x:nElement())
+   torch.setdefaulttensortype(t)
+end
+
+
 function test.add()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
@@ -303,6 +346,8 @@ function test.min()
 end
 
 function test.sum()
+   local minsize = 10
+   local maxsize = 20
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -321,6 +366,8 @@ function test.cumsum()
 end
 
 function test.prod()
+   local minsize = 10
+   local maxsize = 20
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)

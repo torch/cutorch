@@ -198,69 +198,93 @@ local function wrap(...)
    method:wrap(unpack(args))
 end
 
+local Tensor = "CudaTensor"
+local real = "float"
+
 wrap("zero",
      cname("zero"),
-     {{name="CudaTensor", returned=true}})
+     {{name=Tensor, returned=true}})
 
 wrap("fill",
      cname("fill"),
-     {{name="CudaTensor", returned=true},
-      {name="float"}})
+     {{name=Tensor, returned=true},
+      {name=real}})
+
+wrap("zeros",
+     cname("zeros"),
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name="LongArg"}})
+
+   wrap("ones",
+        cname("ones"),
+        {{name=Tensor, default=true, returned=true, method={default='nil'}},
+           {name="LongArg"}})
+
+   wrap("reshape",
+        cname("reshape"),
+        {{name=Tensor, default=true, returned=true},
+           {name=Tensor},
+           {name="LongArg"}})
+
+   wrap("numel",
+        cname("numel"),
+        {{name=Tensor},
+           {name="long", creturned=true}})
 
 wrap("add",
      cname("add"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-      {name="CudaTensor", method={default=1}},
-      {name="float"}},
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name=Tensor, method={default=1}},
+      {name=real}},
      cname("cadd"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-        {name="CudaTensor", method={default=1}},
-        {name="float", default=1},
-        {name="CudaTensor"}})
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=1}},
+        {name=real, default=1},
+        {name=Tensor}})
 
 wrap("mul",
      cname("mul"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-        {name="CudaTensor", method={default=1}},
-        {name="float"}})
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=1}},
+        {name=real}})
 
 wrap("div",
      cname("div"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-        {name="CudaTensor", method={default=1}},
-        {name="float"}})
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=1}},
+        {name=real}})
 
 wrap("cmul",
      cname("cmul"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="CudaTensor", default=1},
-      {name="CudaTensor"}})
+     {{name=Tensor, returned=true, method={default='nil'}},
+      {name=Tensor, default=1},
+      {name=Tensor}})
 
 wrap("cdiv",
      cname("cdiv"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="CudaTensor", default=1},
-      {name="CudaTensor"}})
+     {{name=Tensor, returned=true, method={default='nil'}},
+      {name=Tensor, default=1},
+      {name=Tensor}})
 
 wrap("addcmul",
      cname("addcmul"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-        {name="CudaTensor", method={default=1}},
-        {name="float", default=1},
-        {name="CudaTensor"},
-        {name="CudaTensor"}})
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=1}},
+        {name=real, default=1},
+        {name=Tensor},
+        {name=Tensor}})
 
 wrap("addcdiv",
      cname("addcdiv"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-        {name="CudaTensor", method={default=1}},
-        {name="float", default=1},
-        {name="CudaTensor"},
-        {name="CudaTensor"}})
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=1}},
+        {name=real, default=1},
+        {name=Tensor},
+        {name=Tensor}})
 
 do
-   local Tensor = "CudaTensor"
-   local real = "float"
+   local Tensor = Tensor
+   local real = real
    wrap("mv",
         cname("addmv"),
         {{name=Tensor, default=true, returned=true, method={default='nil'},
@@ -373,28 +397,37 @@ end
 
 wrap("dot",
      cname("dot"),
-     {{name="CudaTensor"},
-      {name="CudaTensor"},
-      {name="float", creturned=true}})
+     {{name=Tensor},
+      {name=Tensor},
+      {name=real, creturned=true}})
 
 wrap("sum",
      cname("sumall"),
-     {{name="CudaTensor"},
-        {name="float", creturned=true}},
+     {{name=Tensor},
+        {name=real, creturned=true}},
      cname("sum"),
-     {{name="CudaTensor", default=true, returned=true},
-        {name="CudaTensor"},
+     {{name=Tensor, default=true, returned=true},
+        {name=Tensor},
+        {name="index"}})
+
+wrap("prod",
+     cname("prodall"),
+     {{name=Tensor},
+        {name=real, creturned=true}},
+     cname("prod"),
+     {{name=Tensor, default=true, returned=true},
+        {name=Tensor},
         {name="index"}})
 
 for _,name in ipairs({"min", "max"}) do
    wrap(name,
         cname(name .. "all"),
-        {{name="CudaTensor"},
-           {name="float", creturned=true}},
+        {{name=Tensor},
+           {name=real, creturned=true}},
         cname(name),
-        {{name="CudaTensor", default=true, returned=true},
-           {name="CudaTensor", default=true, returned=true},
-           {name="CudaTensor"},
+        {{name=Tensor, default=true, returned=true},
+           {name=Tensor, default=true, returned=true},
+           {name=Tensor},
            {name="index"}})
 end
 
@@ -408,34 +441,34 @@ for _,name in ipairs({"log", "log1p", "exp",
 
    wrap(name,
         cname(name),
-        {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-         {name="CudaTensor", default=1}})
+        {{name=Tensor, default=true, returned=true, method={default='nil'}},
+         {name=Tensor, default=1}})
 
 end
 
 wrap("pow",
      cname("pow"),
-     {{name="CudaTensor", returned=true, method={default='nil'}},
-      {name="CudaTensor", default=1},
-      {name="float"}})
+     {{name=Tensor, returned=true, method={default='nil'}},
+      {name=Tensor, default=1},
+      {name=real}})
 
 wrap("clamp",
      cname("clamp"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-      {name="CudaTensor", default=1},
-      {name="float"},
-      {name="float"}})
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name=Tensor, default=1},
+      {name=real},
+      {name=real}})
 
 for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
    wrap(name,
         cname(name .. 'Value'),
-        {{name="CudaTensor", default=true, returned=true},
-         {name="CudaTensor"},
-         {name="float"}},
+        {{name=Tensor, default=true, returned=true},
+         {name=Tensor},
+         {name=real}},
         cname(name .. 'Tensor'),
-        {{name="CudaTensor", returned=true},
-         {name="CudaTensor"},
-         {name="CudaTensor"}})
+        {{name=Tensor, returned=true},
+         {name=Tensor},
+         {name=Tensor}})
 end
 
 for _,f in ipairs({{name='geometric'},
@@ -443,8 +476,8 @@ for _,f in ipairs({{name='geometric'},
 
    wrap(f.name,
         cname(f.name),
-        {{name="CudaTensor", returned=true},
-         {name="float", default=f.a}})
+        {{name=Tensor, returned=true},
+         {name=real, default=f.a}})
 end
 
 for _,f in ipairs({{name='uniform', a=0, b=1},
@@ -454,65 +487,65 @@ for _,f in ipairs({{name='uniform', a=0, b=1},
 
    wrap(f.name,
         cname(f.name),
-        {{name="CudaTensor", returned=true},
-         {name="float", default=f.a},
-         {name="float", default=f.b}})
+        {{name=Tensor, returned=true},
+         {name=real, default=f.a},
+         {name=real, default=f.b}})
 end
 
 for _,f in ipairs({{name='exponential'}}) do
 
    wrap(f.name,
         cname(f.name),
-        {{name="CudaTensor", returned=true},
-         {name="float", default=f.a}})
+        {{name=Tensor, returned=true},
+         {name=real, default=f.a}})
 end
 
 
 wrap("mean",
      cname("meanall"),
-     {{name="CudaTensor"},
-      {name="float", creturned=true}},
+     {{name=Tensor},
+      {name=real, creturned=true}},
      cname("mean"),
-     {{name="CudaTensor", default=true, returned=true},
-      {name="CudaTensor"},
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor},
       {name="index"}})
 
 for _,name in ipairs({"var", "std"}) do
    wrap(name,
         cname(name .. "all"),
-        {{name="CudaTensor"},
-         {name="float", creturned=true}})
+        {{name=Tensor},
+         {name=real, creturned=true}})
 end
 
 wrap("norm",
      cname("normall"),
-     {{name="CudaTensor"},
-      {name="float", default=2},
-      {name="float", creturned=true}},
+     {{name=Tensor},
+      {name=real, default=2},
+      {name=real, creturned=true}},
      cname("norm"),
-     {{name="CudaTensor", default=true, returned=true},
-      {name="CudaTensor"},
-      {name="float"},
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor},
+      {name=real},
       {name="index"}})
 
 wrap("renorm",
      cname("renorm"),
-     {{name="CudaTensor", default=true, returned=true, method={default='nil'}},
-      {name="CudaTensor", method={default=1}},
-      {name="float"},
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name=Tensor, method={default=1}},
+      {name=real},
       {name="index"},
-      {name="float"}})
+      {name=real}})
 
 wrap("dist",
      cname("dist"),
-     {{name="CudaTensor"},
-      {name="CudaTensor"},
-      {name="float", default=2},
-      {name="float", creturned=true}})
+     {{name=Tensor},
+      {name=Tensor},
+      {name=real, default=2},
+      {name=real, creturned=true}})
 
 wrap("squeeze",
      cname("squeeze"),
-     {{name="CudaTensor", default=true, returned=true, postcall=function(arg)
+     {{name=Tensor, default=true, returned=true, postcall=function(arg)
           local txt = {}
           if arg.returned then
              table.insert(txt, string.format('if(arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
@@ -520,9 +553,9 @@ wrap("squeeze",
           end
           return table.concat(txt, '\n')
      end},
-      {name="CudaTensor"}},
+      {name=Tensor}},
      cname("squeeze1d"),
-     {{name="CudaTensor", default=true, returned=true,
+     {{name=Tensor, default=true, returned=true,
        postcall=
           function(arg)
              local txt = {}
@@ -533,7 +566,7 @@ wrap("squeeze",
              return table.concat(txt, '\n')
           end},
 
-      {name="CudaTensor",
+      {name=Tensor,
        precall=
           function(arg)
              return string.format('{int hasdims = arg%d->nDimension > 1;', arg.i)
