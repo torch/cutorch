@@ -15,14 +15,6 @@ local times = {}
 
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
-local function float(x)
-   if type(x) == 'number' then
-      return x
-   else
-      return x:float()
-   end
-end
-
 local function isEqual(a, b, tolerance, ...)
    if a == nil and b == nil then return true end
    if a == nil and b ~= nil then return false end
@@ -51,10 +43,10 @@ local function compareFloatAndCuda(x, fn, ...)
       tester:assertne(x_cuda[fn], nil,
          string.format("Missing function CudaTensor.%s", fn))
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, ...)
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(x_cuda[fn](x_cuda, ...))
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, ...)
    elseif type(fn) == 'function' then
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, ...)
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(fn(x_cuda, ...))
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = fn(x_cuda, ...)
    else
       error("Incorrect function type")
    end
@@ -90,10 +82,10 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
       tester:assertne(x_cuda[fn], nil,
          string.format("Missing function CudaTensor.%s", fn))
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(x_cuda[fn](x_cuda, unpack(cuda_args)))
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, unpack(cuda_args))
    elseif type(fn) == 'function' then
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, unpack(cpu_args))
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = float(fn(x_cuda, unpack(cuda_args)))
+      res1_cuda, res2_cuda, res3_cuda, res4_cuda = fn(x_cuda, unpack(cuda_args))
    else
       error("Incorrect function type")
    end
@@ -299,6 +291,15 @@ function test.max()
    compareFloatAndCuda(x, 'max')
    compareFloatAndCuda(x, 'max', 1)
    compareFloatAndCuda(x, 'max', 2)
+end
+
+function test.min()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'min')
+   compareFloatAndCuda(x, 'min', 1)
+   compareFloatAndCuda(x, 'min', 2)
 end
 
 function test.var()
