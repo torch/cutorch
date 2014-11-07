@@ -446,6 +446,14 @@ for _,name in ipairs({"log", "log1p", "exp",
 
 end
 
+wrap("atan2",
+     cname("atan2"),
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=1}},
+        {name=Tensor}}
+)
+
+
 wrap("pow",
      cname("pow"),
      {{name=Tensor, returned=true, method={default='nil'}},
