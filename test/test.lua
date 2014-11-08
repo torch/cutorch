@@ -52,13 +52,13 @@ local function compareFloatAndCuda(x, fn, ...)
    end
    local tolerance = 1e-5
    tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
-      string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+      string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
    tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
    tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
    tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
 end
 
 local function compareFloatAndCudaTensorArgs(x, fn, ...)
