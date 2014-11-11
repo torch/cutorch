@@ -159,6 +159,54 @@ wrap.types.LongArg = {
    end
 }
 
+wrap.types.State = {
+
+   helpname = function(arg)
+      return 'state'
+   end,
+
+   declare = function(arg)
+      return string.format('THCudaState *arg%d = NULL;' , arg.i)
+   end,
+
+   init = function(arg)
+      if not arg.invisible or not arg.component then
+         error('The cutorch state must always be invisible and a component must be specified.')
+      end
+   end,
+
+   check = function(arg, idx)
+      return string.format('lua_islightuserdata(L, %d)' , idx)
+   end,
+
+   read = function(arg, idx)
+      return string.format('arg%d = lua_touserdata(L, %d)' , arg.i, idx)
+   end,
+
+   carg = function(arg, idx)
+      return string.format('arg%d->%sState' , arg.i, arg.component)
+   end,
+
+   creturn = function(arg, idx)
+      return string.format('arg%d->%sState' , arg.i, arg.component)
+   end,
+
+   precall = function(arg)
+      -- Get THCudaState pointer from 'cutorch._state'.
+      local txt = {}
+      table.insert(txt, 'lua_getglobal(L, "cutorch");')
+      table.insert(txt, 'lua_getfield(L, -1, "_state");')
+      table.insert(txt, string.format('arg%d = lua_touserdata(L, -1);', arg.i))
+      -- Remove state and cutorch table from stack.
+      table.insert(txt, 'lua_pop(L, 2);')
+      return table.concat(txt, '\n');
+   end,
+
+   postcall = function(arg)
+   end,
+
+}
+
 function interface.luaname2wrapname(self, name)
    return string.format('cutorch_CudaTensor_%s', name)
 end
@@ -462,13 +510,15 @@ wrap("pow",
 
 wrap("rand",
      cname("rand"),
-     {{name=Tensor, default=true, returned=true, method={default='nil'}},
-        {name="LongArg"}})
+     {{name="State", component="rng", default=true, invisible=true},
+      {name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name="LongArg"}})
 
 wrap("randn",
      cname("randn"),
-     {{name=Tensor, default=true, returned=true, method={default='nil'}},
-        {name="LongArg"}})
+     {{name="State", component="rng", default=true, invisible=true},
+      {name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name="LongArg"}})
 
 wrap("clamp",
      cname("clamp"),
@@ -494,7 +544,8 @@ for _,f in ipairs({{name='geometric'},
 
    wrap(f.name,
         cname(f.name),
-        {{name=Tensor, returned=true},
+        {{name="State", component="rng", default=true, invisible=true},
+         {name=Tensor, returned=true},
          {name=real, default=f.a}})
 end
 
@@ -505,7 +556,8 @@ for _,f in ipairs({{name='uniform', a=0, b=1},
 
    wrap(f.name,
         cname(f.name),
-        {{name=Tensor, returned=true},
+        {{name="State", component="rng", default=true, invisible=true},
+         {name=Tensor, returned=true},
          {name=real, default=f.a},
          {name=real, default=f.b}})
 end
@@ -514,7 +566,8 @@ for _,f in ipairs({{name='exponential'}}) do
 
    wrap(f.name,
         cname(f.name),
-        {{name=Tensor, returned=true},
+        {{name="State", component="rng", default=true, invisible=true},
+         {name=Tensor, returned=true},
          {name=real, default=f.a}})
 end
 
