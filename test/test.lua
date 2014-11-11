@@ -35,8 +35,8 @@ local function isEqual(a, b, tolerance, ...)
 end
 
 local function compareFloatAndCuda(x, fn, ...)
-   x_cpu    = x:float()
-   x_cuda   = x_cpu:cuda()
+   local x_cpu    = x:float()
+   local x_cuda   = x_cpu:cuda()
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
    local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    if type(fn) == 'string' then
