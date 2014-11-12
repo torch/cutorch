@@ -159,6 +159,12 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
   return 1;
 }
 
+static int cutorch_CudaTensor_getDevice(lua_State *L) {
+  THCudaTensor *tensor = luaT_checkudata(L, 1, "torch.CudaTensor");
+  lua_pushinteger(L, THCudaTensor_getDevice(tensor) + 1);
+  return 1;
+}
+
 void cutorch_CudaTensor_init(lua_State* L)
 {
   /* the standard stuff */
@@ -200,4 +206,10 @@ void cutorch_CudaTensor_init(lua_State* L)
       lua_pop(L, 1);
     }
   }
+
+  luaT_pushmetatable(L, "torch.CudaTensor");
+  lua_pushcfunction(L, cutorch_CudaTensor_getDevice);
+  lua_setfield(L, -2, "getDevice");
+
+  lua_pop(L, 1);
 }

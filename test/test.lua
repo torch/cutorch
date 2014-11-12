@@ -144,6 +144,12 @@ function test.repeatTensor()
 end
 
 function test.copyNoncontiguous()
+     local x = torch.FloatTensor():rand(1, 1)
+     local f = function(src)
+        return src.new(2, 2):copy(src:expand(2, 2))
+     end
+     compareFloatAndCuda(x, f)
+
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1)
    local f = function(src)
@@ -356,15 +362,6 @@ function test.sum()
    compareFloatAndCuda(x, 'sum', 2)
 end
 
-function test.cumsum()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'cumsum')
-   compareFloatAndCuda(x, 'cumsum', 1)
-   compareFloatAndCuda(x, 'cumsum', 2)
-end
-
 function test.prod()
    local minsize = 10
    local maxsize = 20
@@ -374,15 +371,6 @@ function test.prod()
    compareFloatAndCuda(x, 'prod')
    compareFloatAndCuda(x, 'prod', 1)
    compareFloatAndCuda(x, 'prod', 2)
-end
-
-function test.cumprod()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'cumprod')
-   compareFloatAndCuda(x, 'cumprod', 1)
-   compareFloatAndCuda(x, 'cumprod', 2)
 end
 
 function test.round()
@@ -891,9 +879,46 @@ function test.restore_rng()
    tester:asserteq(cutorch.initialSeed(), seed, "seed was not restored")
 end
 
+function test.multi_gpu_random()
+   local rs = cutorch.getRNGState()
+   cutorch.manualSeedAll(1) -- set all device seeds to be the same
+
+   -- requires at least 2 devices
+   local device_count = cutorch.getDeviceCount()
+   if device_count < 2 then
+      return
+   end
+   cutorch.setDevice(1)
+   local n = 3
+   local expected = torch.CudaTensor(n):uniform():float()
+   for i = 2, device_count do
+      cutorch.setDevice(i)
+      local actual = torch.CudaTensor(n):uniform():float()
+      assert(isEqual(expected, actual), "random tensors dont seem to be equal")
+   end
+   cutorch.setRNGState(rs) -- cleanup after yourself
+end
+
+function test.get_device()
+    local device_count = cutorch.getDeviceCount()
+    local tensors = { }
+    for i = 1,device_count do
+        table.insert(tensors, torch.Tensor():cuda())
+    end
+    -- Unallocated tensors are on device 0
+    for i = 1,device_count do
+        assert(tensors[i]:getDevice() == 0, "unallocated tensor does not have deviceID 0")
+        -- Now allocate it
+        cutorch.setDevice(i)
+        tensors[i]:resize(1, 2, 3)
+        assert(tensors[i]:getDevice() == i, "tensor does not have the correct deviceID")
+    end
+end
+
 function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
+   cutorch.manualSeedAll(os.time())
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)
