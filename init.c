@@ -5,6 +5,7 @@
 extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaTensorMath_init(lua_State* L);
+extern void cutorch_CudaTensorOperator_init(lua_State* L);
 
 static int cutorch_synchronize(lua_State *L)
 {

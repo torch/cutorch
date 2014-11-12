@@ -122,11 +122,11 @@ wrap.types.LongArg = {
    end,
 
    check = function(arg, idx)
-      return string.format("torch_islongargs(L, %d)", idx)
+      return string.format("cutorch_islongargs(L, %d)", idx)
    end,
 
    read = function(arg, idx)
-      return string.format("arg%d = torch_checklongargs(L, %d);", arg.i, idx)
+      return string.format("arg%d = cutorch_checklongargs(L, %d);", arg.i, idx)
    end,
 
    carg = function(arg, idx)
