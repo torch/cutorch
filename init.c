@@ -104,6 +104,13 @@ static int cutorch_seed(lua_State *L)
   return 1;
 }
 
+static int cutorch_seedAll(lua_State *L)
+{
+  unsigned long seed = THCRandom_seedAll(getState(L)->rngState);
+  lua_pushnumber(L, seed);
+  return 1;
+}
+
 static int cutorch_initialSeed(lua_State *L)
 {
   unsigned long seed = THCRandom_initialSeed(getState(L)->rngState);
@@ -115,6 +122,13 @@ static int cutorch_manualSeed(lua_State *L)
 {
   unsigned long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeed(getState(L)->rngState, seed);
+  return 0;
+}
+
+static int cutorch_manualSeedAll(lua_State* L)
+{
+  unsigned long seed = luaL_checknumber(L, 1);
+  THCRandom_manualSeedAll(getState(L)->rngState, seed);
   return 0;
 }
 
@@ -141,8 +155,10 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"setDevice", cutorch_setDevice},
   {"seed", cutorch_seed},
+  {"seedAll", cutorch_seedAll},
   {"initialSeed", cutorch_initialSeed},
   {"manualSeed", cutorch_manualSeed},
+  {"manualSeedAll", cutorch_manualSeedAll},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
   {NULL, NULL}
