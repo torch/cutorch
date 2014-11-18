@@ -534,7 +534,7 @@ for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
          {name=Tensor},
          {name=real}},
         cname(name .. 'Tensor'),
-        {{name=Tensor, returned=true},
+        {{name=Tensor, default=true, returned=true},
          {name=Tensor},
          {name=Tensor}})
 end
