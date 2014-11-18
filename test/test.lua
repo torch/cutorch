@@ -321,6 +321,7 @@ function test.logicalTensor()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'gt', z)
    compareFloatAndCudaTensorArgs(x, 'gt', y, z)
 end
 
