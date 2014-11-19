@@ -916,6 +916,24 @@ function test.get_device()
     end
 end
 
+function test.reset_device()
+   local sz = math.floor(torch.uniform(minsize,maxsize))
+
+   cutorch.manualSeed(2384)
+   local t = torch.CudaTensor(sz):normal()
+
+   -- Create a CPU copy and destroy the GPU tensor because the GPU pointer will be invalidated by the reset.
+   local tf = t:float()
+   t = nil
+   collectgarbage()
+
+   -- After a device reset, the RNG state should have been reset to its initial state.
+   cutorch.deviceReset()
+   local u = torch.CudaTensor(sz):normal()
+
+   tester:assertTensorEq(tf, u:float(), 1e-6, "values not equal after restoring the RNG state")
+end
+
 function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())

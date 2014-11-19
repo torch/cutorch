@@ -7,6 +7,15 @@ extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
 
+static THCudaState* getState(lua_State *L)
+{
+  lua_getglobal(L, "cutorch");
+  lua_getfield(L, -1, "_state");
+  THCudaState *state = lua_touserdata(L, -1);
+  lua_pop(L, 2);
+  return state;
+}
+
 static int cutorch_synchronize(lua_State *L)
 {
   cudaDeviceSynchronize();
@@ -25,6 +34,7 @@ static int cutorch_getDevice(lua_State *L)
 static int cutorch_deviceReset(lua_State *L)
 {
   THCudaCheck(cudaDeviceReset());
+  THCRandom_resetGenerator(getState(L)->rngState);
   return 0;
 }
 
@@ -34,15 +44,6 @@ static int cutorch_getDeviceCount(lua_State *L)
   THCudaCheck(cudaGetDeviceCount(&ndevice));
   lua_pushnumber(L, ndevice);
   return 1;
-}
-
-static THCudaState* getState(lua_State *L)
-{
-  lua_getglobal(L, "cutorch");
-  lua_getfield(L, -1, "_state");
-  THCudaState *state = lua_touserdata(L, -1);
-  lua_pop(L, 2);
-  return state;
 }
 
 static int cutorch_setDevice(lua_State *L)
