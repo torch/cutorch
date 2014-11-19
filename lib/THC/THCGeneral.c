@@ -1,6 +1,7 @@
 #include "THCGeneral.h"
 #include "TH.h"
 #include "THCTensorRandom.h"
+#include "THCBlas.h"
 
 void THCudaInit(THCudaState* state)
 {
@@ -13,7 +14,8 @@ void THCudaInit(THCudaState* state)
   state->rngState = (THCudaRNGState*)malloc(sizeof(THCudaRNGState));
   THCRandom_init(state->rngState, count, device);
 
-  THCudaBlas_init(count, device);
+  state->blasState = (THCudaBlasState*)malloc(sizeof(THCudaBlasState));
+  THCudaBlas_init(state->blasState, count, device);
 
   int i,j;
   for(i=0; i < count; ++i)
@@ -37,7 +39,8 @@ void THCudaShutdown(THCudaState* state)
 {
   THCRandom_shutdown(state->rngState);
   free(state->rngState);
-  THCudaBlas_shutdown();
+  THCudaBlas_shutdown(state->blasState);
+  free(state->blasState);
 }
 
 void __THCudaCheck(cudaError_t err, const char *file, const int line)

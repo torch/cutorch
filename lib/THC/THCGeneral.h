@@ -24,9 +24,11 @@
 # define THC_API THC_EXTERNC
 #endif
 
-THC_API void THCudaBlas_init(int num_devices, int current_device);
-THC_API void THCudaBlas_shutdown();
-THC_API void THCudaBlas_setHandle(int device);
+struct THCudaBlasState;
+
+THC_API void THCudaBlas_init(struct THCudaBlasState* state, int num_devices, int current_device);
+THC_API void THCudaBlas_shutdown(struct THCudaBlasState* state);
+THC_API void THCudaBlas_setHandle(struct THCudaBlasState* state, int device);
 
 struct THCudaRNGState;  /* Random number generator state. */
 
@@ -34,6 +36,7 @@ struct THCudaRNGState;  /* Random number generator state. */
 typedef struct THCudaState
 {
   struct THCudaRNGState* rngState;
+  struct THCudaBlasState* blasState;
 } THCudaState;
 
 THC_API void THCudaInit(THCudaState* state);
