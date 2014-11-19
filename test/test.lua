@@ -768,7 +768,7 @@ function test.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
    t:uniform(min, max)
-   checkIfUniformlyDistributed(t, min, max, tolerance)
+   checkIfUniformlyDistributed(t, min, max)
 end
 
 function test.bernoulli()
