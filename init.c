@@ -142,6 +142,14 @@ static int cutorch_setRNGState(lua_State *L)
   return 0;
 }
 
+static int cutorch_getState(lua_State* L)
+{
+  lua_getglobal(L, "cutorch");
+  lua_getfield(L, -1, "_state");
+  lua_remove(L, -2);
+  return 1;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"getDevice", cutorch_getDevice},
@@ -156,6 +164,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"manualSeedAll", cutorch_manualSeedAll},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
+  {"getState", cutorch_getState},
   {NULL, NULL}
 };
 
