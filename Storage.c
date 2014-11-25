@@ -12,7 +12,7 @@
 
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
-    float *fdata = THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float*)THAlloc(sizeof(float)*size);                 \
     THFile_readFloatRaw(file, fdata, size);                             \
     THCudaCheck(cudaMemcpy(data, fdata, size * sizeof(float), cudaMemcpyHostToDevice)); \
     THFree(fdata);                                                      \
@@ -20,7 +20,7 @@
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
-    float *fdata = THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float*)THAlloc(sizeof(float)*size);                 \
     THCudaCheck(cudaMemcpy(fdata, data, size * sizeof(float), cudaMemcpyDeviceToHost)); \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
