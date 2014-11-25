@@ -80,9 +80,9 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
   long *sz, *st, *szh;
   int i;
   
-  sz = THAlloc(sizeof(long)*self->nDimension);
-  st = THAlloc(sizeof(long)*self->nDimension);
-  szh = THAlloc(sizeof(long)*self->nDimension);
+  sz = (long*)THAlloc(sizeof(long)*self->nDimension);
+  st = (long*)THAlloc(sizeof(long)*self->nDimension);
+  szh = (long*)THAlloc(sizeof(long)*self->nDimension);
 
   for(i = self->nDimension-1; i >= 0; i--)
   {
