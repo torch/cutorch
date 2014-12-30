@@ -143,6 +143,113 @@ function test.repeatTensor()
    compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
 
+
+function test.copyRandomizedTest()
+   local maxSize = 1000000 -- 1 million elements max
+   local ndimInput = torch.random(10)
+   local function randomSizeGenerator(ndimInput)
+      local size = {}
+      local totalSize = 1
+      for i=1, ndimInput do
+         size[i] = torch.random(25)
+         totalSize = totalSize * size[i]
+      end
+      return size, totalSize
+   end
+   local inputSize, nElem = randomSizeGenerator(ndimInput)
+   while nElem > maxSize do
+      inputSize, nElem = randomSizeGenerator(ndimInput)
+   end
+
+   -- http://rosettacode.org/wiki/Prime_decomposition#Lua
+   local function IsPrime(n)
+      if n <= 1 or (n ~= 2 and n % 2 == 0) then return false end
+      for i=3, math.sqrt(n), 2 do if n % i == 0 then return false end end
+         return true
+   end
+   local function PrimeDecomposition(n)
+      local f = {}
+      if IsPrime(n) then f[1] = n; return f end
+      local i = 2
+      repeat
+         while n % i == 0 do f[#f + 1] = i; n = n / i end
+         repeat i = i + 1 until IsPrime( i )
+      until n == 1
+      return f
+   end
+   local function constructOutput(size)
+      local outSize = {}
+      for i=1, #size do outSize[i] = size[i] end
+      for i=1, 10 do -- 10 randomizations
+         -- pick an input dim
+         local dim = torch.random(1, #size)
+         -- factor it
+         local factors = PrimeDecomposition(outSize[dim])
+         if #factors ~= 0 then
+            -- remove one of the factors
+            local factor = factors[torch.random(#factors)]
+            local addNewDim = torch.random(1, 2)
+            if addNewDim == 1 then -- add it as a new dimension
+               outSize[dim] = outSize[dim] / factor
+               -- where to insert new dimension
+               local where = torch.random(1, #outSize)
+               local o = {}
+               o[where] = factor
+               local index = 1
+               for j=1, #outSize+1 do
+                  if j == where then
+                     o[j] = factor
+                  else
+                     o[j] = outSize[index]
+                     index = index + 1
+                  end
+               end
+               outSize = o
+            else -- or multiply the factor to another dimension
+               local where = torch.random(1, #outSize)
+               outSize[dim] = outSize[dim] / factor
+               outSize[where] = outSize[where] * factor
+            end
+         end
+      end
+      return outSize
+   end
+   local outSize = constructOutput(inputSize)
+   local nelem1 = 1
+   local nelem2 = 1
+   for i=1, #inputSize do nelem1 = nelem1 * inputSize[i] end
+   for i=1, #outSize do nelem2 = nelem2 * outSize[i] end
+   tester:assert(nelem1, nelem2, 'input and output sizes have to be the same')
+
+   local input = torch.randn(torch.LongStorage(inputSize)):cuda()
+   local output = torch.randn(torch.LongStorage(outSize)):cuda()
+   -- function to randomly transpose a tensor
+   local function randomlyTranspose(input)
+      local d1 = torch.random(1, input:dim())
+      local d2 = torch.random(1, input:dim())
+      if d1 ~= d2 then input = input:transpose(d1, d2) end
+      return input
+   end
+   -- randomly transpose with 50% prob
+   local transposeInput = torch.random(1, 2)
+   local transposeOutput = torch.random(1, 2)
+   if transposeInput == 1 then
+      for i=1, 10 do input = randomlyTranspose(input) end
+   end
+   if transposeOutput == 1 then
+      for i=1, 10 do output = randomlyTranspose(output) end
+   end
+   output:copy(input)
+   local err = (output - input):abs():max()
+   if err ~= 0 then
+      print('copyRandomizedTest failure input size: ', input:size())
+      print('copyRandomizedTest failure input stride: ', input:stride())
+      print('copyRandomizedTest failure output size: ', output:size())
+      print('copyRandomizedTest failure output stride: ', output:stride())
+   end
+   tester:assert(err == 0, 'diverging input and output in copy test')
+end
+
 function test.copyNoncontiguous()
      local x = torch.FloatTensor():rand(1, 1)
      local f = function(src)
@@ -186,6 +293,29 @@ function test.copyNoncontiguous()
       return src.new(sz, sz):copy(src)
    end
    compareFloatAndCuda(x, f)
+
+   -- case for https://github.com/torch/cutorch/issues/90
+   do
+      local val = 1
+      local ps = torch.LongStorage({4, 4, 4})
+      local cube = torch.Tensor(ps):apply(
+         function()
+            val = val + 1
+            return val
+         end
+                                     ):cuda()
+
+      local ps = torch.LongStorage({4, 12})
+      local x = torch.CudaTensor(ps):fill(-1)
+
+      local l = 2
+      local h = 1
+      local w = 2
+
+      x[{{1},{1,9}}]:copy(cube[l][{{h,h+2},{w,w+2}}])
+      tester:assert((x[{1,{1,9}}]-cube[l][{{h,h+2},{w,w+2}}]):abs():max() == 0,
+         'diverging input and output in copy test')
+   end
 end
 
 function test.largeNoncontiguous()
