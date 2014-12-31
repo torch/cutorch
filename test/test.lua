@@ -143,9 +143,8 @@ function test.repeatTensor()
    compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
 
-
 function test.copyRandomizedTest()
-   local maxSize = 1000000 -- 1 million elements max
+   local maxSize = 10000000 -- 1M elements max
    local ndimInput = torch.random(10)
    local function randomSizeGenerator(ndimInput)
       local size = {}
@@ -157,7 +156,16 @@ function test.copyRandomizedTest()
       return size, totalSize
    end
    local inputSize, nElem = randomSizeGenerator(ndimInput)
+   local attemptsAtSizeGeneration = 1
    while nElem > maxSize do
+      attemptsAtSizeGeneration = attemptsAtSizeGeneration + 1
+      -- make atmost 100 attempts to generate sizes randomly.
+      -- this guarantees that even in the worst case,
+      -- this test does not run forever
+      if attemptsAtSizeGeneration == 100 then
+         inputSize = {1, 10, 100}
+         break
+      end
       inputSize, nElem = randomSizeGenerator(ndimInput)
    end
 
