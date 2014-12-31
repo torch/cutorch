@@ -143,28 +143,36 @@ function test.repeatTensor()
    compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
 
-
 function test.copyRandomizedTest()
-   local maxSize = 1000000 -- 1 million elements max
+   local maxSize = 1000000 -- 1M elements max
    local ndimInput = torch.random(10)
    local function randomSizeGenerator(ndimInput)
       local size = {}
       local totalSize = 1
-      for i=1, ndimInput do
+      for i = 1, ndimInput do
          size[i] = torch.random(25)
          totalSize = totalSize * size[i]
       end
       return size, totalSize
    end
    local inputSize, nElem = randomSizeGenerator(ndimInput)
+   local attemptsAtSizeGeneration = 1
    while nElem > maxSize do
+      attemptsAtSizeGeneration = attemptsAtSizeGeneration + 1
+      -- make atmost 100 attempts to generate sizes randomly.
+      -- this guarantees that even in the worst case,
+      -- this test does not run forever
+      if attemptsAtSizeGeneration == 100 then
+         inputSize = {1, 10, 100}
+         break
+      end
       inputSize, nElem = randomSizeGenerator(ndimInput)
    end
 
    -- http://rosettacode.org/wiki/Prime_decomposition#Lua
    local function IsPrime(n)
       if n <= 1 or (n ~= 2 and n % 2 == 0) then return false end
-      for i=3, math.sqrt(n), 2 do if n % i == 0 then return false end end
+      for i = 3, math.sqrt(n), 2 do if n % i == 0 then return false end end
          return true
    end
    local function PrimeDecomposition(n)
@@ -178,51 +186,90 @@ function test.copyRandomizedTest()
       return f
    end
    local function constructOutput(size)
-      local outSize = {}
-      for i=1, #size do outSize[i] = size[i] end
-      for i=1, 10 do -- 10 randomizations
+      local outputSize = {}
+      for i = 1, #size do outputSize[i] = size[i] end
+      for i = 1, 10 do -- 10 randomizations
          -- pick an input dim
          local dim = torch.random(1, #size)
          -- factor it
-         local factors = PrimeDecomposition(outSize[dim])
+         local factors = PrimeDecomposition(outputSize[dim])
          if #factors ~= 0 then
             -- remove one of the factors
             local factor = factors[torch.random(#factors)]
             local addNewDim = torch.random(1, 2)
             if addNewDim == 1 then -- add it as a new dimension
-               outSize[dim] = outSize[dim] / factor
+               outputSize[dim] = outputSize[dim] / factor
                -- where to insert new dimension
-               local where = torch.random(1, #outSize)
+               local where = torch.random(1, #outputSize)
                local o = {}
                o[where] = factor
                local index = 1
-               for j=1, #outSize+1 do
+               for j = 1, #outputSize + 1 do
                   if j == where then
                      o[j] = factor
                   else
-                     o[j] = outSize[index]
+                     o[j] = outputSize[index]
                      index = index + 1
                   end
                end
-               outSize = o
+               outputSize = o
             else -- or multiply the factor to another dimension
-               local where = torch.random(1, #outSize)
-               outSize[dim] = outSize[dim] / factor
-               outSize[where] = outSize[where] * factor
+               local where = torch.random(1, #outputSize)
+               outputSize[dim] = outputSize[dim] / factor
+               outputSize[where] = outputSize[where] * factor
             end
          end
       end
-      return outSize
+      return outputSize
    end
-   local outSize = constructOutput(inputSize)
+   local outputSize = constructOutput(inputSize)
    local nelem1 = 1
    local nelem2 = 1
-   for i=1, #inputSize do nelem1 = nelem1 * inputSize[i] end
-   for i=1, #outSize do nelem2 = nelem2 * outSize[i] end
+   for i = 1, #inputSize do nelem1 = nelem1 * inputSize[i] end
+   for i = 1, #outputSize do nelem2 = nelem2 * outputSize[i] end
    tester:assert(nelem1, nelem2, 'input and output sizes have to be the same')
+   local input, output
 
-   local input = torch.randn(torch.LongStorage(inputSize)):cuda()
-   local output = torch.randn(torch.LongStorage(outSize)):cuda()
+   local function createHoledTensor(size)
+      local osize = {}
+      for i = 1, #size do osize[i] = size[i] end
+      -- randomly inflate a few dimensions in osize
+      for i = 1, 3 do
+         local dim = torch.random(1,#osize)
+         local add = torch.random(4, 15)
+         osize[dim] = osize[dim] + add
+      end
+      local input = torch.FloatTensor(torch.LongStorage(osize))
+      -- now extract the input of correct size from 'input'
+      for i = 1, #size do
+         if input:size(i) ~= size[i] then
+            local bounds = torch.random(1, input:size(i) - size[i] + 1)
+            input = input:narrow(i, bounds, size[i])
+         end
+      end
+      return input
+   end
+
+   -- extract a sub-cube with probability 50%
+   -- (to introduce unreachable storage locations)
+   local holedInput = torch.random(1, 2)
+   local holedOutput = torch.random(1, 2)
+   if holedInput == 1 then
+      input = createHoledTensor(inputSize)
+   else
+      input = torch.FloatTensor(torch.LongStorage(inputSize))
+   end
+   input:storage():fill(-150)
+   input:copy(torch.linspace(1, input:nElement(), input:nElement()))
+
+   if holedOutput == 1 then
+      output = createHoledTensor(outputSize)
+   else
+      output = torch.FloatTensor(torch.LongStorage(outputSize))
+   end
+
+   output:storage():fill(-100)
+   output:fill(-1)
    -- function to randomly transpose a tensor
    local function randomlyTranspose(input)
       local d1 = torch.random(1, input:dim())
@@ -234,13 +281,39 @@ function test.copyRandomizedTest()
    local transposeInput = torch.random(1, 2)
    local transposeOutput = torch.random(1, 2)
    if transposeInput == 1 then
-      for i=1, 10 do input = randomlyTranspose(input) end
+      for i = 1, 10 do input = randomlyTranspose(input) end
    end
    if transposeOutput == 1 then
-      for i=1, 10 do output = randomlyTranspose(output) end
+      for i = 1, 10 do output = randomlyTranspose(output) end
    end
-   output:copy(input)
-   local err = (output - input):abs():max()
+
+   local input_tensor_float = input
+   local output_tensor_float = output
+   local input_storage_float = input:storage()
+   local output_storage_float = output:storage()
+   local input_storage_cuda =
+      torch.CudaStorage(input_storage_float:size()):copy(input_storage_float)
+   local output_storage_cuda =
+      torch.CudaStorage(output_storage_float:size()):copy(output_storage_float)
+   local input_tensor_cuda = torch.CudaTensor(input_storage_cuda,
+                                          input_tensor_float:storageOffset(),
+                                          input_tensor_float:size(),
+                                          input_tensor_float:stride())
+   local output_tensor_cuda = torch.CudaTensor(output_storage_cuda,
+                                          output_tensor_float:storageOffset(),
+                                          output_tensor_float:size(),
+                                          output_tensor_float:stride())
+
+   output_tensor_float:copy(input_tensor_float)
+   output_tensor_cuda:copy(input_tensor_cuda)
+
+   -- now compare output_storage_cuda and output_storage_float for exactness
+   local flat_tensor_float = torch.FloatTensor(input_storage_float)
+   local flat_storage_cuda =
+      torch.FloatStorage(input_storage_cuda:size()):copy(input_storage_cuda)
+   local flat_tensor_cuda = torch.FloatTensor(flat_storage_cuda)
+
+   local err = (flat_tensor_float - flat_tensor_cuda):abs():max()
    if err ~= 0 then
       print('copyRandomizedTest failure input size: ', input:size())
       print('copyRandomizedTest failure input stride: ', input:stride())
