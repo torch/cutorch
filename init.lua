@@ -8,4 +8,15 @@ include('Tensor.lua')
 include('FFI.lua')
 include('test.lua')
 
+function cutorch.withDevice(newDeviceID, closure)
+    local curDeviceID = cutorch.getDevice()
+    cutorch.setDevice(newDeviceID)
+    local vals = {pcall(closure)}
+    cutorch.setDevice(curDeviceID)
+    if vals[1] then
+        return unpack(vals, 2)
+    end
+    error(unpack(vals, 2))
+end
+
 return cutorch
