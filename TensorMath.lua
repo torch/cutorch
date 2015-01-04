@@ -490,7 +490,7 @@ for _,name in ipairs({"log", "log1p", "exp",
    wrap(name,
         cname(name),
         {{name=Tensor, default=true, returned=true, method={default='nil'}},
-         {name=Tensor, default=1}})
+         {name=Tensor, method={default=1}}})
 
 end
 
