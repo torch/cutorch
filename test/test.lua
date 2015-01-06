@@ -589,11 +589,10 @@ function test.var()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'var')
-   -- multi-dim var is not implemented
-   -- compareFloatAndCuda(x, 'var', 1, true)
-   -- compareFloatAndCuda(x, 'var', 1, false)
-   -- compareFloatAndCuda(x, 'var', 2, true)
-   -- compareFloatAndCuda(x, 'var', 2, false)
+   compareFloatAndCuda(x, 'var', 1, true)
+   compareFloatAndCuda(x, 'var', 1, false)
+   compareFloatAndCuda(x, 'var', 2, true)
+   compareFloatAndCuda(x, 'var', 2, false)
 end
 
 function test.std()
@@ -601,11 +600,10 @@ function test.std()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'std')
-   -- multi-dim std is not implemented
-   -- compareFloatAndCuda(x, 'std', 1, true)
-   -- compareFloatAndCuda(x, 'std', 1, false)
-   -- compareFloatAndCuda(x, 'std', 2, true)
-   -- compareFloatAndCuda(x, 'std', 2, false)
+   compareFloatAndCuda(x, 'std', 1, true)
+   compareFloatAndCuda(x, 'std', 1, false)
+   compareFloatAndCuda(x, 'std', 2, true)
+   compareFloatAndCuda(x, 'std', 2, false)
 end
 
 -- Test element-wise unary operators with both one and two arguments.

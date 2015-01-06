@@ -585,7 +585,12 @@ for _,name in ipairs({"var", "std"}) do
    wrap(name,
         cname(name .. "all"),
         {{name=Tensor},
-         {name=real, creturned=true}})
+         {name=real, creturned=true}},
+        cname(name),
+        {{name=Tensor, default=true, returned=true},
+         {name=Tensor},
+         {name="index"},
+         {name="boolean", default=false}})
 end
 
 wrap("norm",
