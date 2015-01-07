@@ -13,6 +13,10 @@
 #include "generic/THBlas.h"
 #undef TH_GENERIC_FILE
 
+TH_API void THCudaBlas_cgemm(char transa, char transb, long m, long n, long k, cuComplex alpha, cuComplex *a, long lda, cuComplex *b, long ldb, cuComplex beta, cuComplex *c, long ldc);
+
+TH_API void THCudaBlas_cgemv(char trans, long m, long n, cuComplex alpha, cuComplex *a, long lda, cuComplex *x, long incx, cuComplex beta, cuComplex *y, long incy);
+
 #undef THBlas_
 #undef real
 #undef Real
