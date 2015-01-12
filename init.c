@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
@@ -6,15 +7,6 @@ extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
-
-static THCudaState* getState(lua_State *L)
-{
-  lua_getglobal(L, "cutorch");
-  lua_getfield(L, -1, "_state");
-  THCudaState *state = lua_touserdata(L, -1);
-  lua_pop(L, 2);
-  return state;
-}
 
 static int cutorch_synchronize(lua_State *L)
 {
@@ -34,7 +26,7 @@ static int cutorch_getDevice(lua_State *L)
 static int cutorch_deviceReset(lua_State *L)
 {
   THCudaCheck(cudaDeviceReset());
-  THCRandom_resetGenerator(getState(L)->rngState);
+  THCRandom_resetGenerator(cutorch_getstate(L));
   return 0;
 }
 
@@ -48,10 +40,11 @@ static int cutorch_getDeviceCount(lua_State *L)
 
 static int cutorch_setDevice(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
-  THCRandom_setGenerator(getState(L)->rngState, device);
-  THCudaBlas_setHandle(device);
+  THCRandom_setGenerator(state, device);
+  THCudaBlas_setHandle(state, device);
   return 0;
 }
 
@@ -101,21 +94,21 @@ static int cutorch_getDeviceProperties(lua_State *L)
 
 static int cutorch_seed(lua_State *L)
 {
-  unsigned long seed = THCRandom_seed(getState(L)->rngState);
+  unsigned long seed = THCRandom_seed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_seedAll(lua_State *L)
 {
-  unsigned long seed = THCRandom_seedAll(getState(L)->rngState);
+  unsigned long seed = THCRandom_seedAll(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_initialSeed(lua_State *L)
 {
-  unsigned long seed = THCRandom_initialSeed(getState(L)->rngState);
+  unsigned long seed = THCRandom_initialSeed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
@@ -123,21 +116,21 @@ static int cutorch_initialSeed(lua_State *L)
 static int cutorch_manualSeed(lua_State *L)
 {
   unsigned long seed = luaL_checknumber(L, 1);
-  THCRandom_manualSeed(getState(L)->rngState, seed);
+  THCRandom_manualSeed(cutorch_getstate(L), seed);
   return 0;
 }
 
 static int cutorch_manualSeedAll(lua_State* L)
 {
   unsigned long seed = luaL_checknumber(L, 1);
-  THCRandom_manualSeedAll(getState(L)->rngState, seed);
+  THCRandom_manualSeedAll(cutorch_getstate(L), seed);
   return 0;
 }
 
 static int cutorch_getRNGState(lua_State *L)
 {
   THByteTensor* t = THByteTensor_new();
-  THCRandom_getRNGState(getState(L)->rngState, t);
+  THCRandom_getRNGState(cutorch_getstate(L), t);
   luaT_pushudata(L, t, "torch.ByteTensor");
   return 1;
 }
@@ -145,8 +138,16 @@ static int cutorch_getRNGState(lua_State *L)
 static int cutorch_setRNGState(lua_State *L)
 {
   THByteTensor* t = luaT_checkudata(L, 1, "torch.ByteTensor");
-  THCRandom_setRNGState(getState(L)->rngState, t);
+  THCRandom_setRNGState(cutorch_getstate(L), t);
   return 0;
+}
+
+static int cutorch_getState(lua_State *L)
+{
+  lua_getglobal(L, "cutorch");
+  lua_getfield(L, -1, "_state");
+  lua_remove(L, -2);
+  return 1;
 }
 
 static const struct luaL_Reg cutorch_stuff__ [] = {
@@ -163,6 +164,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"manualSeedAll", cutorch_manualSeedAll},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
+  {"getState", cutorch_getState},
   {NULL, NULL}
 };
 
@@ -173,7 +175,7 @@ int luaopen_libcutorch(lua_State *L)
   lua_newtable(L);
   luaL_register(L, NULL, cutorch_stuff__);
 
-  THCudaState* state = (THCudaState*)malloc(sizeof(THCudaState));
+  THCState* state = (THCState*)malloc(sizeof(THCState));
   THCudaInit(state);
 
   cutorch_CudaStorage_init(L);

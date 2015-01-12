@@ -24,4 +24,7 @@
 TORCH_API THLongStorage* cutorch_checklongargs(lua_State *L, int index);
 TORCH_API int cutorch_islongargs(lua_State *L, int index);
 
+struct THCState;
+TORCH_API struct THCState* cutorch_getstate(lua_State* L);
+
 #endif
