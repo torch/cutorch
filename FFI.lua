@@ -3,6 +3,11 @@ if jit then
    local ffi = require 'ffi'
 
    local cdefs = [[
+typedef struct THCState
+{
+  struct THCRNGState* rngState;
+} THCState;
+
 typedef struct THCudaStorage
 {
     float *data;
@@ -18,7 +23,7 @@ typedef struct THCudaTensor
     long *size;
     long *stride;
     int nDimension;
-    
+
     THCudaStorage *storage;
     long storageOffset;
     int refcount;
@@ -40,10 +45,10 @@ typedef struct THCudaTensor
 
    rawset(Tensor, "cdata", function(self) return Tensor_tt(self)[0] end)
 
-   rawset(Tensor, "data", 
-          function(self) 
-             self = Tensor_tt(self)[0] 
-             return self.storage ~= nil and self.storage.data + self.storageOffset or nil             
+   rawset(Tensor, "data",
+          function(self)
+             self = Tensor_tt(self)[0]
+             return self.storage ~= nil and self.storage.data + self.storageOffset or nil
           end
    )
 
