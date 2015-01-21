@@ -1,41 +1,37 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
 
-static cublasHandle_t* handles;
-static cublasHandle_t* current_handle;
-static int n_devices;
-
-void THCudaBlas_init(int devices, int device)
+void THCudaBlas_init(THCudaBlasState* state, int devices, int device)
 {
-  handles = (cublasHandle_t *)malloc(devices * sizeof(cublasHandle_t));
+  state->handles = (cublasHandle_t *)malloc(devices * sizeof(cublasHandle_t));
   for (int i = 0; i < devices; i++) {
     // Create handle on each device:
     cudaSetDevice(i);
-    cublasCreate(&handles[i]);
+    cublasCreate(&state->handles[i]);
   }
 
   // Set current handle:
-  current_handle = &handles[device];
-  n_devices = devices;
+  state->current_handle = &state->handles[device];
+  state->n_devices = devices;
 
   // Restore device:
   cudaSetDevice(device);
 }
 
-void THCudaBlas_shutdown()
+void THCudaBlas_shutdown(THCudaBlasState* state)
 {
-  for (int i = 0; i < n_devices; i++) {
-    cublasDestroy(handles[i]);
+  for (int i = 0; i < state->n_devices; i++) {
+    cublasDestroy(state->handles[i]);
   }
-  free(handles);
+  free(state->handles);
 }
 
-void THCudaBlas_setHandle(int device)
+void THCudaBlas_setHandle(THCudaBlasState* state, int device)
 {
-  current_handle = &handles[device];
+  state->current_handle = &state->handles[device];
 }
 
-void THCudaBlas_swap(long n, float *x, long incx, float *y, long incy)
+void THCudaBlas_swap(THCudaBlasState* state, long n, float *x, long incx, float *y, long incy)
 {
   if(n == 1)
   {
@@ -48,14 +44,14 @@ void THCudaBlas_swap(long n, float *x, long incx, float *y, long incy)
     int i_n = (int)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    THCublasCheck(cublasSswap(*current_handle, i_n, x, i_incx, y, i_incy));
+    THCublasCheck(cublasSswap(*state->current_handle, i_n, x, i_incx, y, i_incy));
     return;
   }
   THError("Cublas_swap only supports n, incx and"
           " incy upto signed integer limits: %d", INT_MAX);
 }
 
-void THCudaBlas_scal(long n, float a, float *x, long incx)
+void THCudaBlas_scal(THCudaBlasState* state, long n, float a, float *x, long incx)
 {
   if(n == 1)
     incx = 1;
@@ -64,14 +60,14 @@ void THCudaBlas_scal(long n, float a, float *x, long incx)
   {
     int i_n = (int)n;
     int i_incx = (int)incx;
-    THCublasCheck(cublasSscal(*current_handle, i_n, &a, x, i_incx));
+    THCublasCheck(cublasSscal(*state->current_handle, i_n, &a, x, i_incx));
     return;
   }
   THError("Cublas_scal only supports n and incx "
           "upto signed integer limits: %d", INT_MAX);
 }
 
-void THCudaBlas_copy(long n, float *x, long incx, float *y, long incy)
+void THCudaBlas_copy(THCudaBlasState* state, long n, float *x, long incx, float *y, long incy)
 {
   if(n == 1)
   {
@@ -84,7 +80,7 @@ void THCudaBlas_copy(long n, float *x, long incx, float *y, long incy)
     int i_n = (int)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    THCublasCheck(cublasScopy(*current_handle, i_n, x, i_incx, y, i_incy));
+    THCublasCheck(cublasScopy(*state->current_handle, i_n, x, i_incx, y, i_incy));
     return;
   }
 
@@ -92,7 +88,7 @@ void THCudaBlas_copy(long n, float *x, long incx, float *y, long incy)
           "upto signed integer limits: %d", INT_MAX);
 }
 
-void THCudaBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
+void THCudaBlas_axpy(THCudaBlasState* state, long n, float a, float *x, long incx, float *y, long incy)
 {
     if(n == 1)
   {
@@ -105,7 +101,7 @@ void THCudaBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
     int i_n = (int)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    THCublasCheck(cublasSaxpy(*current_handle, i_n, &a, x, i_incx, y, i_incy));
+    THCublasCheck(cublasSaxpy(*state->current_handle, i_n, &a, x, i_incx, y, i_incy));
     return;
   }
 
@@ -113,7 +109,7 @@ void THCudaBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
           "upto signed integer limits: %d", INT_MAX);
 }
 
-float THCudaBlas_dot(long n, float *x, long incx, float *y, long incy)
+float THCudaBlas_dot(THCudaBlasState* state, long n, float *x, long incx, float *y, long incy)
 {
   if(n == 1)
   {
@@ -127,7 +123,7 @@ float THCudaBlas_dot(long n, float *x, long incx, float *y, long incy)
     int i_incx = (int)incx;
     int i_incy = (int)incy;
     float result;
-    THCublasCheck(cublasSdot(*current_handle, i_n, x, i_incx, y, i_incy, &result));
+    THCublasCheck(cublasSdot(*state->current_handle, i_n, x, i_incx, y, i_incy, &result));
     cudaDeviceSynchronize();
     return result;
   }
@@ -137,7 +133,7 @@ float THCudaBlas_dot(long n, float *x, long incx, float *y, long incy)
 }
 
 /* Level 2 */
-void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
+void THCudaBlas_gemv(THCudaBlasState* state, char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
 {
   if(n == 1)
     lda = m;
@@ -158,14 +154,14 @@ void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda
     int i_incx = (int)incx;
     int i_incy = (int)incy;
 
-    THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
+    THCublasCheck(cublasSgemv(*state->current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
     return;
   }
   THError("Cublas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
 }
 
-void THCudaBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, long incy, float *a, long lda)
+void THCudaBlas_ger(THCudaBlasState* state, long m, long n, float alpha, float *x, long incx, float *y, long incy, float *a, long lda)
 {
   if(n == 1)
     lda = m;
@@ -178,7 +174,7 @@ void THCudaBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, 
       int i_incx = (int)incx;
       int i_incy = (int)incy;
 
-      THCublasCheck(cublasSger(*current_handle, i_m, i_n, &alpha, x, i_incx, y, i_incy, a, i_lda));
+      THCublasCheck(cublasSger(*state->current_handle, i_m, i_n, &alpha, x, i_incx, y, i_incy, a, i_lda));
       return;
     }
   THError("Cublas_ger only supports m, n, lda, incx, incy"
@@ -186,7 +182,7 @@ void THCudaBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, 
 }
 
 /* Level 3 */
-void THCudaBlas_gemm(char transa, char transb, long m, long n, long k, float alpha, float *a, long lda, float *b, long ldb, float beta, float *c, long ldc)
+void THCudaBlas_gemm(THCudaBlasState* state, char transa, char transb, long m, long n, long k, float alpha, float *a, long lda, float *b, long ldb, float beta, float *c, long ldc)
 {
   int transa_ = ((transa == 't') || (transa == 'T'));
   int transb_ = ((transb == 't') || (transb == 'T'));
@@ -237,7 +233,7 @@ void THCudaBlas_gemm(char transa, char transb, long m, long n, long k, float alp
     int i_ldb = (int)ldb;
     int i_ldc = (int)ldc;
 
-    THCublasCheck(cublasSgemm(*current_handle, opa, opb, i_m, i_n, i_k, &alpha, a, i_lda, b, i_ldb, &beta, c, i_ldc));
+    THCublasCheck(cublasSgemm(*state->current_handle, opa, opb, i_m, i_n, i_k, &alpha, a, i_lda, b, i_ldb, &beta, c, i_ldc));
     return;
   }
   THError("Cublas_gemm only supports m, n, k, lda, ldb, ldc"

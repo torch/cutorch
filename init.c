@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
@@ -6,15 +7,6 @@ extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
-
-static THCudaState* getState(lua_State *L)
-{
-  lua_getglobal(L, "cutorch");
-  lua_getfield(L, -1, "_state");
-  THCudaState *state = lua_touserdata(L, -1);
-  lua_pop(L, 2);
-  return state;
-}
 
 static int cutorch_synchronize(lua_State *L)
 {
@@ -50,8 +42,9 @@ static int cutorch_setDevice(lua_State *L)
 {
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
-  THCRandom_setGenerator(getState(L)->rngState, device);
-  THCudaBlas_setHandle(device);
+  THCudaState* state = getState(L);
+  THCRandom_setGenerator(state->rngState, device);
+  THCudaBlas_setHandle(state->blasState, device);
   return 0;
 }
 
@@ -149,6 +142,14 @@ static int cutorch_setRNGState(lua_State *L)
   return 0;
 }
 
+static int cutorch_getState(lua_State* L)
+{
+  lua_getglobal(L, "cutorch");
+  lua_getfield(L, -1, "_state");
+  lua_remove(L, -2);
+  return 1;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"getDevice", cutorch_getDevice},
@@ -163,6 +164,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"manualSeedAll", cutorch_manualSeedAll},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
+  {"getState", cutorch_getState},
   {NULL, NULL}
 };
 

@@ -285,8 +285,9 @@ wrap("add",
       {name=Tensor, method={default=1}},
       {name=real}},
      cname("cadd"),
-     {{name=Tensor, default=true, returned=true, method={default='nil'}},
-        {name=Tensor, method={default=1}},
+     {{name="State", component="blas", default=true, invisible=true},
+        {name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor, method={default=2}},
         {name=real, default=1},
         {name=Tensor}})
 
@@ -335,24 +336,25 @@ do
    local real = real
    wrap("mv",
         cname("addmv"),
-        {{name=Tensor, default=true, returned=true, method={default='nil'},
-          init=function(arg)
-             return table.concat(
-                {
-                   arg.__metatable.init(arg),
-                   string.format("TH%s_resize1d(%s, %s->size[0]);", Tensor, arg:carg(), arg.args[5]:carg())
-                }, '\n')
-          end,
-          precall=function(arg)
-             return table.concat(
-                {
-                   string.format("TH%s_zero(%s);", Tensor, arg:carg()),
-                   arg.__metatable.precall(arg)
-                }, '\n')
-          end
-         },
+        {{name="State", component="blas", default=true, invisible=true},
+           {name=Tensor, default=true, returned=true, method={default='nil'},
+            init=function(arg)
+               return table.concat(
+                  {
+                     arg.__metatable.init(arg),
+                     string.format("TH%s_resize1d(%s, %s->size[0]);", Tensor, arg:carg(), arg.args[6]:carg())
+                  }, '\n')
+            end,
+            precall=function(arg)
+               return table.concat(
+                  {
+                     string.format("TH%s_zero(%s);", Tensor, arg:carg()),
+                     arg.__metatable.precall(arg)
+                  }, '\n')
+            end
+           },
            {name=real, default=1, invisible=true},
-           {name=Tensor, default=1, invisible=true},
+           {name=Tensor, default=2, invisible=true},
            {name=real, default=1, invisible=true},
            {name=Tensor, dim=2},
            {name=Tensor, dim=1}}
@@ -360,24 +362,25 @@ do
 
    wrap("mm",
         cname("addmm"),
-        {{name=Tensor, default=true, returned=true, method={default='nil'},
-          init=function(arg)
-             return table.concat(
-                {
-                   arg.__metatable.init(arg),
-                   string.format("TH%s_resize2d(%s, %s->size[0], %s->size[1]);", Tensor, arg:carg(), arg.args[5]:carg(), arg.args[6]:carg())
-                }, '\n')
-          end,
-          precall=function(arg)
-             return table.concat(
-                {
-                   string.format("TH%s_zero(%s);", Tensor, arg:carg()),
-                   arg.__metatable.precall(arg)
-                }, '\n')
-          end
-         },
+        {{name="State", component="blas", default=true, invisible=true},
+           {name=Tensor, default=true, returned=true, method={default='nil'},
+            init=function(arg)
+               return table.concat(
+                  {
+                     arg.__metatable.init(arg),
+                     string.format("TH%s_resize2d(%s, %s->size[0], %s->size[1]);", Tensor, arg:carg(), arg.args[6]:carg(), arg.args[7]:carg())
+                  }, '\n')
+            end,
+            precall=function(arg)
+               return table.concat(
+                  {
+                     string.format("TH%s_zero(%s);", Tensor, arg:carg()),
+                     arg.__metatable.precall(arg)
+                  }, '\n')
+            end
+           },
            {name=real, default=1, invisible=true},
-           {name=Tensor, default=1, invisible=true},
+           {name=Tensor, default=2, invisible=true},
            {name=real, default=1, invisible=true},
            {name=Tensor, dim=2},
            {name=Tensor, dim=2}}
@@ -385,24 +388,25 @@ do
 
    wrap("ger",
         cname("addr"),
-        {{name=Tensor, default=true, returned=true, method={default='nil'},
-          init=function(arg)
-             return table.concat(
-                {
-                   arg.__metatable.init(arg),
-                   string.format("TH%s_resize2d(%s, %s->size[0], %s->size[0]);", Tensor, arg:carg(), arg.args[5]:carg(), arg.args[6]:carg())
-                }, '\n')
-          end,
-          precall=function(arg)
-             return table.concat(
-                {
-                   string.format("TH%s_zero(%s);", Tensor, arg:carg()),
-                   arg.__metatable.precall(arg)
-                }, '\n')
-          end
-         },
+        {{name="State", component="blas", default=true, invisible=true},
+           {name=Tensor, default=true, returned=true, method={default='nil'},
+            init=function(arg)
+               return table.concat(
+                  {
+                     arg.__metatable.init(arg),
+                     string.format("TH%s_resize2d(%s, %s->size[0], %s->size[0]);", Tensor, arg:carg(), arg.args[6]:carg(), arg.args[7]:carg())
+                  }, '\n')
+            end,
+            precall=function(arg)
+               return table.concat(
+                  {
+                     string.format("TH%s_zero(%s);", Tensor, arg:carg()),
+                     arg.__metatable.precall(arg)
+                  }, '\n')
+            end
+           },
            {name=real, default=1, invisible=true},
-           {name=Tensor, default=1, invisible=true},
+           {name=Tensor, default=2, invisible=true},
            {name=real, default=1, invisible=true},
            {name=Tensor, dim=1},
            {name=Tensor, dim=1}}
@@ -417,7 +421,8 @@ do
 
       interface:wrap(f.name,
                      cname(f.name),
-                     {{name=Tensor, default=true, returned=true},
+                     {{name="State", component="blas", default=true, invisible=true},
+                        {name=Tensor, default=true, returned=true},
                         {name=real, default=1},
                         {name=Tensor, dim=f.dim1},
                         {name=real, default=1},
@@ -427,16 +432,18 @@ do
       -- there is an ambiguity here, hence the more complicated setup
       method:wrap(f.name,
                   cname(f.name),
-                  {{name=Tensor, returned=true, dim=f.dim1},
+                  {{name="State", component="blas", default=true, invisible=true},
+                     {name=Tensor, returned=true, dim=f.dim1},
                      {name=real, default=1, invisible=true},
-                     {name=Tensor, default=1, dim=f.dim1},
+                     {name=Tensor, default=2, dim=f.dim1},
                      {name=real, default=1},
                      {name=Tensor, dim=f.dim2},
                      {name=Tensor, dim=f.dim3}},
                   cname(f.name),
-                  {{name=Tensor, returned=true, dim=f.dim1},
+                  {{name="State", component="blas", default=true, invisible=true},
+                     {name=Tensor, returned=true, dim=f.dim1},
                      {name=real},
-                     {name=Tensor, default=1, dim=f.dim1},
+                     {name=Tensor, default=2, dim=f.dim1},
                      {name=real},
                      {name=Tensor, dim=f.dim2},
                      {name=Tensor, dim=f.dim3}})
@@ -445,7 +452,8 @@ end
 
 wrap("dot",
      cname("dot"),
-     {{name=Tensor},
+     {{name="State", component="blas", default=true, invisible=true},
+      {name=Tensor},
       {name=Tensor},
       {name=real, creturned=true}})
 

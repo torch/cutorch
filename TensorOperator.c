@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "luaT.h"
 #include "THC.h"
 
@@ -30,7 +31,7 @@ static int cutorch_CudaTensorOperator___add__(lua_State *L)
     {
       THCudaTensor_resizeAs(r, tensor1);
       THCudaTensor_copy(r, tensor1);
-      THCudaTensor_cadd(r, r, 1, tensor2);
+      THCudaTensor_cadd(getState(L)->blasState, r, r, 1, tensor2);
     }
   }
   return 1;
@@ -53,7 +54,7 @@ static int cutorch_CudaTensorOperator___sub__(lua_State *L)
     {
       THCudaTensor_resizeAs(r, tensor2);
       THCudaTensor_fill(r, luaL_checknumber(L, 1));
-      THCudaTensor_cadd(r, r, -1, tensor2);
+      THCudaTensor_cadd(getState(L)->blasState, r, r, -1, tensor2);
     }
     else if(tensor1 && !tensor2)
     {
@@ -65,7 +66,7 @@ static int cutorch_CudaTensorOperator___sub__(lua_State *L)
     {
       THCudaTensor_resizeAs(r, tensor1);
       THCudaTensor_copy(r, tensor1);
-      THCudaTensor_cadd(r, r, -1, tensor2);
+      THCudaTensor_cadd(getState(L)->blasState, r, r, -1, tensor2);
     }
   }
   return 1;
@@ -116,18 +117,18 @@ static int cutorch_CudaTensorOperator___mul__(lua_State *L)
       int dims = tensor2->nDimension;
 
       if(dimt == 1 && dims == 1)
-        lua_pushnumber(L, THCudaTensor_dot(tensor1, tensor2)); /* ok, we wasted r, but who cares */
+        lua_pushnumber(L, THCudaTensor_dot(getState(L)->blasState, tensor1, tensor2)); /* ok, we wasted r, but who cares */
       else if(dimt == 2 && dims == 1)
       {
         THCudaTensor_resize1d(r, tensor1->size[0]);
         THCudaTensor_zero(r);
-        THCudaTensor_addmv(r, 1, r, 1, tensor1, tensor2);
+        THCudaTensor_addmv(getState(L)->blasState, r, 1, r, 1, tensor1, tensor2);
       }
       else if(dimt == 2 && dims == 2)
       {
         THCudaTensor_resize2d(r, tensor1->size[0], tensor2->size[1]);
         THCudaTensor_zero(r);
-        THCudaTensor_addmm(r, 1, r, 1, tensor1, tensor2);
+        THCudaTensor_addmm(getState(L)->blasState, r, 1, r, 1, tensor1, tensor2);
       }
       else
         luaL_error(L, "multiplication between %dD and %dD tensors not yet supported", tensor1->nDimension, tensor2->nDimension);
