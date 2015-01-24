@@ -4,28 +4,29 @@
 
 static int torch_Storage_(new)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THStorage *storage;
   if(lua_type(L, 1) == LUA_TSTRING)
   {
     const char *fileName = luaL_checkstring(L, 1);
     int isShared = luaT_optboolean(L, 2, 0);
     long size = luaL_optlong(L, 3, 0);
-    storage = THStorage_(newWithMapping)(fileName, size, isShared);
+    storage = THStorage_(newWithMapping)(state, fileName, size, isShared);
   }
   else if(lua_type(L, 1) == LUA_TTABLE)
   {
     long size = lua_objlen(L, 1);
     long i;
-    storage = THStorage_(newWithSize)(size);
+    storage = THStorage_(newWithSize)(state, size);
     for(i = 1; i <= size; i++)
     {
       lua_rawgeti(L, 1, i);
       if(!lua_isnumber(L, -1))
       {
-        THStorage_(free)(storage);
+        THStorage_(free)(state, storage);
         luaL_error(L, "element at index %d is not a number", i);
       }
-      THStorage_(set)(storage, i-1, (real)lua_tonumber(L, -1));
+      THStorage_(set)(state, storage, i-1, (real)lua_tonumber(L, -1));
       lua_pop(L, 1);
     }
   }
@@ -33,13 +34,13 @@ static int torch_Storage_(new)(lua_State *L)
   {
     long size = luaL_optlong(L, 1, 0);
     real *ptr = (real *)luaL_optlong(L, 2, 0);
-    storage = THStorage_(newWithData)(ptr, size);
+    storage = THStorage_(newWithData)(state, ptr, size);
     storage->flag = 0;
   }
   else
   {
     long size = luaL_optlong(L, 1, 0);
-    storage = THStorage_(newWithSize)(size);
+    storage = THStorage_(newWithSize)(state, size);
   }
   luaT_pushudata(L, storage, torch_Storage);
   return 1;
@@ -48,7 +49,7 @@ static int torch_Storage_(new)(lua_State *L)
 static int torch_Storage_(free)(lua_State *L)
 {
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  THStorage_(free)(storage);
+  THStorage_(free)(cutorch_getstate(L), storage);
   return 0;
 }
 
@@ -57,31 +58,32 @@ static int torch_Storage_(resize)(lua_State *L)
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   long size = luaL_checklong(L, 2);
 /*  int keepContent = luaT_optboolean(L, 3, 0); */
-  THStorage_(resize)(storage, size);/*, keepContent); */
+  THStorage_(resize)(cutorch_getstate(L), storage, size);/*, keepContent); */
   lua_settop(L, 1);
   return 1;
 }
 
 static int torch_Storage_(copy)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   void *src;
   if( (src = luaT_toudata(L, 2, torch_Storage)) )
-    THStorage_(copy)(storage, src);
+    THStorage_(copy)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
-    THStorage_(copyByte)(storage, src);
+    THStorage_(copyByte)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )
-    THStorage_(copyChar)(storage, src);
+    THStorage_(copyChar)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )
-    THStorage_(copyShort)(storage, src);
+    THStorage_(copyShort)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )
-    THStorage_(copyInt)(storage, src);
+    THStorage_(copyInt)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )
-    THStorage_(copyLong)(storage, src);
+    THStorage_(copyLong)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )
-    THStorage_(copyFloat)(storage, src);
+    THStorage_(copyFloat)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )
-    THStorage_(copyDouble)(storage, src);
+    THStorage_(copyDouble)(state, storage, src);
   else
     luaL_typerror(L, 2, "torch.*Storage");
   lua_settop(L, 1);
@@ -92,7 +94,7 @@ static int torch_Storage_(fill)(lua_State *L)
 {
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   double value = luaL_checknumber(L, 2);
-  THStorage_(fill)(storage, (real)value);
+  THStorage_(fill)(cutorch_getstate(L), storage, (real)value);
   lua_settop(L, 1);
   return 1;
 }
@@ -111,7 +113,7 @@ static int torch_Storage_(__newindex__)(lua_State *L)
     THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
     double number = luaL_checknumber(L, 3);
-    THStorage_(set)(storage, index, (real)number);
+    THStorage_(set)(cutorch_getstate(L), storage, index, (real)number);
     lua_pushboolean(L, 1);
   }
   else
@@ -126,7 +128,7 @@ static int torch_Storage_(__index__)(lua_State *L)
   {
     THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
-    lua_pushnumber(L, THStorage_(get)(storage, index));
+    lua_pushnumber(L, THStorage_(get)(cutorch_getstate(L), storage, index));
     lua_pushboolean(L, 1);
     return 2;
   }
@@ -145,7 +147,7 @@ static int torch_Storage_(string)(lua_State *L)
   {
     size_t len = 0;
     const char *str = lua_tolstring(L, -1, &len);
-    THStorage_(resize)(storage, len);
+    THStorage_(resize)(cutorch_getstate(L), storage, len);
     memmove(storage->data, str, len);
     lua_settop(L, 1);
   }
@@ -172,7 +174,7 @@ static int torch_Storage_(totable)(lua_State *L)
 
 static int torch_Storage_(factory)(lua_State *L)
 {
-  THStorage *storage = THStorage_(new)();
+  THStorage *storage = THStorage_(new)(cutorch_getstate(L));
   luaT_pushudata(L, storage, torch_Storage);
   return 1;
 }
@@ -194,7 +196,7 @@ static int torch_Storage_(read)(lua_State *L)
   THFile *file = luaT_checkudata(L, 2, "torch.File");
   long size = THFile_readLongScalar(file);
 
-  THStorage_(resize)(storage, size);
+  THStorage_(resize)(cutorch_getstate(L), storage, size);
   THFile_readRealRaw(file, storage->data, storage->size);
 
   return 0;
