@@ -940,6 +940,94 @@ function test.mm()
    end
 end
 
+function test.baddbmm()
+   local sizes = {
+      {16, 3, 1, 4},
+      {1, 12, 1, 7},
+      {24, 23, 22, 21},
+      {1, 1, 1, 1},
+      {1, 1, 7, 4},
+      {12, 1, 12, 1},
+      {10, 10, 10, 10},
+   }
+   for _, size in pairs(sizes) do
+      local b, n, k, m = unpack(size)
+      local cs = torch.randn(b, n, m)
+      local as = torch.randn(b, n, k)
+      local bs = torch.randn(b, k, m)
+      compareFloatAndCudaTensorArgs(cs, 'baddbmm', as, bs)
+   end
+end
+
+function test.baddbmmTransposed()
+   local b, n, k, m = 16, 3, 8, 4
+   -- Can't use compareFloatAndCudaTensorArgs because the transposition will be
+   -- lost when converting the tensor to a CudaTensor.
+   local c_cpu = torch.randn(m, n, b)  -- First and last dimensions will be tranposed.
+   local a_cpu = torch.randn(n, b, k)  -- First two dimensions will be transposed.
+   local b_cpu = torch.randn(b, m, k)  -- Last two dimensions will be transposed.
+
+   local c_cuda = c_cpu:cuda()
+   local a_cuda = a_cpu:cuda()
+   local b_cuda = b_cpu:cuda()
+
+   c_cpu = c_cpu:transpose(1, 3)
+   c_cuda = c_cuda:transpose(1, 3)
+   a_cpu = a_cpu:transpose(1, 2)
+   a_cuda = a_cuda:transpose(1, 2)
+   b_cpu = b_cpu:transpose(2, 3)
+   b_cuda = b_cuda:transpose(2, 3)
+
+   c_cpu:baddbmm(a_cpu, b_cpu)
+   c_cuda:baddbmm(a_cuda, b_cuda)
+
+   tester:assert(isEqual(c_cpu, c_cuda, 1e-5),
+                 string.format("Divergent results between CPU and CUDA for function 'bmm'"))
+end
+
+function test.bmm()
+   local sizes = {
+      {16, 3, 1, 4},
+      {1, 12, 1, 7},
+      {24, 23, 22, 21},
+      {1, 1, 1, 1},
+      {1, 1, 7, 4},
+      {12, 1, 12, 1},
+      {10, 10, 10, 10},
+   }
+   for _, size in pairs(sizes) do
+      local b, n, k, m = unpack(size)
+      local cs = torch.zeros(b, n, m)
+      local as = torch.randn(b, n, k)
+      local bs = torch.randn(b, k, m)
+      compareFloatAndCudaTensorArgs(cs, 'bmm', as, bs)
+   end
+end
+
+function test.bmmTransposed()
+   local b, n, k, m = 16, 3, 8, 4
+   -- Can't use compareFloatAndCudaTensorArgs because the transposition will be
+   -- lost when converting the tensor to a CudaTensor.
+   local c_cpu = torch.zeros(b, n, m)
+   local a_cpu = torch.randn(b, k, n)  -- Last two dimensions will be transposed.
+   local b_cpu = torch.randn(m, k, b)  -- First and last dimensions will be transposed.
+
+   local c_cuda = c_cpu:cuda()
+   local a_cuda = a_cpu:cuda()
+   local b_cuda = b_cpu:cuda()
+
+   a_cpu = a_cpu:transpose(2, 3)
+   a_cuda = a_cuda:transpose(2, 3)
+   b_cpu = b_cpu:transpose(1, 3)
+   b_cuda = b_cuda:transpose(1, 3)
+
+   c_cpu:bmm(a_cpu, b_cpu)
+   c_cuda:bmm(a_cuda, b_cuda)
+
+   tester:assert(isEqual(c_cpu, c_cuda, 1e-5),
+                 string.format("Divergent results between CPU and CUDA for function 'bmm'"))
+end
+
 function test.ger()
    --[[ Size ]]--
    local sizes = {
