@@ -6,6 +6,7 @@ if jit then
 typedef struct THCState
 {
   struct THCRNGState* rngState;
+  struct THCBlasState* blasState;
 } THCState;
 
 typedef struct THCudaStorage
