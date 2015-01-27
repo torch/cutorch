@@ -431,6 +431,14 @@ wrap("sum",
         {name=Tensor},
         {name="index"}})
 
+for _, name in ipairs({"cumsum", "cumprod"}) do
+  wrap(name,
+       cname(name),
+       {{name=Tensor, default=true, returned=true},
+        {name=Tensor},
+        {name="index", default=1}})
+end
+
 wrap("prod",
      cname("prodall"),
      {{name=Tensor},
