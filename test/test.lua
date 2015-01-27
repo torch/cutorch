@@ -464,6 +464,14 @@ function test.cmul()
    compareFloatAndCudaTensorArgs(x, 'cmul', y)
 end
 
+function test.cpow()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'cpow', y)
+end
+
 function test.cdiv()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
@@ -665,6 +673,15 @@ function test.pow2()
    local y = torch.FloatTensor()
    local pow = torch.uniform(minvalue,maxvalue)
    compareFloatAndCudaTensorArgs(y, 'pow', x, pow)
+end
+
+function test.powExponentTensor()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local pow = torch.uniform(minvalue,maxvalue)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor()
+   compareFloatAndCudaTensorArgs(y, 'pow', pow, x)
 end
 
 function test.clamp1()

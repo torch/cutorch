@@ -265,17 +265,13 @@ wrap("div",
         {name=Tensor, method={default=1}},
         {name=real}})
 
-wrap("cmul",
-     cname("cmul"),
-     {{name=Tensor, returned=true, method={default='nil'}},
-      {name=Tensor, default=1},
-      {name=Tensor}})
-
-wrap("cdiv",
-     cname("cdiv"),
-     {{name=Tensor, returned=true, method={default='nil'}},
-      {name=Tensor, default=1},
-      {name=Tensor}})
+for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
+  wrap(name,
+       cname(name),
+       {{name=Tensor, returned=true, method={default='nil'}},
+        {name=Tensor, default=1},
+        {name=Tensor}})
+end
 
 wrap("addcmul",
      cname("addcmul"),
@@ -469,7 +465,11 @@ wrap("pow",
      cname("pow"),
      {{name=Tensor, returned=true, method={default='nil'}},
       {name=Tensor, default=1},
-      {name=real}})
+      {name=real}},
+     cname("tpow"),
+     {{name=Tensor, returned=true, method={default='nil'}},
+      {name = real},
+      {name=Tensor, default=1}})
 
 wrap("rand",
      cname("rand"),
