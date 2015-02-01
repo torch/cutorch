@@ -477,13 +477,13 @@ wrap("atan2",
 
 wrap("pow",
      cname("pow"),
-     {{name=Tensor, returned=true, method={default='nil'}},
-      {name=Tensor, default=1},
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name=Tensor, method={default=1}},
       {name=real}},
      cname("tpow"),
-     {{name=Tensor, returned=true, method={default='nil'}},
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
       {name = real},
-      {name=Tensor, default=1}})
+      {name=Tensor, method={default=1}}})
 
 wrap("rand",
      cname("rand"),
