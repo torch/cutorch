@@ -574,6 +574,17 @@ function test.sum()
    compareFloatAndCuda(x, 'sum', 2)
 end
 
+function test.cumsum()
+   local minsize = 10
+   local maxsize = 20
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'cumsum')
+   compareFloatAndCuda(x, 'cumsum', 1)
+   compareFloatAndCuda(x, 'cumsum', 2)
+end
+
 function test.prod()
    local minsize = 10
    local maxsize = 20
@@ -583,6 +594,17 @@ function test.prod()
    compareFloatAndCuda(x, 'prod')
    compareFloatAndCuda(x, 'prod', 1)
    compareFloatAndCuda(x, 'prod', 2)
+end
+
+function test.cumprod()
+   local minsize = 10
+   local maxsize = 20
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'cumprod')
+   compareFloatAndCuda(x, 'cumprod', 1)
+   compareFloatAndCuda(x, 'cumprod', 2)
 end
 
 function test.round()
