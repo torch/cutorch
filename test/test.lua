@@ -143,6 +143,12 @@ function test.repeatTensor()
    compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
 
+function test.permute()
+   local perm = torch.randperm(7):totable()
+   local x = torch.FloatTensor():rand(1, 2, 3, 4, 5, 6, 7)
+   compareFloatAndCuda(x, 'permute', unpack(perm))
+end
+
 function test.copyRandomizedTest()
    local maxSize = 1000000 -- 1M elements max
    local ndimInput = torch.random(10)
