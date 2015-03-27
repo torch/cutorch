@@ -25,8 +25,10 @@ static int cutorch_getDevice(lua_State *L)
 
 static int cutorch_deviceReset(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THCudaCheck(cudaDeviceReset());
-  THCRandom_resetGenerator(cutorch_getstate(L));
+  THCudaBlas_reset(state);
+  THCRandom_resetGenerator(state);
   return 0;
 }
 
