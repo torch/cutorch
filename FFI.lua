@@ -7,6 +7,7 @@ typedef struct THCState
 {
   struct THCRNGState* rngState;
   struct THCBlasState* blasState;
+  struct cudaDeviceProp* deviceProperties;
 } THCState;
 
 typedef struct THCudaStorage

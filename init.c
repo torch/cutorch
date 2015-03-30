@@ -40,6 +40,15 @@ static int cutorch_getDeviceCount(lua_State *L)
   return 1;
 }
 
+static int cutorch_getMemoryUsage(lua_State *L) {
+  size_t freeBytes = 0;
+  size_t totalBytes = 0;
+  THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+  lua_pushnumber(L, freeBytes);
+  lua_pushnumber(L, totalBytes);
+  return 2;
+}
+
 static int cutorch_setDevice(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
@@ -158,6 +167,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"deviceReset", cutorch_deviceReset},
   {"getDeviceCount", cutorch_getDeviceCount},
   {"getDeviceProperties", cutorch_getDeviceProperties},
+  {"getMemoryUsage", cutorch_getMemoryUsage},
   {"setDevice", cutorch_setDevice},
   {"seed", cutorch_seed},
   {"seedAll", cutorch_seedAll},

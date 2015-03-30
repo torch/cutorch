@@ -5,21 +5,6 @@
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
-static void THCudaTensor_maskedFill(THCState *state, THCudaTensor *tensor, THByteTensor *mask, float value)
-{
-  THError("not yet implemented for CUDA");
-}
-
-static void THCudaTensor_maskedCopy(THCState *state, THCudaTensor *tensor, THByteTensor *mask, THCudaTensor* src)
-{
-  THError("not yet implemented for CUDA");
-}
-
-void THCudaTensor_maskedSelect(THCState *state, THCudaTensor *tensor, THCudaTensor* src, THByteTensor *mask)
-{
-  THError("not yet implemented for CUDA");
-}
-
 #define real float
 #define Real Cuda
 
