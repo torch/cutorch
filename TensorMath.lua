@@ -169,7 +169,7 @@ end
 
 local function lastdim(argn)
    return function(arg)
-      return string.format("THCudaTensor_nDimension(%s)", arg.args[argn]:carg())
+      return string.format("THCudaTensor_nDimension(cutorch_getstate(L), %s)", arg.args[argn]:carg())
    end
 end
 
@@ -288,6 +288,24 @@ wrap("addcdiv",
         {name=real, default=1},
         {name=Tensor},
         {name=Tensor}})
+
+wrap("maskedFill",
+     cname("maskedFill"),
+     {{name=Tensor, returned=true, method={default='nil'}},
+      {name=Tensor},
+      {name=real}})
+
+wrap("maskedCopy",
+     cname("maskedCopy"),
+     {{name=Tensor, returned=true, method={default='nil'}},
+	{name=Tensor},
+	{name=Tensor}})
+
+wrap("maskedSelect",
+     cname("maskedSelect"),
+     {{name=Tensor, returned=true, default=true},
+      {name=Tensor},
+      {name=Tensor}})
 
 do
    local Tensor = Tensor

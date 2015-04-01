@@ -3,7 +3,7 @@ if not cutorch then
    require 'cutorch'
    runtests = true
 end
-local tester
+
 local test = {}
 local msize = 100
 local minsize = 100
@@ -35,6 +35,8 @@ local function isEqual(a, b, tolerance, ...)
 end
 
 local function compareFloatAndCuda(x, fn, ...)
+   local args = {...}
+   args['input'] = x
    local x_cpu    = x:float()
    local x_cuda   = x_cpu:cuda()
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
@@ -51,14 +53,30 @@ local function compareFloatAndCuda(x, fn, ...)
       error("Incorrect function type")
    end
    local tolerance = 1e-5
-   tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
-      string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
-   tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
-   tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
-   tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
+   if not isEqual(res1_cpu, res1_cuda, tolerance) then
+      print(args)
+      tester:assert(false,
+                    string.format("Divergent results between CPU and CUDA" ..
+                                  " for function '%s' (return value 1)", tostring(fn)))
+   end
+   if not isEqual(res2_cpu, res2_cuda, tolerance) then
+      print(args)
+      tester:assert(false,
+                    string.format("Divergent results between CPU and CUDA" ..
+                                  " for function '%s' (return value 2)", tostring(fn)))
+   end
+   if not isEqual(res3_cpu, res3_cuda, tolerance) then
+      print(args)
+      tester:assert(false,
+                    string.format("Divergent results between CPU and CUDA" ..
+                                  " for function '%s' (return value 3)", tostring(fn)))
+   end
+   if not isEqual(res4_cpu, res4_cuda, tolerance) then
+      print(args)
+      tester:assert(false,
+                    string.format("Divergent results between CPU and CUDA" ..
+                                  " for function '%s' (return value 4)", tostring(fn)))
+   end
 end
 
 local function compareFloatAndCudaTensorArgs(x, fn, ...)
@@ -1229,7 +1247,7 @@ function test.multi_gpu_random()
    for i = 2, device_count do
       cutorch.setDevice(i)
       local actual = torch.CudaTensor(n):uniform():float()
-      assert(isEqual(expected, actual), "random tensors dont seem to be equal")
+      tester:assert(isEqual(expected, actual), "random tensors dont seem to be equal")
    end
    cutorch.setRNGState(rs) -- cleanup after yourself
 end
@@ -1242,12 +1260,53 @@ function test.get_device()
     end
     -- Unallocated tensors are on device 0
     for i = 1,device_count do
-        assert(tensors[i]:getDevice() == 0, "unallocated tensor does not have deviceID 0")
-        -- Now allocate it
-        cutorch.setDevice(i)
-        tensors[i]:resize(1, 2, 3)
-        assert(tensors[i]:getDevice() == i, "tensor does not have the correct deviceID")
+       tester:assert(tensors[i]:getDevice() == 0, "unallocated tensor does not have deviceID 0")
+       -- Now allocate it
+       cutorch.setDevice(i)
+       tensors[i]:resize(1, 2, 3)
+       tester:assert(tensors[i]:getDevice() == i, "tensor does not have the correct deviceID")
     end
+end
+
+function test.multi_gpu_copy_noncontig()
+   local srcDevice = 1
+   local dstDevice = cutorch.getDeviceCount()
+
+   local t1, t2
+   for transposeSrc = 0,1 do
+     for transposeDst = 0,1 do
+        cutorch.withDevice(srcDevice,
+           function() t1 = torch.CudaTensor(100000, 1000):fill(1) end)
+        cutorch.withDevice(dstDevice,
+           function() t2 = torch.CudaTensor(100000, 1000):fill(2) end)
+
+        if transposeSrc == 1 then -- maybe make t1 non-contiguous
+           cutorch.withDevice(srcDevice, function() t1=t1:transpose(1,2) end)
+        end
+        if transposeDst == 1 then -- maybe make t2 non-contiguous
+           cutorch.withDevice(dstDevice, function() t2=t2:transpose(1,2) end)
+        end
+        cutorch.synchronize()
+
+        -- try to induce a race on t2
+        cutorch.withDevice(dstDevice, function() t2:fill(3) end)
+
+        -- perform the copy
+        -- CudaTensor:copy() should not depend on the current device
+        t2:copy(t1)
+
+        -- try to induce a race on t1
+        cutorch.withDevice(srcDevice, function() t1:fill(4) end)
+
+        -- only synchronize with dstDevice because
+        -- previous line guarantees synchronization with srcDevice
+        cutorch.withDevice(dstDevice, function() cutorch.synchronize() end)
+
+        local t2_max = t2:max()
+        tester:assert(t2_max == 1, "bad copy, transposeSrc= " .. transposeSrc ..
+               " transposeDst= " .. transposeDst .. ". t2:max() = " .. t2_max)
+      end
+   end
 end
 
 function test.reset_device()
@@ -1268,6 +1327,179 @@ function test.reset_device()
    tester:assertTensorEq(tf, u:float(), 1e-6, "values not equal after restoring the RNG state")
 end
 
+function test.maskedSelect()
+   local n_row = math.random(minsize,maxsize)
+   local n_col = math.random(minsize,maxsize)
+
+   -- contiguous, no result tensor, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   local y = x:maskedSelect(mask)
+   x=x:cuda()
+   mask=mask:cuda()
+   local y_cuda = x:maskedSelect(mask)
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect")
+
+   -- non-contiguous, no result tensor, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   local y = x:t():maskedSelect(mask)
+   x=x:cuda()
+   mask=mask:cuda()
+   local y_cuda = x:t():maskedSelect(mask)
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect non-contiguous")
+
+   -- contiguous, with result tensor, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   local y = torch.FloatTensor()
+   y:maskedSelect(x, mask)
+   x=x:cuda()
+   mask=mask:cuda()
+   local y_cuda = torch.CudaTensor()
+   y_cuda:maskedSelect(x, mask)
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect (with result)")
+
+   -- non-contiguous, with result tensor, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   local y = torch.FloatTensor()
+   y:maskedSelect(x:t(), mask)
+   x=x:cuda()
+   mask=mask:cuda()
+   local y_cuda = torch.CudaTensor()
+   y_cuda:maskedSelect(x:t(), mask)
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+			 "Error in maskedSelect non-contiguous (with result)")
+
+   -- indexing maskedSelect a[a:gt(0.5)] for example
+   local x = torch.randn(n_row, n_col):float()
+   local y = x[x:gt(0.5)]
+   x=x:cuda()
+   mask=mask:cuda()
+   local y_cuda = x[x:gt(0.5)]
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect indexing x[x:gt(y)]")
+
+   -- indexing maskedSelect (non-contiguous) a[a:gt(0.5)] for example
+   local x = torch.randn(n_row, n_col):float()
+   local y = x:t()[x:t():gt(0.5)]
+   x=x:cuda()
+   mask=mask:cuda()
+   local y_cuda = x:t()[x:t():gt(0.5)]
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+			 "Error in maskedSelect indexing (non-contiguous) x[x:gt(y)]")
+end
+
+--[[
+waiting on clarification for: https://github.com/torch/torch7/pull/187
+function test.maskedCopy()
+   local n_row = math.random(minsize,maxsize)
+   local n_col = math.random(minsize,maxsize)
+
+   -- contiguous, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local y = x:clone():fill(-1)
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   y:maskedCopy(mask, x:clone())
+   local y_cuda=x:cuda():fill(-1)
+   mask=mask:cuda()
+   x=x:cuda()
+   y_cuda:maskedCopy(mask, x)
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedCopy (contiguous)")
+   -- non-contiguous source, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local y = x:clone():fill(-1)
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   y:maskedCopy(mask, x:t())
+   local y_cuda=x:cuda():fill(-1)
+   x=x:cuda()
+   mask=mask:cuda()
+   y_cuda:maskedCopy(mask, x:t())
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedCopy (non-contiguous source)")
+
+   -- non-contiguous result, cuda mask
+   local x = torch.randn(n_row, n_col):float()
+   local y = x:clone():fill(-1)
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   y:t():maskedCopy(mask, x:t())
+   local y_cuda=x:cuda():fill(-1)
+   x=x:cuda()
+   mask=mask:cuda()
+   y_cuda:t():maskedCopy(mask, x:t())
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedCopy (non-contiguous dest)")
+
+   -- indexing maskedCopy a[a:gt(0.5)] for example
+   local gt = torch.randn(n_row, n_col):float()
+   local x = gt:clone()
+   local y = torch.randn(n_row, n_col):float()
+   x[x:gt(0.5)] = y
+   local x_cuda = gt:cuda()
+   y=y:cuda()
+   x_cuda[x_cuda:gt(0.5)] = y
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedCopy indexing x[x:gt(y)]")
+
+   -- indexing maskedCopy non-contiguous src a[a:gt(0.5)] for example
+   local gt = torch.randn(n_row, n_col):float()
+   local x = gt:clone()
+   local y = torch.randn(n_row, n_col):float()
+   x[x:gt(0.5)] = y:t()
+   local x_cuda = gt:cuda()
+   y=y:cuda()
+   x_cuda[x_cuda:gt(0.5)] = y:t()
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedCopy indexing x[x:gt(y)]")
+
+   -- indexing maskedCopy non-contiguous dst a[a:gt(0.5)] for example
+   local gt = torch.randn(n_row, n_col):float()
+   local x = gt:clone()
+   local y = torch.randn(n_row, n_col):float()
+   x:t()[x:t():gt(0.5)] = y
+   local x_cuda = gt:cuda()
+   y=y:cuda()
+   x_cuda:t()[x_cuda:t():gt(0.5)] = y:t()
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedCopy indexing x[x:gt(y)]")
+end
+]]--
+
+function test.maskedFill()
+   local n_row = math.random(minsize,maxsize)
+   local n_col = math.random(minsize,maxsize)
+
+   -- contiguous, no result tensor, cuda mask
+   local gt = torch.randn(n_row, n_col):float()
+   local x = gt:clone()
+   local mask = torch.ByteTensor(n_row,n_col):bernoulli()
+   x:maskedFill(mask, 334)
+   local x_cuda=gt:cuda()
+   mask=mask:cuda()
+   x_cuda:maskedFill(mask, 334)
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill")
+
+   -- non-contiguous, no result tensor, cuda mask
+   local x = gt:clone()
+   mask = mask:byte()
+   x:t():maskedFill(mask, 334)
+   local x_cuda = gt:cuda()
+   mask=mask:cuda()
+   x_cuda:t():maskedFill(mask, 334)
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill non-contiguous")
+
+   -- indexing maskedFill a[a:gt(0.5)] for example
+   local x = gt:clone()
+   x[x:gt(0.5)] = 334
+   local x_cuda = gt:cuda()
+   x_cuda[x_cuda:gt(0.5)] = 334
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill indexing x[x:gt(y)]")
+
+   -- indexing maskedFill a[a:gt(0.5)] for example
+   local x = gt:clone()
+   x:t()[x:t():gt(0.5)] = 334
+   local x_cuda = gt:cuda()
+   x_cuda:t()[x_cuda:t():gt(0.5)] = 334
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001,
+			 "Error in maskedFill non-contiguous indexing x[x:gt(y)]")
+
+end
+
 function cutorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
@@ -1275,12 +1507,13 @@ function cutorch.test(tests)
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)
-   print ''
-   for module,tm in pairs(times) do
-      print(module .. ': \t average speedup is ' .. (tm.cpu / (tm.gpu or 1e6)))
-   end
+   -- print ''
+   -- for module,tm in pairs(times) do
+   -- print(module .. ': \t average speedup is ' .. (tm.cpu / (tm.gpu or 1e6)))
+   -- end
 end
 
 if runtests then
    cutorch.test()
 end
+return test
