@@ -307,6 +307,15 @@ wrap("maskedSelect",
       {name=Tensor},
       {name=Tensor}})
 
+wrap("sort",
+     cname("sort"),
+     {{name=Tensor, default=true, returned=true},
+        {name=Tensor, default=true, returned=true, noreadadd=true},
+        {name=Tensor},
+        {name="index", default=lastdim(3)},
+        {name="boolean", default=0}})
+
+
 do
    local Tensor = Tensor
    local real = real

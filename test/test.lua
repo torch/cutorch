@@ -12,7 +12,7 @@ local minvalue = 2
 local maxvalue = 20
 local nloop = 100
 local times = {}
-
+local test_tolerance = 1e-5
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
 local function isEqual(a, b, tolerance, ...)
@@ -38,7 +38,11 @@ local function compareFloatAndCuda(x, fn, ...)
    local args = {...}
    args['input'] = x
    local x_cpu    = x:float()
-   local x_cuda   = x_cpu:cuda()
+   -- keep the size/stride of original tensor
+   local x_cuda   = torch.CudaTensor(x_cpu:size(), x_cpu:stride())
+   if x_cpu:storage() then
+      x_cuda:storage():copy(x_cpu:storage())
+   end
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
    local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    if type(fn) == 'string' then
@@ -52,7 +56,7 @@ local function compareFloatAndCuda(x, fn, ...)
    else
       error("Incorrect function type")
    end
-   local tolerance = 1e-5
+   local tolerance = test_tolerance
    if not isEqual(res1_cpu, res1_cuda, tolerance) then
       print(args)
       tester:assert(false,
@@ -81,7 +85,11 @@ end
 
 local function compareFloatAndCudaTensorArgs(x, fn, ...)
    local x_cpu = x:float()
-   local x_cuda = x_cpu:cuda()
+   -- keep the size/stride of original tensor
+   local x_cuda = torch.CudaTensor(x_cpu:size(), x_cpu:stride())
+   if x_cpu:storage() then
+      x_cuda:storage():copy(x_cpu:storage())
+   end
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
    local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    -- Transformation of args
@@ -89,7 +97,8 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
       for k,v in pairs(t) do
          local v_type = torch.Tensor.type(v)
          if v_type == 'torch.FloatTensor' or v_type == 'torch.CudaTensor' or v_type == 'torch.DoubleTensor' then
-            t[k] = v:type(type)
+            t[k] = v:type(type).new(v:size(), v:stride())
+            if v:storage() then t[k]:storage():copy(v:storage()) end
          end
       end
       return t
@@ -107,7 +116,7 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
    else
       error("Incorrect function type")
    end
-   local tolerance = 1e-5
+   local tolerance = test_tolerance
    tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", fn))
    tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
@@ -572,7 +581,7 @@ end
 function test.max()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local x = torch.FloatTensor():rand(sz1, sz2)
+   local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
    compareFloatAndCuda(x, 'max')
    compareFloatAndCuda(x, 'max', 1)
    compareFloatAndCuda(x, 'max', 2)
@@ -581,7 +590,7 @@ end
 function test.min()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local x = torch.FloatTensor():rand(sz1, sz2)
+   local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
    compareFloatAndCuda(x, 'min')
    compareFloatAndCuda(x, 'min', 1)
    compareFloatAndCuda(x, 'min', 2)
@@ -593,9 +602,11 @@ function test.sum()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
+   test_tolerance = 1e-1
    compareFloatAndCuda(x, 'sum')
    compareFloatAndCuda(x, 'sum', 1)
    compareFloatAndCuda(x, 'sum', 2)
+   test_tolerance = 1e-5
 end
 
 function test.cumsum()
@@ -1498,6 +1509,41 @@ function test.maskedFill()
    tester:assertTensorEq(x, x_cuda:float(), 0.00001,
 			 "Error in maskedFill non-contiguous indexing x[x:gt(y)]")
 
+end
+
+function test.sort()
+   -- also tested this function with (100, 1000), but they are not
+   -- good as reasonable defaults (lots of time, lots of memory)
+   local minsize = 10
+   local maxsize = 50
+   local n_row = math.random(minsize,maxsize)
+   local n_col = math.random(minsize,maxsize)
+   local n_vol = math.random(minsize,maxsize)
+   -- use randperm so as to not matter if stable sort or not
+   local x = torch.zeros(n_vol, n_row, n_col)
+   for i=1,n_vol do
+         x[i]:copy(torch.randperm(n_row*n_col))
+   end
+   x=x:float()
+   compareFloatAndCuda(x, 'sort', 3, true)
+   compareFloatAndCuda(x, 'sort', 3, false)
+   compareFloatAndCuda(x:transpose(2,3), 'sort', 2, true)  -- non-contiguous
+   compareFloatAndCuda(x:transpose(1,3), 'sort', 1, false) -- non-contiguous
+
+   -- in sorting dimension K, make sure you do not
+   -- have equal numbers that might lead to contention (because not stable sort)
+   local x2=x:transpose(2,3):clone()
+   compareFloatAndCuda(x2, 'sort', 2, true)
+   compareFloatAndCuda(x2, 'sort', 2, false)
+   compareFloatAndCuda(x2:transpose(2,3), 'sort', 3, true)  -- non-contiguous
+   compareFloatAndCuda(x2:transpose(1,3), 'sort', 2, false) -- non-contiguous
+
+
+   local x1=x:transpose(1,3):clone()
+   compareFloatAndCuda(x1, 'sort', 1, true)
+   compareFloatAndCuda(x1, 'sort', 1, false)
+   compareFloatAndCuda(x1:transpose(2,3), 'sort', 1, true)  -- non-contiguous
+   compareFloatAndCuda(x1:transpose(1,3), 'sort', 3, false) -- non-contiguous
 end
 
 function cutorch.test(tests)
