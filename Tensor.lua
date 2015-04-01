@@ -46,7 +46,7 @@ local function Tensor__short(self,type)
    return self:type('torch.ShortTensor')
 end
 
-local function Tensor__Long(self,type)
+local function Tensor__long(self,type)
    return self:type('torch.LongTensor')
 end
 
