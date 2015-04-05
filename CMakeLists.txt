@@ -6,30 +6,26 @@ SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" "${CMAKE_MODULE_PATH}"
 FIND_PACKAGE(Torch REQUIRED)
 FIND_PACKAGE(CUDA 5.5 REQUIRED)
 
-IF(${CUDA_VERSION} LESS 6.0)
-  IF(APPLE)
+IF(APPLE)
+  IF(${CUDA_VERSION} LESS 6.0)
     # work around for mac os x bug:
     # http://stackoverflow.com/questions/16286588/cuda-5-0-cmake-and-make-failing-on-osx-10-8-3
     if (NOT DEFINED CUDA_HOST_COMPILER AND CMAKE_C_COMPILER_ID STREQUAL "Clang" AND EXISTS /usr/bin/gcc)
       set(CUDA_HOST_COMPILER /usr/bin/gcc CACHE FILEPATH "Host side compiler used by NVCC")
       message(STATUS "Setting CMAKE_HOST_COMPILER to /usr/bin/gcc instead of ${CMAKE_C_COMPILER}.")
     endif()
-  ENDIF()
 
-  #LIST(APPEND CUDA_NVCC_FLAGS "-arch=sm_20;--use_fast_math")
-  # bug on Apple
-  IF(APPLE)
+    # bug on Apple
     LINK_DIRECTORIES("/usr/local/cuda/lib/")
-  ENDIF(APPLE)
-ELSE()
-  IF(APPLE)
+  ELSEIF(${CUDA_VERSION} LESS 7.0)
     SET(CUDA_HOST_COMPILER clang)
     LIST(APPEND CUDA_NVCC_FLAGS "-Xcompiler -stdlib=libstdc++ -Xlinker -stdlib=libstdc++")
     IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
     ENDIF()
-  ENDIF(APPLE)
-ENDIF()
+  ENDIF()
+  # CUDA 7 supports clang and libc++ so no need to change anything
+ENDIF(APPLE)
 
 LIST(APPEND CUDA_NVCC_FLAGS "-arch=sm_20")
 
