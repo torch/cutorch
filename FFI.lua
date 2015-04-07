@@ -3,12 +3,21 @@ if jit then
    local ffi = require 'ffi'
 
    local cdefs = [[
+typedef struct CUstream_st *cudaStream_t;
+
 typedef struct THCState
 {
   struct THCRNGState* rngState;
   struct THCBlasState* blasState;
   struct cudaDeviceProp* deviceProperties;
+  cudaStream_t currentStream;
+  cudaStream_t** streamsPerDevice;
+  int numDevices;
+  int numUserStreams;
+  int currentPerDeviceStream;
 } THCState;
+
+cudaStream_t THCState_getCurrentStream(THCState *state);
 
 typedef struct THCudaStorage
 {
