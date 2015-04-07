@@ -34,6 +34,16 @@ local function isEqual(a, b, tolerance, ...)
    end
 end
 
+local function checkMultiDevice(x, fn, ...)
+   local device_count = cutorch.getDeviceCount()
+   if device_count >= 2 then
+      local x = x:cuda()
+      cutorch.setDevice(cutorch.getDevice() == 1 and 2 or 1)
+      local ok = pcall(function(...) x[fn](x, ...) end, ...)
+      tester:assert(not ok, "Multi-device checks failed for: " .. tostring(fn))
+   end
+end
+
 local function compareFloatAndCuda(x, fn, ...)
    local args = {...}
    args['input'] = x
@@ -438,6 +448,7 @@ function test.zero()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'zero')
+   checkMultiDevice(x, 'zero')
 end
 
 function test.fill()
@@ -446,6 +457,7 @@ function test.fill()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
    compareFloatAndCudaTensorArgs(x, 'fill', v)
+   checkMultiDevice(x, 'fill', v)
 end
 
 function test.reshape()
@@ -453,6 +465,7 @@ function test.reshape()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'reshape', sz1/2, sz2*2)
+   checkMultiDevice(x, 'reshape', sz1/2, sz2*2)
 end
 
 function test.zeros()
@@ -487,6 +500,10 @@ function test.add()
    compareFloatAndCudaTensorArgs(x, 'add', z, v)
    compareFloatAndCudaTensorArgs(x, 'add', y, z)
    compareFloatAndCudaTensorArgs(x, 'add', y, v, z)
+   checkMultiDevice(x, 'add', z)
+   checkMultiDevice(x, 'add', z, v)
+   checkMultiDevice(x, 'add', y, z)
+   checkMultiDevice(x, 'add', y, v, z)
 end
 
 function test.cmul()
@@ -495,6 +512,7 @@ function test.cmul()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cmul', y)
+   checkMultiDevice(x, 'cmul', y)
 end
 
 function test.cpow()
@@ -503,6 +521,7 @@ function test.cpow()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cpow', y)
+   checkMultiDevice(x, 'cpow', y)
 end
 
 function test.cdiv()
@@ -511,6 +530,7 @@ function test.cdiv()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cdiv', y)
+   checkMultiDevice(x, 'cdiv', y)
 end
 
 function test.cdiv3()
@@ -520,6 +540,7 @@ function test.cdiv3()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor(sz1, sz2)
    compareFloatAndCudaTensorArgs(z, 'cdiv', x, y)
+   checkMultiDevice(z, 'cdiv', x, y)
 end
 
 function test.addcmul()
@@ -530,10 +551,15 @@ function test.addcmul()
    local z = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'addcmul', y, z)
    compareFloatAndCudaTensorArgs(x, 'addcmul', torch.uniform(), y, z)
+   checkMultiDevice(x, 'addcmul', y, z)
+   checkMultiDevice(x, 'addcmul', torch.uniform(), y, z)
 
    local r = torch.zeros(sz1, sz2)
    compareFloatAndCudaTensorArgs(r, 'addcmul', x, y, z)
    compareFloatAndCudaTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
+   checkMultiDevice(r, 'addcmul', x, y, z)
+   checkMultiDevice(r, 'addcmul', x, torch.uniform(), y, z)
+
 end
 
 function test.addcdiv()
@@ -544,10 +570,14 @@ function test.addcdiv()
    local z = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'addcdiv', y, z)
    compareFloatAndCudaTensorArgs(x, 'addcdiv', torch.uniform(), y, z)
+   checkMultiDevice(x, 'addcdiv', y, z)
+   checkMultiDevice(x, 'addcdiv', torch.uniform(), y, z)
 
    local r = torch.zeros(sz1, sz2)
    compareFloatAndCudaTensorArgs(r, 'addcdiv', x, y, z)
    compareFloatAndCudaTensorArgs(r, 'addcdiv', x, torch.uniform(), y, z)
+   checkMultiDevice(r, 'addcdiv', x, y, z)
+   checkMultiDevice(r, 'addcdiv', x, torch.uniform(), y, z)
 end
 
 function test.logicalValue()
@@ -557,6 +587,8 @@ function test.logicalValue()
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
    compareFloatAndCuda(x, 'gt', 0.3)
+   checkMultiDevice(x, 'gt', y, 0.3)
+   checkMultiDevice(x, 'gt', 0.3)
 end
 
 function test.logicalTensor()
@@ -567,6 +599,8 @@ function test.logicalTensor()
    local z = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'gt', z)
    compareFloatAndCudaTensorArgs(x, 'gt', y, z)
+   checkMultiDevice(x, 'gt', z)
+   checkMultiDevice(x, 'gt', y, z)
 end
 
 function test.mean()
@@ -576,6 +610,8 @@ function test.mean()
    compareFloatAndCuda(x, 'mean')
    compareFloatAndCuda(x, 'mean', 1)
    compareFloatAndCuda(x, 'mean', 2)
+   checkMultiDevice(x, 'mean')
+   checkMultiDevice(x, 'mean', 1)
 end
 
 function test.max()
@@ -585,6 +621,8 @@ function test.max()
    compareFloatAndCuda(x, 'max')
    compareFloatAndCuda(x, 'max', 1)
    compareFloatAndCuda(x, 'max', 2)
+   checkMultiDevice(x, 'max')
+   checkMultiDevice(x, 'max', 1)
 end
 
 function test.min()
@@ -594,6 +632,8 @@ function test.min()
    compareFloatAndCuda(x, 'min')
    compareFloatAndCuda(x, 'min', 1)
    compareFloatAndCuda(x, 'min', 2)
+   checkMultiDevice(x, 'min')
+   checkMultiDevice(x, 'min', 1)
 end
 
 function test.sum()
@@ -607,6 +647,8 @@ function test.sum()
    compareFloatAndCuda(x, 'sum', 1)
    compareFloatAndCuda(x, 'sum', 2)
    test_tolerance = 1e-5
+   checkMultiDevice(x, 'sum')
+   checkMultiDevice(x, 'sum', 1)
 end
 
 function test.cumsum()
@@ -618,6 +660,8 @@ function test.cumsum()
    compareFloatAndCuda(x, 'cumsum')
    compareFloatAndCuda(x, 'cumsum', 1)
    compareFloatAndCuda(x, 'cumsum', 2)
+   checkMultiDevice(x, 'cumsum')
+   checkMultiDevice(x, 'cumsum', 1)
 end
 
 function test.prod()
@@ -629,6 +673,8 @@ function test.prod()
    compareFloatAndCuda(x, 'prod')
    compareFloatAndCuda(x, 'prod', 1)
    compareFloatAndCuda(x, 'prod', 2)
+   checkMultiDevice(x, 'prod')
+   checkMultiDevice(x, 'prod', 1)
 end
 
 function test.cumprod()
@@ -640,6 +686,8 @@ function test.cumprod()
    compareFloatAndCuda(x, 'cumprod')
    compareFloatAndCuda(x, 'cumprod', 1)
    compareFloatAndCuda(x, 'cumprod', 2)
+   checkMultiDevice(x, 'cumprod')
+   checkMultiDevice(x, 'cumprod', 1)
 end
 
 function test.round()
@@ -647,6 +695,7 @@ function test.round()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'round')
+   checkMultiDevice(x, 'round')
 end
 
 function test.var()
@@ -658,6 +707,8 @@ function test.var()
    compareFloatAndCuda(x, 'var', 1, false)
    compareFloatAndCuda(x, 'var', 2, true)
    compareFloatAndCuda(x, 'var', 2, false)
+   checkMultiDevice(x, 'var')
+   checkMultiDevice(x, 'var', 1)
 end
 
 function test.std()
@@ -669,6 +720,8 @@ function test.std()
    compareFloatAndCuda(x, 'std', 1, false)
    compareFloatAndCuda(x, 'std', 2, true)
    compareFloatAndCuda(x, 'std', 2, false)
+   checkMultiDevice(x, 'std')
+   checkMultiDevice(x, 'std', 1)
 end
 
 -- Test element-wise unary operators with both one and two arguments.
@@ -689,6 +742,7 @@ local function testUnary2(fn)
       local x = torch.FloatTensor():rand(sz1, sz2)
       local y = torch.FloatTensor()
       compareFloatAndCudaTensorArgs(y, fn, x)
+      checkMultiDevice(y, fn, x)
    end
    return test
 end
@@ -713,6 +767,7 @@ function test.atan2(fn)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor()
    compareFloatAndCudaTensorArgs(z, 'atan2', x, y)
+   checkMultiDevice(z, 'atan2', x, y)
 end
 
 function test.pow1()
@@ -721,6 +776,7 @@ function test.pow1()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local pow = torch.uniform(minvalue,maxvalue)
    compareFloatAndCudaTensorArgs(x, 'pow', pow)
+   checkMultiDevice(x, 'pow', pow)
 end
 
 function test.pow2()
@@ -730,6 +786,7 @@ function test.pow2()
    local y = torch.FloatTensor()
    local pow = torch.uniform(minvalue,maxvalue)
    compareFloatAndCudaTensorArgs(y, 'pow', x, pow)
+   checkMultiDevice(y, 'pow', x, pow)
 end
 
 function test.powExponentTensor()
@@ -739,6 +796,7 @@ function test.powExponentTensor()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor()
    compareFloatAndCudaTensorArgs(y, 'pow', pow, x)
+   checkMultiDevice(y, 'pow', pow, x)
 end
 
 function test.clamp1()
@@ -752,6 +810,7 @@ function test.clamp1()
      x[1][2] = max_val + 1
    end
    compareFloatAndCudaTensorArgs(x, 'clamp', min_val, max_val)
+   checkMultiDevice(x, 'clamp', min_val, max_val)
 end
 
 function test.clamp2()
@@ -766,6 +825,7 @@ function test.clamp2()
    end
    local y = torch.FloatTensor():resizeAs(x)
    compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
+   checkMultiDevice(y, 'clamp', x, min_val, max_val)
 end
 
 function test.index()
@@ -791,6 +851,8 @@ function test.index()
    index = 3
    longIndex = torch.randperm(sz3):long()
    compareFloatAndCuda(x, 'index', index, longIndex)
+
+   checkMultiDevice(x, 'index', index, longIndex)
 end
 
 function test.indexCopy()
@@ -818,6 +880,8 @@ function test.indexCopy()
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    src = torch.Tensor(2):uniform()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+
+   checkMultiDevice(x, 'indexCopy', index, longIndex, src)
 end
 
 function test.indexFill()
@@ -840,6 +904,8 @@ function test.indexFill()
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    val = torch.randn(1)[1]
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+
+   checkMultiDevice(x, 'indexFill', index, longIndex, val)
 end
 
 function test.renorm()
@@ -859,6 +925,8 @@ function test.renorm()
 
    x = torch.randn(3,4,5,100)
    compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
+
+   checkMultiDevice(x, 'renorm', 4, 2, maxnorm)
 end
 
 function test.indexSelect()
@@ -895,6 +963,7 @@ function test.indexSelect()
    tm.gpu = clock:time().real
 
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
+
 end
 
 function test.addmv()
@@ -908,12 +977,17 @@ function test.addmv()
       {15,18},
       {19,15}
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
       local c = torch.zeros(n)
       local a = torch.randn(n, m)
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(c, 'addmv', torch.normal(), torch.normal(), a, b)
+         multiCheck = true
+      end
    end
 end
 
@@ -928,12 +1002,17 @@ function test.mv()
       {15,18},
       {19,15}
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
       local c = torch.zeros(n)
       local a = torch.randn(n, m)
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'mv', a, b)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(c, 'mv', a, b)
+         multiCheck = true
+      end
    end
 end
 
@@ -948,12 +1027,17 @@ function test.addr()
       {15,18},
       {19,15}
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
       local c = torch.zeros(n,m)
       local a = torch.randn(n)
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addr', torch.normal(), a, b)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(c, 'addr', torch.normal(), a, b)
+         multiCheck = true
+      end
    end
 end
 
@@ -968,12 +1052,17 @@ function test.addmm()
       {12, 1, 12},
       {10, 10, 10},
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local n, k, m = unpack(size)
       local c = torch.zeros(n, m)
       local a = torch.randn(n, k)
       local b = torch.randn(k, m)
       compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(c, 'addmm', torch.normal(), torch.normal(), a, b)
+         multiCheck = true
+      end
    end
 end
 
@@ -988,12 +1077,17 @@ function test.mm()
       {12, 1, 12},
       {10, 10, 10},
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local n, k, m = unpack(size)
       local c = torch.zeros(n, m)
       local a = torch.randn(n, k)
       local b = torch.randn(k, m)
       compareFloatAndCudaTensorArgs(c, 'mm', a, b)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(c, 'mm', a, b)
+         multiCheck = true
+      end
    end
 end
 
@@ -1007,12 +1101,17 @@ function test.baddbmm()
       {12, 1, 12, 1},
       {10, 10, 10, 10},
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local b, n, k, m = unpack(size)
       local cs = torch.randn(b, n, m)
       local as = torch.randn(b, n, k)
       local bs = torch.randn(b, k, m)
       compareFloatAndCudaTensorArgs(cs, 'baddbmm', as, bs)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(cs, 'baddbmm', as, bs)
+         multiCheck = true
+      end
    end
 end
 
@@ -1052,12 +1151,17 @@ function test.bmm()
       {12, 1, 12, 1},
       {10, 10, 10, 10},
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local b, n, k, m = unpack(size)
       local cs = torch.zeros(b, n, m)
       local as = torch.randn(b, n, k)
       local bs = torch.randn(b, k, m)
       compareFloatAndCudaTensorArgs(cs, 'bmm', as, bs)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(cs, 'bmm', as, bs)
+         multiCheck = true
+      end
    end
 end
 
@@ -1096,12 +1200,17 @@ function test.ger()
       {12, 14},
       {10, 10},
    }
+   local multiCheck = false
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
       local c = torch.zeros(n, m)
       local a = torch.randn(n)
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'ger', a, b)
+      if not multiCheck then -- just check multidevice once
+         checkMultiDevice(c, 'ger', a, b)
+         multiCheck = true
+      end
    end
 end
 
@@ -1132,6 +1241,7 @@ function test.uniform()
 
    t:uniform(min, max)
    checkIfUniformlyDistributed(t, min, max)
+   checkMultiDevice(t, 'uniform', min, max)
 end
 
 function test.bernoulli()
@@ -1147,6 +1257,7 @@ function test.bernoulli()
                          torch.FloatTensor(sz1, sz2):fill(1),
                          1e-6,
                          "each value must be either 0 or 1")
+   checkMultiDevice(t, 'bernoulli', p)
 end
 
 function test.normal()
@@ -1159,6 +1270,7 @@ function test.normal()
    t:normal(mean, std)
    tester:assertalmosteq(t:mean(), mean, tolerance, "mean is wrong")
    tester:assertalmosteq(t:std(), std, tolerance, "standard deviation is wrong")
+   checkMultiDevice(t, 'normal', mean, std)
 end
 
 function test.logNormal()
@@ -1172,6 +1284,7 @@ function test.logNormal()
    local logt = t:log()
    tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
    tester:assertalmosteq(logt:std(), std, tolerance, "standard deviation is wrong")
+   checkMultiDevice(t, 'logNormal', mean, std)
 end
 
 function test.geometric()
@@ -1184,6 +1297,7 @@ function test.geometric()
    local u = torch.FloatTensor(sz1, sz2):fill(1) -
                  ((t:float() - 1) * math.log(p)):exp()
    checkIfUniformlyDistributed(u, 0, 1)
+   checkMultiDevice(t, 'geometric', p)
 end
 
 function test.exponential()
@@ -1196,6 +1310,7 @@ function test.exponential()
    local u = torch.FloatTensor(sz1, sz2):fill(1) -
                  (t:float() * -lambda):exp()
    checkIfUniformlyDistributed(u, 0, 1)
+   checkMultiDevice(t, 'exponential', lambda)
 end
 
 function test.cauchy()
@@ -1207,6 +1322,7 @@ function test.cauchy()
    t:cauchy(median, sigma)
    local u = ((t:float() - median) / sigma):atan() / math.pi + 0.5
    checkIfUniformlyDistributed(u, 0, 1)
+   checkMultiDevice(t, 'cauchy', median, sigma)
 end
 
 function test.random_seed()
@@ -1261,6 +1377,7 @@ function test.multi_gpu_random()
       tester:assert(isEqual(expected, actual), "random tensors dont seem to be equal")
    end
    cutorch.setRNGState(rs) -- cleanup after yourself
+   cutorch.setDevice(1) -- reset device
 end
 
 function test.get_device()
@@ -1277,6 +1394,7 @@ function test.get_device()
        tensors[i]:resize(1, 2, 3)
        tester:assert(tensors[i]:getDevice() == i, "tensor does not have the correct deviceID")
     end
+    cutorch.setDevice(1) -- reset device
 end
 
 function test.multi_gpu_copy_noncontig()
@@ -1313,7 +1431,8 @@ function test.multi_gpu_copy_noncontig()
         -- previous line guarantees synchronization with srcDevice
         cutorch.withDevice(dstDevice, function() cutorch.synchronize() end)
 
-        local t2_max = t2:max()
+        local t2_max
+        cutorch.withDevice(dstDevice, function() t2_max = t2:max() end)
         tester:assert(t2_max == 1, "bad copy, transposeSrc= " .. transposeSrc ..
                " transposeDst= " .. transposeDst .. ". t2:max() = " .. t2_max)
       end
@@ -1326,16 +1445,19 @@ function test.reset_device()
    cutorch.manualSeed(2384)
    local t = torch.CudaTensor(sz):normal()
 
-   -- Create a CPU copy and destroy the GPU tensor because the GPU pointer will be invalidated by the reset.
+   -- Create a CPU copy and destroy the GPU tensor because
+   -- the GPU pointer will be invalidated by the reset.
    local tf = t:float()
    t = nil
    collectgarbage()
 
-   -- After a device reset, the RNG state should have been reset to its initial state.
+   -- After a device reset, the RNG state should
+   -- have been reset to its initial state.
    cutorch.deviceReset()
    local u = torch.CudaTensor(sz):normal()
 
-   tester:assertTensorEq(tf, u:float(), 1e-6, "values not equal after restoring the RNG state")
+   tester:assertTensorEq(tf, u:float(), 1e-6,
+                         "values not equal after restoring the RNG state")
 end
 
 function test.maskedSelect()
@@ -1350,6 +1472,7 @@ function test.maskedSelect()
    mask=mask:cuda()
    local y_cuda = x:maskedSelect(mask)
    tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect")
+   checkMultiDevice(x, 'maskedSelect', mask)
 
    -- non-contiguous, no result tensor, cuda mask
    local x = torch.randn(n_row, n_col):float()
@@ -1358,7 +1481,8 @@ function test.maskedSelect()
    x=x:cuda()
    mask=mask:cuda()
    local y_cuda = x:t():maskedSelect(mask)
-   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect non-contiguous")
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+                         "Error in maskedSelect non-contiguous")
 
    -- contiguous, with result tensor, cuda mask
    local x = torch.randn(n_row, n_col):float()
@@ -1369,7 +1493,8 @@ function test.maskedSelect()
    mask=mask:cuda()
    local y_cuda = torch.CudaTensor()
    y_cuda:maskedSelect(x, mask)
-   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect (with result)")
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+                         "Error in maskedSelect (with result)")
 
    -- non-contiguous, with result tensor, cuda mask
    local x = torch.randn(n_row, n_col):float()
@@ -1381,24 +1506,23 @@ function test.maskedSelect()
    local y_cuda = torch.CudaTensor()
    y_cuda:maskedSelect(x:t(), mask)
    tester:assertTensorEq(y, y_cuda:float(), 0.00001,
-			 "Error in maskedSelect non-contiguous (with result)")
+          "Error in maskedSelect non-contiguous (with result)")
 
    -- indexing maskedSelect a[a:gt(0.5)] for example
    local x = torch.randn(n_row, n_col):float()
    local y = x[x:gt(0.5)]
    x=x:cuda()
-   mask=mask:cuda()
    local y_cuda = x[x:gt(0.5)]
-   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedSelect indexing x[x:gt(y)]")
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+                         "Error in maskedSelect indexing x[x:gt(y)]")
 
    -- indexing maskedSelect (non-contiguous) a[a:gt(0.5)] for example
    local x = torch.randn(n_row, n_col):float()
    local y = x:t()[x:t():gt(0.5)]
    x=x:cuda()
-   mask=mask:cuda()
    local y_cuda = x:t()[x:t():gt(0.5)]
    tester:assertTensorEq(y, y_cuda:float(), 0.00001,
-			 "Error in maskedSelect indexing (non-contiguous) x[x:gt(y)]")
+          "Error in maskedSelect indexing non-contig x[x:gt(y)]")
 end
 
 --[[
@@ -1416,7 +1540,10 @@ function test.maskedCopy()
    mask=mask:cuda()
    x=x:cuda()
    y_cuda:maskedCopy(mask, x)
-   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedCopy (contiguous)")
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+                                 "Error in maskedCopy (contiguous)")
+   checkMultiDevice(y_cuda, 'maskedCopy', mask, x)
+
    -- non-contiguous source, cuda mask
    local x = torch.randn(n_row, n_col):float()
    local y = x:clone():fill(-1)
@@ -1426,7 +1553,8 @@ function test.maskedCopy()
    x=x:cuda()
    mask=mask:cuda()
    y_cuda:maskedCopy(mask, x:t())
-   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedCopy (non-contiguous source)")
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+                       "Error in maskedCopy (non-contiguous source)")
 
    -- non-contiguous result, cuda mask
    local x = torch.randn(n_row, n_col):float()
@@ -1437,7 +1565,8 @@ function test.maskedCopy()
    x=x:cuda()
    mask=mask:cuda()
    y_cuda:t():maskedCopy(mask, x:t())
-   tester:assertTensorEq(y, y_cuda:float(), 0.00001, "Error in maskedCopy (non-contiguous dest)")
+   tester:assertTensorEq(y, y_cuda:float(), 0.00001,
+                        "Error in maskedCopy (non-contiguous dest)")
 
    -- indexing maskedCopy a[a:gt(0.5)] for example
    local gt = torch.randn(n_row, n_col):float()
@@ -1447,7 +1576,8 @@ function test.maskedCopy()
    local x_cuda = gt:cuda()
    y=y:cuda()
    x_cuda[x_cuda:gt(0.5)] = y
-   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedCopy indexing x[x:gt(y)]")
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001,
+                             "Error in maskedCopy indexing x[x:gt(y)]")
 
    -- indexing maskedCopy non-contiguous src a[a:gt(0.5)] for example
    local gt = torch.randn(n_row, n_col):float()
@@ -1457,7 +1587,8 @@ function test.maskedCopy()
    local x_cuda = gt:cuda()
    y=y:cuda()
    x_cuda[x_cuda:gt(0.5)] = y:t()
-   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedCopy indexing x[x:gt(y)]")
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001,
+                            "Error in maskedCopy indexing x[x:gt(y)]")
 
    -- indexing maskedCopy non-contiguous dst a[a:gt(0.5)] for example
    local gt = torch.randn(n_row, n_col):float()
@@ -1467,7 +1598,8 @@ function test.maskedCopy()
    local x_cuda = gt:cuda()
    y=y:cuda()
    x_cuda:t()[x_cuda:t():gt(0.5)] = y:t()
-   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedCopy indexing x[x:gt(y)]")
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001,
+                         "Error in maskedCopy indexing x[x:gt(y)]")
 end
 ]]--
 
@@ -1484,6 +1616,7 @@ function test.maskedFill()
    mask=mask:cuda()
    x_cuda:maskedFill(mask, 334)
    tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill")
+   checkMultiDevice(x_cuda, 'maskedSelect', mask, 334)
 
    -- non-contiguous, no result tensor, cuda mask
    local x = gt:clone()
@@ -1492,14 +1625,16 @@ function test.maskedFill()
    local x_cuda = gt:cuda()
    mask=mask:cuda()
    x_cuda:t():maskedFill(mask, 334)
-   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill non-contiguous")
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001,
+                         "Error in maskedFill non-contiguous")
 
    -- indexing maskedFill a[a:gt(0.5)] for example
    local x = gt:clone()
    x[x:gt(0.5)] = 334
    local x_cuda = gt:cuda()
    x_cuda[x_cuda:gt(0.5)] = 334
-   tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill indexing x[x:gt(y)]")
+   tester:assertTensorEq(x, x_cuda:float(), 0.00001,
+                         "Error in maskedFill indexing x[x:gt(y)]")
 
    -- indexing maskedFill a[a:gt(0.5)] for example
    local x = gt:clone()
@@ -1507,7 +1642,7 @@ function test.maskedFill()
    local x_cuda = gt:cuda()
    x_cuda:t()[x_cuda:t():gt(0.5)] = 334
    tester:assertTensorEq(x, x_cuda:float(), 0.00001,
-			 "Error in maskedFill non-contiguous indexing x[x:gt(y)]")
+          "Error in maskedFill non-contig indexing x[x:gt(y)]")
 
 end
 
@@ -1544,6 +1679,309 @@ function test.sort()
    compareFloatAndCuda(x1, 'sort', 1, false)
    compareFloatAndCuda(x1:transpose(2,3), 'sort', 1, true)  -- non-contiguous
    compareFloatAndCuda(x1:transpose(1,3), 'sort', 3, false) -- non-contiguous
+   checkMultiDevice(x1, 'sort', 1, true)
+end
+
+function test.streamWaitFor()
+   local size = 2000000
+   local iter = 20 + torch.random(10)
+   local result = torch.CudaTensor(size):zero()
+   local numStreams = torch.random(10)
+
+   cutorch.reserveStreams(numStreams + 1)
+   local tensors = {}
+   local waitingFor = {}
+
+   for stream = 1, numStreams do
+      cutorch.setStream(stream)
+      table.insert(waitingFor, stream)
+      table.insert(tensors, torch.CudaTensor(size):zero())
+   end
+
+   -- Queue a bunch of work on different streams
+   for stream = 1, numStreams do
+      cutorch.setStream(stream)
+      for i = 1, iter do
+         tensors[stream]:add(1)
+      end
+   end
+
+   -- In another stream, wait on the completion of all the above.
+   -- Without the streamWaitFor, this will race with the above and won't
+   -- gather all of the additions.
+   -- Unfortunately, it would be rather hard to write a test to ensure that
+   -- we're actually executing all this asynchronously, and to write a test that
+   -- always guarantees failure with this race is equally problematic.
+   -- So, we satisfy ourselves with this.
+   cutorch.setStream(numStreams + 1)
+   cutorch.streamWaitFor(numStreams + 1, waitingFor)
+
+   for i = 1, numStreams do
+      result:add(tensors[i])
+   end
+
+   tester:asserteq(result:min(), iter * numStreams)
+
+   -- return to default stream
+   cutorch.setStream(0)
+   result = nil
+   tensors = nil
+   collectgarbage()
+   collectgarbage()
+   cutorch.synchronize()
+end
+
+function test.streamWaitForMultiDevice()
+   -- This test requires multiple devices
+   local numDevices = cutorch.getDeviceCount()
+   if numDevices < 2 then
+      return
+   end
+
+   local size = 2000000
+   local iter = 20 + torch.random(10)
+   local result = torch.CudaTensor(size):zero()
+   local numStreams = torch.random(10)
+   cutorch.reserveStreams(numStreams + 1)
+
+   -- Create scratch space on the last device to receive all results
+   cutorch.setDevice(numDevices)
+   local tmpResults = {}
+   local results = torch.CudaTensor(size):zero()
+
+   for dev = 1, numDevices - 1 do
+      local tmpResultsPerDevice = {}
+      for stream = 1, numStreams do
+         table.insert(tmpResultsPerDevice, torch.CudaTensor(size):zero())
+      end
+
+      table.insert(tmpResults, tmpResultsPerDevice)
+   end
+
+   -- Allocate data on all devices (except the last)
+   local tensors = {}
+   local waitingOn = {}
+
+   for dev = 1, numDevices - 1 do
+      cutorch.setDevice(dev)
+      local tensorsPerDevice = {}
+      local waitingOnPerDevice = {}
+
+      for stream = 1, numStreams do
+         cutorch.setStream(stream)
+         table.insert(tensorsPerDevice, torch.CudaTensor(size):zero())
+         table.insert(waitingOnPerDevice, stream)
+      end
+
+      table.insert(tensors, tensorsPerDevice)
+      table.insert(waitingOn, waitingOnPerDevice)
+   end
+
+   -- Queue work to all streams, all devices (except the last)
+   for dev = 1, numDevices - 1 do
+      cutorch.setDevice(dev)
+      for stream = 1, numStreams do
+         cutorch.setStream(stream)
+         for i = 1, iter do
+            tensors[dev][stream]:add(1)
+         end
+      end
+   end
+
+   -- Cross-device/stream wait
+   cutorch.streamWaitForMultiDevice(numDevices, numStreams + 1, waitingOn)
+
+   -- Copy back to device `numDevices`, stream (numStreams + 1)
+   cutorch.setDevice(numDevices)
+   cutorch.setStream(numStreams + 1)
+
+   for dev = 1, numDevices - 1 do
+      for stream = 1, numStreams do
+         tmpResults[dev][stream]:copy(tensors[dev][stream])
+      end
+   end
+
+   -- Sum up the results
+   for dev = 1, numDevices - 1 do
+      for stream = 1, numStreams do
+         results:add(tmpResults[dev][stream])
+      end
+   end
+
+   tester:asserteq(results:min(), iter * numStreams * (numDevices - 1))
+
+   -- return to default device/stream
+   cutorch.setDevice(1)
+   cutorch.setStream(0)
+   result = nil
+   tmpResults = nil
+   tensors = nil
+   collectgarbage()
+   collectgarbage()
+   cutorch.synchronize()
+end
+
+function test.streamBarrier()
+   local size = 2000000
+   local iter = 20 + torch.random(10)
+   local numStreams = torch.random(10)
+
+   cutorch.reserveStreams(numStreams)
+   local tensors = {}
+   local results = {}
+   local waitingFor = {}
+
+   for stream = 1, numStreams do
+      cutorch.setStream(stream)
+      table.insert(waitingFor, stream)
+      table.insert(tensors, torch.CudaTensor(size):zero())
+      table.insert(results, torch.CudaTensor(size):zero())
+   end
+
+   -- Queue a bunch of work on different streams
+   for stream = 1, numStreams do
+      cutorch.setStream(stream)
+      for i = 1, iter do
+         tensors[stream]:add(1)
+      end
+   end
+
+   -- Create an all-way barrier
+   cutorch.streamBarrier(waitingFor)
+
+   -- In all streams, sum against all other tensors
+   for stream = 1, numStreams do
+      cutorch.setStream(stream)
+      for otherStream = 1, numStreams do
+         results[stream]:add(tensors[otherStream])
+      end
+   end
+
+   -- Validate that all streams received the full values
+   -- As above, it would be rather hard to write a test to ensure that
+   -- we're actually executing all this asynchronously, and to write a test that
+   -- always guarantees failure with this race is equally problematic.
+   -- So, we satisfy ourselves with this.
+   for stream = 1, numStreams do
+      cutorch.setStream(stream)
+      tester:asserteq(results[stream]:min(), iter * numStreams)
+   end
+
+   -- return to default stream
+   cutorch.setStream(0)
+   results = nil
+   tensors = nil
+   collectgarbage()
+   collectgarbage()
+   cutorch.synchronize()
+end
+
+function test.streamBarrierMultiDevice()
+   -- This test requires multiple devices
+   local numDevices = cutorch.getDeviceCount()
+   if numDevices < 2 then
+      return
+   end
+
+   local size = 2000000
+   local iter = 50 + torch.random(10)
+   local numStreams = torch.random(10)
+   cutorch.reserveStreams(numStreams)
+
+   local tensors = {} -- per device, per stream
+   local tmpResults = {} -- per device, (per other device, per other stream)
+   local results = {} -- per device
+   local waitingFor = {}
+
+   -- Create space on all devices
+   for device = 1, numDevices do
+      cutorch.setDevice(device)
+      cutorch.setStream(1)
+      table.insert(results, torch.CudaTensor(size):zero())
+
+      -- tmpResults[our device][other device][other stream]
+      local tmpResultsPerDevice = {}
+      for otherDevice = 1, numDevices do
+         local tmpResultsPerOtherDevice = {}
+         for otherStream = 1, numStreams do
+            table.insert(tmpResultsPerOtherDevice, torch.CudaTensor(size):zero())
+         end
+         table.insert(tmpResultsPerDevice, tmpResultsPerOtherDevice)
+      end
+      table.insert(tmpResults, tmpResultsPerDevice)
+
+      -- tensors[our device][our stream]
+      local tensorsPerDevice = {}
+      local waitingForPerDevice = {}
+      for stream = 1, numStreams do
+         cutorch.setStream(stream)
+         table.insert(tensorsPerDevice, torch.CudaTensor(size):zero())
+         table.insert(waitingForPerDevice, stream)
+      end
+
+      table.insert(tensors, tensorsPerDevice)
+      table.insert(waitingFor, waitingForPerDevice)
+   end
+
+   -- Queue work to all streams, all devices
+   for dev = 1, numDevices do
+      cutorch.setDevice(dev)
+      for stream = 1, numStreams do
+         cutorch.setStream(stream)
+         for i = 1, iter do
+            tensors[dev][stream]:add(1)
+         end
+      end
+   end
+
+   -- -- Create an all-way barrier
+   cutorch.streamBarrierMultiDevice(waitingFor)
+
+   -- -- All-to-all copy (done in stream 1 on each device)
+   for dev = 1, numDevices do
+      cutorch.setDevice(dev)
+      cutorch.setStream(1)
+
+      for otherDev = 1, numDevices do
+         for otherStream = 1, numStreams do
+            tmpResults[dev][otherDev][otherStream]:copy(tensors[otherDev][otherStream])
+         end
+      end
+   end
+
+   -- For each device in stream 1, sum up the accumulated results from
+   -- all devices/all streams
+   for dev = 1, numDevices do
+      cutorch.setDevice(dev)
+      cutorch.setStream(1)
+
+      for otherDev = 1, numDevices do
+         for otherStream = 1, numStreams do
+            results[dev]:add(tmpResults[dev][otherDev][otherStream])
+         end
+      end
+   end
+
+   -- Validate that all devices received the full values
+   -- As above, it would be rather hard to write a test to ensure that
+   -- we're actually executing all this asynchronously, and to write a test that
+   -- always guarantees failure with this race is equally problematic.
+   -- So, we satisfy ourselves with this.
+   for dev = 1, numDevices do
+      cutorch.setDevice(dev)
+      cutorch.setStream(1)
+      tester:asserteq(results[dev]:min(), iter * numStreams * numDevices)
+   end
+
+   -- return to default stream/device
+   cutorch.setDevice(1)
+   cutorch.setStream(0)
+   results = nil
+   tmpResults = nil
+   tensors = nil
+   collectgarbage()
+   collectgarbage()
+   cutorch.synchronize()
 end
 
 function cutorch.test(tests)

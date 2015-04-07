@@ -93,7 +93,7 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
 {
   long *sz, *st, *szh;
   int i;
-  
+
   sz = (long*)THAlloc(sizeof(long)*self->nDimension);
   st = (long*)THAlloc(sizeof(long)*self->nDimension);
   szh = (long*)THAlloc(sizeof(long)*self->nDimension);
@@ -114,7 +114,7 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
   *st_ = st;
 }
 
-void THFloatTensor_kernel_copy(float *dst, 
+void THFloatTensor_kernel_copy(float *dst,
                                          long *dst_sz, long *dst_st, int dst_dim,
                                          float *src,
                                          long *src_sz, long *src_st, int src_dim,
@@ -153,17 +153,17 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
   long *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
   long nElement = THFloatTensor_nElement(self);
 
-  THArgCheck(THFloatTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match"); 
+  THArgCheck(THFloatTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
 
   THFloatTensor_computesz(self, &d_self_sz, &d_self_st);
   THFloatTensor_computesz(src, &d_src_sz, &d_src_st);
 
-  THFloatTensor_kernel_copy(THFloatTensor_data(self), 
+  THFloatTensor_kernel_copy(THFloatTensor_data(self),
                             d_self_sz, d_self_st, self->nDimension,
                             THFloatTensor_data(src),
                             d_src_sz, d_src_st, src->nDimension,
                             nElement);
-  
+
   THFree(d_self_sz);
   THFree(d_self_st);
   THFree(d_src_sz);

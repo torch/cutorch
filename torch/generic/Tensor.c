@@ -741,7 +741,8 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
     THTensor *vals;
     if (lua_isnumber(L, 3))
     {
-      THTensor_(maskedFillByte)(state, tensor, mask, (real)(luaL_checknumber(L,3)));
+      THTensor_(maskedFillByte)(state, tensor, mask,
+                                (real)(luaL_checknumber(L,3)));
     }
     else if((vals = luaT_toudata(L, 3, torch_Tensor)))
     {
@@ -757,7 +758,8 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
     THTensor *vals;
     if (lua_isnumber(L, 3))
     {
-      THTensor_(maskedFill)(state, tensor, maskCuda, (real)(luaL_checknumber(L,3)));
+      THTensor_(maskedFill)(state, tensor, maskCuda,
+                            (real)(luaL_checknumber(L,3)));
     }
     else if((vals = luaT_toudata(L, 3, torch_Tensor)))
     {
