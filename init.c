@@ -499,20 +499,8 @@ static int cutorch_getDevice(lua_State *L)
 
 static int cutorch_deviceReset(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
-  /* Get the current device so we can reset device-specific state */
-  int curDev = -1;
-  THCudaCheck(cudaGetDevice(&curDev));
-  THCudaCheck(cudaDeviceReset());
-
-  /* p2p access for this device was also reset, so we have to re-enable it */
-  THCudaEnablePeerToPeerAccess(state);
-
-  /* Reset our specific per-device state */
-  THCudaBlas_reset(state, curDev);
-  THCRandom_resetGenerator(state, curDev);
-  THCState_resetStreams(state, curDev);
-
+  printf("WARNING: cutorch.deviceReset has been depreceated."
+	 " Just remove the call from your code.\n");
   return 0;
 }
 
