@@ -636,6 +636,23 @@ function test.min()
    checkMultiDevice(x, 'min', 1)
 end
 
+for i, v in ipairs{{10}, {5, 5}} do
+  test['allAndAny' .. i] =
+    function()
+      local x = torch.CudaTensor(unpack(v)):fill(1)
+      tester:assert(x:all(), 'error in all()')
+      tester:assert(x:any(), 'error in any()')
+
+      x[3] = 0
+      tester:assert(not x:all(), 'error in all()')
+      tester:assert(x:any(), 'error in any()')
+
+      x:zero()
+      tester:assert(not x:all(), 'error in all()')
+      tester:assert(not x:any(), 'error in any()')
+    end
+end
+
 function test.sum()
    local minsize = 10
    local maxsize = 20
