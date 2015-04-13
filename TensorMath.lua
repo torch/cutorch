@@ -549,6 +549,13 @@ for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
          {name=Tensor}})
 end
 
+for _,name in pairs({'all', 'any'}) do
+  wrap(name,
+       cname('logical' .. name),
+       {{name=Tensor},
+        {name="boolean", creturned=true}})
+end
+
 for _,f in ipairs({{name='geometric'},
                    {name='bernoulli', a=0.5}}) do
 
