@@ -42,6 +42,8 @@ static int torch_Storage_(new)(lua_State *L)
     long size = luaL_optlong(L, 1, 0);
     storage = THStorage_(newWithSize)(state, size);
   }
+  THArgCheck(THCState_getDeviceMode(state) == THCStateDeviceModeManual || storage->size == 0,
+        1, "Cannot determine where to allocate tensor, since deviceID=0");
   luaT_pushudata(L, storage, torch_Storage);
   return 1;
 }
@@ -55,10 +57,14 @@ static int torch_Storage_(free)(lua_State *L)
 
 static int torch_Storage_(resize)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   long size = luaL_checklong(L, 2);
 /*  int keepContent = luaT_optboolean(L, 3, 0); */
-  THStorage_(resize)(cutorch_getstate(L), storage, size);/*, keepContent); */
+  THArgCheck(THCState_getDeviceMode(state) == THCStateDeviceModeManual ||
+             storage->device != THC_DEVICE_NONE || size == 0,
+        1, "Cannot determine where to allocate tensor, since deviceID=0");
+  THStorage_(resize)(state, storage, size);/*, keepContent); */
   lua_settop(L, 1);
   return 1;
 }
@@ -183,7 +189,7 @@ static int torch_Storage_(write)(lua_State *L)
 {
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   THFile *file = luaT_checkudata(L, 2, "torch.File");
- 
+
   THFile_writeLongScalar(file, storage->size);
   THFile_writeRealRaw(file, storage->data, storage->size);
 

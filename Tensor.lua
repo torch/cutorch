@@ -3,7 +3,16 @@ function torch.CudaTensor.apply(self, func)
    x:apply(func)
    self:copy(x)
 end
-
+function torch.CudaTensorOn(device, ...)
+   local curDev = cutorch.getDevice()
+   cutorch.setDevice(device)
+   local res = torch.CudaTensor(...)
+   if res:nElement() == 0 then
+      res:setDevice(device)
+   end
+   cutorch.setDevice(curDev)
+   return res
+end
 local function Tensor__type(self,type)
    local current = torch.typename(self)
    if not type then return current end
@@ -20,33 +29,44 @@ end
 local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
-local function Tensor__cuda(self,type)
-   return self:type('torch.CudaTensor')
+local function Tensor__cuda(self,device)
+   if device ~= nil then
+      local curDev = cutorch.getDevice()
+      cutorch.setDevice(device)
+      local res = self:type('torch.CudaTensor')
+      if res:nElement() == 0 then
+         res:setDevice(device)
+      end
+      cutorch.setDevice(curDev)
+      return res
+   else
+      return self:type('torch.CudaTensor')
+   end
 end
-local function Tensor__double(self,type)
+local function Tensor__double(self)
    return self:type('torch.DoubleTensor')
 end
-local function Tensor__float(self,type)
+local function Tensor__float(self)
    return self:type('torch.FloatTensor')
 end
 
-local function Tensor__byte(self,type)
+local function Tensor__byte(self)
    return self:type('torch.ByteTensor')
 end
 
-local function Tensor__char(self,type)
+local function Tensor__char(self)
    return self:type('torch.CharTensor')
 end
 
-local function Tensor__int(self,type)
+local function Tensor__int(self)
    return self:type('torch.IntTensor')
 end
 
-local function Tensor__short(self,type)
+local function Tensor__short(self)
    return self:type('torch.ShortTensor')
 end
 
-local function Tensor__long(self,type)
+local function Tensor__long(self)
    return self:type('torch.LongTensor')
 end
 

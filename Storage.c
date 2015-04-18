@@ -105,6 +105,19 @@ CUDA_IMPLEMENT_STORAGE_COPY(Long)
 CUDA_IMPLEMENT_STORAGE_COPY(Float)
 CUDA_IMPLEMENT_STORAGE_COPY(Double)
 
+static int cutorch_CudaStorage_getDevice(lua_State *L) {
+  THCudaStorage *storage = luaT_checkudata(L, 1, "torch.CudaStorage");
+  lua_pushinteger(L, THCudaStorage_getDevice(cutorch_getstate(L), storage) + 1);
+  return 1;
+}
+
+static int cutorch_CudaStorage_setDevice(lua_State *L) {
+  THCudaStorage *storage = luaT_checkudata(L, 1, "torch.CudaStorage");
+  int device = luaL_checkint(L, 2) - 1;
+  THCudaStorage_setDevice(cutorch_getstate(L), storage, device);
+  return 0;
+}
+
 void cutorch_CudaStorage_init(lua_State* L)
 {
   /* the standard stuff */
@@ -140,4 +153,12 @@ void cutorch_CudaStorage_init(lua_State* L)
       lua_pop(L, 1);
     }
   }
+
+  luaT_pushmetatable(L, "torch.CudaStorage");
+  lua_pushcfunction(L, cutorch_CudaStorage_getDevice);
+  lua_setfield(L, -2, "getDevice");
+  lua_pushcfunction(L, cutorch_CudaStorage_setDevice);
+  lua_setfield(L, -2, "setDevice");
+  lua_pop(L, 1);
+
 }
