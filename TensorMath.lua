@@ -651,7 +651,7 @@ wrap("squeeze",
              local txt = {}
              if arg.returned then
                 table.insert(txt, string.format('if(!hasdims && arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
-                table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(cutorch_getstate(L), arg%d)));}', arg.i))
+                table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(THCudaTensor_get1d(cutorch_getstate(L), arg%d, 0)));}', arg.i))
              end
              return table.concat(txt, '\n')
           end},
