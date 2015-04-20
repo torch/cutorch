@@ -150,6 +150,9 @@ function test.squeeze()
 
    local y = x:cuda():squeeze(2)
    tester:assert(y:dim() == 3, "squeeze1d err")
+
+   x = torch.FloatTensor(1)
+   compareFloatAndCuda(x, 'squeeze')
 end
 
 function test.expand()
