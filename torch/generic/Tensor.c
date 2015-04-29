@@ -101,6 +101,8 @@ static int torch_Tensor_(new)(lua_State *L)
     counter = THLongStorage_newWithSize(size->size);
     THLongStorage_fill(counter, 0);
 
+    THArgCheck(THCState_getDeviceMode(state) == THCStateDeviceModeManual || size == 0,
+        1, "Cannot determine where to allocate tensor, since deviceID=0");
     tensor = THTensor_(newWithSize)(state, size, NULL);
 
     if(size->size == 0)
@@ -192,6 +194,8 @@ static int torch_Tensor_(new)(lua_State *L)
     torch_Tensor_(c_readTensorStorageSizeStride)(L, 1, 1, 1, 1, 1,
                                                  &storage, &storageOffset, &size, &stride);
 
+    THArgCheck(THCState_getDeviceMode(state) == THCStateDeviceModeManual || size == 0 || storage != NULL,
+        1, "Cannot determine where to allocate tensor, since deviceID=0");
     tensor = THTensor_(newWithStorage)(state, storage, storageOffset, size, stride);
 
     THLongStorage_free(size);
@@ -223,7 +227,14 @@ static int torch_Tensor_(set)(lua_State *L)
 
 static int torch_Tensor_(clone)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THTensor *self = luaT_checkudata(L, 1, torch_Tensor);
+  if(THCState_getDeviceMode(state) == THCStateDeviceModeAuto) {
+    int tensorDev = THCudaTensor_storage(state, self)->device;
+    if(tensorDev != THC_DEVICE_NONE) {
+      THCState_setDevice(state, tensorDev);
+    }
+  }
   self = THTensor_(newClone)(cutorch_getstate(L), self);
   luaT_pushudata(L, self, torch_Tensor);
   return 1;
@@ -240,8 +251,14 @@ static int torch_Tensor_(contiguous)(lua_State *L)
 /* Resize */
 static int torch_Tensor_(resizeAs)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   THTensor *src = luaT_checkudata(L, 2, torch_Tensor);
+  int size = THTensor_(nElement)(state, src);
+  THArgCheck(THCState_getDeviceMode(state) == THCStateDeviceModeManual ||
+             THCudaTensor_storage(state, tensor)->device != THC_DEVICE_NONE ||
+             size == 0 ,
+      1, "Cannot determine where to allocate tensor, since deviceID=0");
   THTensor_(resizeAs)(cutorch_getstate(L), tensor, src);
   lua_settop(L, 1);
   return 1;
@@ -249,12 +266,18 @@ static int torch_Tensor_(resizeAs)(lua_State *L)
 
 static int torch_Tensor_(resize)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   THLongStorage *size, *stride;
 
   torch_Tensor_(c_readSizeStride)(L, 2, 0, &size, &stride);
 
-  THTensor_(resize)(cutorch_getstate(L), tensor, size, stride);
+
+  THArgCheck(THCState_getDeviceMode(state) == THCStateDeviceModeManual ||
+             THCudaTensor_storage(state, tensor)->device != THC_DEVICE_NONE ||
+             size == 0,
+      1, "Cannot determine where to allocate tensor, since deviceID=0");
+  THTensor_(resize)(state, tensor, size, stride);
 
   THLongStorage_free(size);
   THLongStorage_free(stride);

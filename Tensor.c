@@ -179,6 +179,13 @@ static int cutorch_CudaTensor_getDevice(lua_State *L) {
   return 1;
 }
 
+static int cutorch_CudaTensor_setDevice(lua_State *L) {
+  THCudaTensor *tensor = luaT_checkudata(L, 1, "torch.CudaTensor");
+  int device = luaL_checkint(L, 2) - 1;
+  THCudaTensor_setDevice(cutorch_getstate(L), tensor, device);
+  return 0;
+}
+
 void cutorch_CudaTensor_init(lua_State* L)
 {
   /* the standard stuff */
@@ -224,6 +231,7 @@ void cutorch_CudaTensor_init(lua_State* L)
   luaT_pushmetatable(L, "torch.CudaTensor");
   lua_pushcfunction(L, cutorch_CudaTensor_getDevice);
   lua_setfield(L, -2, "getDevice");
-
+  lua_pushcfunction(L, cutorch_CudaTensor_setDevice);
+  lua_setfield(L, -2, "setDevice");
   lua_pop(L, 1);
 }

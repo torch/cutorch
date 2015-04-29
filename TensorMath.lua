@@ -95,9 +95,10 @@ wrap.types.CudaTensor = {
    postcall = function(arg)
       local txt = {}
       if arg.creturned then
-         -- this next line is actually debatable
-         table.insert(txt, string.format('TH%s_retain(arg%d);', typename, arg.i))
-         table.insert(txt, string.format('luaT_pushudata(L, arg%d, "torch.%s");', arg.i, typename))
+         -- if a tensor is returned by a wrapped C function, the refcount semantics
+         -- are ambiguous (transfer ownership vs. shared ownership).
+         -- We never actually do this, so lets just not allow it.
+         error('a tensor cannot be creturned')
       end
       return table.concat(txt, '\n')
    end
@@ -326,6 +327,8 @@ do
              return table.concat(
                 {
                    arg.__metatable.init(arg),
+                   string.format("TH%s_checkGPU(cutorch_getstate(L), 1, %s);",
+                                 Tensor, arg.args[5]:carg()),
                    string.format("TH%s_resize1d(cutorch_getstate(L), %s, %s->size[0]);", Tensor, arg:carg(), arg.args[5]:carg())
                 }, '\n')
           end,
@@ -351,6 +354,8 @@ do
              return table.concat(
                 {
                    arg.__metatable.init(arg),
+                   string.format("TH%s_checkGPU(cutorch_getstate(L), 2, %s, %s);",
+                                 Tensor, arg.args[5]:carg(), arg.args[6]:carg()),
                    string.format("TH%s_resize2d(cutorch_getstate(L), %s, %s->size[0], %s->size[1]);",
                                  Tensor, arg:carg(), arg.args[5]:carg(), arg.args[6]:carg())
                 }, '\n')
@@ -370,6 +375,8 @@ do
              return table.concat(
                 {
                    arg.__metatable.init(arg),
+                   string.format("TH%s_checkGPU(cutorch_getstate(L), 2, %s, %s);",
+                                 Tensor, arg.args[5]:carg(), arg.args[6]:carg()),
                    string.format("TH%s_resize3d(cutorch_getstate(L), %s, %s->size[0], %s->size[1], %s->size[2]);",
                                  Tensor, arg:carg(), arg.args[5]:carg(), arg.args[5]:carg(), arg.args[6]:carg())
                 }, '\n')
@@ -389,6 +396,8 @@ do
              return table.concat(
                 {
                    arg.__metatable.init(arg),
+                   string.format("TH%s_checkGPU(cutorch_getstate(L), 2, %s, %s);",
+                                 Tensor, arg.args[5]:carg(), arg.args[6]:carg()),
                    string.format("TH%s_resize2d(cutorch_getstate(L), %s, %s->size[0], %s->size[0]);", Tensor, arg:carg(), arg.args[5]:carg(), arg.args[6]:carg())
                 }, '\n')
           end,
