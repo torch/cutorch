@@ -14,6 +14,9 @@ interface:print('')
 -- specific to CUDA
 local typename = 'CudaTensor'
 
+-- Lua 5.2 compatibility
+local unpack = unpack or table.unpack
+
 -- cut and paste from wrap/types.lua
 wrap.types.CudaTensor = {
 
@@ -683,12 +686,12 @@ void cutorch_CudaTensorMath_init(lua_State *L)
   luaT_pushmetatable(L, "torch.CudaTensor");
 
   /* register methods */
-  luaL_register(L, NULL, m_cutorch_CudaTensorMath__);
+  luaL_setfuncs(L, m_cutorch_CudaTensorMath__, 0);
 
   /* register functions into the "torch" field of the tensor metaclass */
   lua_pushstring(L, "torch");
   lua_newtable(L);
-  luaL_register(L, NULL, cutorch_CudaTensorMath__);
+  luaL_setfuncs(L, cutorch_CudaTensorMath__, 0);
   lua_rawset(L, -3);
   lua_pop(L, 1);
 }
