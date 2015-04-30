@@ -240,6 +240,22 @@ static int torch_Tensor_(clone)(lua_State *L)
   return 1;
 }
 
+static int torch_Tensor_(cloneOn)(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  THTensor *self = luaT_checkudata(L, 1, torch_Tensor);
+  int device = luaL_checkint(L, 2)-1;
+  int oldDev = -1;
+  THCudaCheck(cudaGetDevice(&oldDev));
+  THCudaCheck(cudaSetDevice(device));
+  self = THTensor_(newClone)(cutorch_getstate(L), self);
+  THCudaCheck(cudaSetDevice(oldDev));
+  // in case it's size 0, make sure the device is set
+  THTensor_(setDevice)(state, self, device);
+  luaT_pushudata(L, self, torch_Tensor);
+  return 1;
+}
+
 static int torch_Tensor_(contiguous)(lua_State *L)
 {
   THTensor *self = luaT_checkudata(L, 1, torch_Tensor);
@@ -1206,6 +1222,7 @@ static const struct luaL_Reg torch_Tensor_(_) [] = {
   {"storage", torch_Tensor_(storage)},
   {"storageOffset", torch_Tensor_(storageOffset)},
   {"clone", torch_Tensor_(clone)},
+  {"cloneOn", torch_Tensor_(cloneOn)},
   {"contiguous", torch_Tensor_(contiguous)},
   {"resizeAs", torch_Tensor_(resizeAs)},
   {"resize", torch_Tensor_(resize)},
