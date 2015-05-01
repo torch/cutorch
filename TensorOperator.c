@@ -171,6 +171,6 @@ static const struct luaL_Reg cutorch_CudaTensorOperator__ [] = {
 void cutorch_CudaTensorOperator_init(lua_State *L)
 {
   luaT_pushmetatable(L, "torch.CudaTensor");
-  luaL_register(L, NULL, cutorch_CudaTensorOperator__);
+  luaL_setfuncs(L, cutorch_CudaTensorOperator__, 0);
   lua_pop(L, 1);
 }

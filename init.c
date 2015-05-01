@@ -773,7 +773,7 @@ LUA_EXTERNC DLL_EXPORT int luaopen_libcutorch(lua_State *L);
 int luaopen_libcutorch(lua_State *L)
 {
   lua_newtable(L);
-  luaL_register(L, NULL, cutorch_stuff__);
+  luaL_setfuncs(L, cutorch_stuff__, 0);
 
   THCState* state = (THCState*)malloc(sizeof(THCState));
   THCudaInit(state);

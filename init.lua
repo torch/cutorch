@@ -8,6 +8,8 @@ include('Tensor.lua')
 include('FFI.lua')
 include('test.lua')
 
+local unpack = unpack or table.unpack
+
 function cutorch.withDevice(newDeviceID, closure)
     local curDeviceID = cutorch.getDevice()
     cutorch.setDevice(newDeviceID)

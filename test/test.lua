@@ -13,6 +13,7 @@ local maxvalue = 20
 local nloop = 100
 local times = {}
 local test_tolerance = 1e-5
+local unpack = unpack or table.unpack
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
 local function isEqual(a, b, tolerance, ...)

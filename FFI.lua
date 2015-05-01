@@ -1,6 +1,5 @@
-if jit then
-
-   local ffi = require 'ffi'
+local ok, ffi = pcall(require, 'ffi')
+if ok then
 
    local cdefs = [[
 typedef struct CUstream_st *cudaStream_t;
