@@ -30,20 +30,21 @@ end
 local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
-local function Tensor__cuda(self,device)
-   if device ~= nil then
-      local curDev = cutorch.getDevice()
-      cutorch.setDevice(device)
-      local res = self:type('torch.CudaTensor')
-      if res:nElement() == 0 then
-         res:setDevice(device)
-      end
-      cutorch.setDevice(curDev)
-      return res
-   else
-      return self:type('torch.CudaTensor')
-   end
+local function Tensor__cuda(self)
+   return self:type('torch.CudaTensor')
 end
+
+local function Tensor__cudaOn(self, device)
+   local curDev = cutorch.getDevice()
+   cutorch.setDevice(device)
+   local res = self:type('torch.CudaTensor')
+   if res:nElement() == 0 then
+      res:setDevice(device)
+   end
+   cutorch.setDevice(curDev)
+   return res
+end
+
 local function Tensor__double(self)
    return self:type('torch.DoubleTensor')
 end
@@ -72,23 +73,32 @@ local function Tensor__long(self)
 end
 
 rawset(torch.getmetatable('torch.DoubleTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.FloatTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.ByteTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CharTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.IntTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.ShortTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.LongTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CudaTensor'), 'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.FloatTensor'),  'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.ByteTensor'),   'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.CharTensor'),   'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.IntTensor'),    'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.ShortTensor'),  'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.LongTensor'),   'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.CudaTensor'),   'cuda', Tensor__cuda)
 
-rawset(torch.getmetatable('torch.CudaTensor'), 'type', Tensor__type)
+rawset(torch.getmetatable('torch.DoubleTensor'), 'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.FloatTensor'),  'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.ByteTensor'),   'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.CharTensor'),   'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.IntTensor'),    'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.ShortTensor'),  'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.LongTensor'),   'cudaOn', Tensor__cudaOn)
+rawset(torch.getmetatable('torch.CudaTensor'),   'cudaOn', Tensor__cudaOn)
+
+rawset(torch.getmetatable('torch.CudaTensor'), 'type',   Tensor__type)
 rawset(torch.getmetatable('torch.CudaTensor'), 'typeAs', Tensor__typeAs)
 rawset(torch.getmetatable('torch.CudaTensor'), 'double', Tensor__double)
-rawset(torch.getmetatable('torch.CudaTensor'), 'float', Tensor__float)
-rawset(torch.getmetatable('torch.CudaTensor'), 'byte', Tensor__byte)
-rawset(torch.getmetatable('torch.CudaTensor'), 'char', Tensor__char)
-rawset(torch.getmetatable('torch.CudaTensor'), 'int', Tensor__int)
-rawset(torch.getmetatable('torch.CudaTensor'), 'short', Tensor__short)
-rawset(torch.getmetatable('torch.CudaTensor'), 'long', Tensor__long)
+rawset(torch.getmetatable('torch.CudaTensor'), 'float',  Tensor__float)
+rawset(torch.getmetatable('torch.CudaTensor'), 'byte',   Tensor__byte)
+rawset(torch.getmetatable('torch.CudaTensor'), 'char',   Tensor__char)
+rawset(torch.getmetatable('torch.CudaTensor'), 'int',    Tensor__int)
+rawset(torch.getmetatable('torch.CudaTensor'), 'short',  Tensor__short)
+rawset(torch.getmetatable('torch.CudaTensor'), 'long',   Tensor__long)
 
 do
     local metatable = torch.getmetatable('torch.CudaTensor')

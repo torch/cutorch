@@ -1476,7 +1476,7 @@ function test.get_device()
     -- 1. assign empty tensor to device, resize in auto mode
     local tensors = { }
     for i = 1,device_count do
-        table.insert(tensors, torch.Tensor():cuda(i))
+        table.insert(tensors, torch.Tensor():cudaOn(i))
     end
     cutorch.setDevice(0) -- auto
     tester:assert(cutorch.getDevice() == 0)
@@ -1489,7 +1489,7 @@ function test.get_device()
 
     -- 3. create tensor on device; resize on different device. Should be an error
     if device_count >= 2 then
-       local t = torch.Tensor():cuda(1)
+       local t = torch.Tensor():cudaOn(1)
        tester:assert(t:getDevice() == 1)
        cutorch.setDevice(2)
        local ok, err = pcall(function() t:resize(1,2,3) end)
@@ -1526,29 +1526,39 @@ function test.tensor_device()
          cutorch.setDevice(curDev)
          for tensorDev = 1,2 do
 
+            -- cudaTensorOn, unallocated
             local t1 = torch.CudaTensorOn(tensorDev)
             tester:assert(t1:getDevice() == tensorDev)
             tester:assert(t1:nDimension() == 0)
             t1:resize(0)
             tester:assert(t1:getDevice() == tensorDev)
 
+            -- cudaTensorOn, allocated
             local t2 = torch.CudaTensorOn(tensorDev,2,3)
             tester:assert(t2:getDevice() == tensorDev)
             tester:assert(t2:nDimension() == 2 and t2:size(1) == 2 and t2:size(2) == 3)
             ok = pcall(function() t2 = t2:zero() end)
             tester:assert(ok == (curDev == 0 or curDev == tensorDev))
 
-            local t3 = torch.FloatTensor(10,10):zero():cuda(tensorDev)
+            -- cudaOn, unallocated
+            local t3 = torch.FloatTensor():cudaOn(tensorDev)
             tester:assert(t3:getDevice() == tensorDev)
-            tester:assert(t3:nDimension() == 2 and t3:size(1) == 10 and t3:size(2) == 10)
-
+            tester:assert(t3:nDimension() == 0)
             tester:assert(cutorch.getDevice() == curDev)
 
+            -- cudaOn, allocated
+            local t3 = torch.FloatTensor(10,10):zero():cudaOn(tensorDev)
+            tester:assert(t3:getDevice() == tensorDev)
+            tester:assert(t3:nDimension() == 2 and t3:size(1) == 10 and t3:size(2) == 10)
+            tester:assert(cutorch.getDevice() == curDev)
+
+            -- setDevice
             t3:setDevice(tensorDev)
             ok, err = pcall(function() t3:setDevice(3-tensorDev) end)
             tester:assert(not ok, "setDevice should not work on non-empty tensor")
             tester:assert(err:find("Use copy"))
 
+            -- clone, allocated
             local t1 = torch.CudaTensorOn(tensorDev, 10)
             tester:assert(t1:getDevice() == tensorDev)
             torch.CudaTensorOn(3-tensorDev,10) -- decoy
@@ -1559,9 +1569,23 @@ function test.tensor_device()
               tester:assert(t2:getDevice() == curDev)
             end
 
+            -- clone, unallocated
             local t1 = torch.CudaTensorOn(tensorDev)
             local t2 = t1:clone()
             tester:assert(t2:getDevice() == 0)
+
+            -- cloneOn, allocated
+            local t1 = torch.CudaTensorOn(tensorDev, 10)
+            tester:assert(t1:getDevice() == tensorDev)
+            local t2 = t1:cloneOn(3-tensorDev)
+            tester:assert(t2:getDevice() == 3-tensorDev)
+
+            -- cloneOn, unallocated
+            local t1 = torch.CudaTensor()
+            tester:assert(t1:getDevice() == 0)
+            torch.CudaTensorOn(tensorDev,10) -- decoy
+            local t2 = t1:cloneOn(3-tensorDev)
+            tester:assert(t2:getDevice() == 3-tensorDev)
          end
       end
    end
@@ -1579,6 +1603,22 @@ function test.mm_multi_device()
       c = torch[fn](a, b)
       tester:assert( c:getDevice() == 2)
     end
+  end
+end
+
+function test.metamethod_multi_device()
+  local device_count = cutorch.getDeviceCount()
+  if device_count >= 2 then
+    cutorch.setDevice(0)
+    local a = torch.CudaTensorOn(1, 10)
+    torch.CudaTensorOn(2) -- decoy
+    local b = a / 2
+    tester:assert( b:getDevice() == 1 )
+
+    local c = torch.CudaTensorOn(2, 10)
+    local ok, err = pcall(function() return a + c end)
+    tester:assert(not ok)
+    tester:assert(err:find("checkGPU"))
   end
 end
 
@@ -2225,10 +2265,18 @@ for k,v in pairs(test) do
   end
 end
 
-function cutorch.test(tests)
-   math.randomseed(os.time())
-   torch.manualSeed(os.time())
-   cutorch.manualSeedAll(os.time())
+function initSeed(seed)
+   seed = seed or os.time()
+   -- ensure that you can reproduce a failing test
+   print('seed: ', seed)
+   math.randomseed(seed)
+   torch.manualSeed(seed)
+   cutorch.manualSeedAll(seed)
+end
+
+
+function cutorch.test(tests, seed)
+   initSeed(seed)
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)

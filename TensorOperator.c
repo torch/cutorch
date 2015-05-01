@@ -8,6 +8,7 @@ static int cutorch_CudaTensorOperator___add__(lua_State *L)
   THCudaTensor *tensor2 = luaT_toudata(L, 2, "torch.CudaTensor");
   THCudaTensor *r;
   THCState *state = cutorch_getstate(L);
+  THAssert(THCudaTensor_checkGPU(state, 2, tensor1, tensor2));
 
   if(!tensor1 && !tensor2)
     luaL_error(L, "expecting two Tensors or one Tensor and one number");
@@ -44,6 +45,7 @@ static int cutorch_CudaTensorOperator___sub__(lua_State *L)
   THCudaTensor *tensor2 = luaT_toudata(L, 2, "torch.CudaTensor");
   THCudaTensor *r;
   THCState *state = cutorch_getstate(L);
+  THAssert(THCudaTensor_checkGPU(state, 2, tensor1, tensor2));
 
   if(!tensor1 && !tensor2)
     luaL_error(L, "expecting two Tensors or one Tensor and one number");
@@ -79,6 +81,7 @@ static int cutorch_CudaTensorOperator___unm__(lua_State *L)
   THCudaTensor *tensor = luaT_checkudata(L, 1, "torch.CudaTensor");
   THCudaTensor *r;
   THCState *state = cutorch_getstate(L);
+  THAssert(THCudaTensor_checkGPU(state, 1, tensor));
 
   r = THCudaTensor_new(state);
   luaT_pushudata(L, r, "torch.CudaTensor");
@@ -95,6 +98,7 @@ static int cutorch_CudaTensorOperator___mul__(lua_State *L)
   THCudaTensor *tensor2 = luaT_toudata(L, 2, "torch.CudaTensor");
   THCudaTensor *r;
   THCState *state = cutorch_getstate(L);
+  THAssert(THCudaTensor_checkGPU(state, 2, tensor1, tensor2));
 
   if(!tensor1 && !tensor2)
     luaL_error(L, "expecting two Tensors or one Tensor and one number");
@@ -146,6 +150,7 @@ static int cutorch_CudaTensorOperator___div__(lua_State *L)
   THCudaTensor *tensor = luaT_checkudata(L, 1, "torch.CudaTensor");
   THCudaTensor *r;
   THCState *state = cutorch_getstate(L);
+  THAssert(THCudaTensor_checkGPU(state, 1, tensor));
 
   luaL_argcheck(L, lua_isnumber(L,2), 2, "number expected");
 
