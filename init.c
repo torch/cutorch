@@ -184,31 +184,9 @@ void waitMultiDeviceEvents(lua_State *L, THCState *state, int arg,
   lua_pop(L, 1);
 }
 
-static int optSetDevice(lua_State *L, int param_idx, const char *func_name)
-{
-  THCState *state = cutorch_getstate(L);
-  int oldDevice;
-  THCudaCheck(cudaGetDevice(&oldDevice));
-  int device = luaL_optint(L, param_idx, -10);
-  if (device != -10) {
-    THCState_setDevice(state, device - 1); /* zero indexed */
-  } else if (THCState_getDeviceMode(state) != THCStateDeviceModeManual) {
-      THError("%s: Current deviceID=0 and no device provided. Provide the deviceID as argument %d",
-          func_name, param_idx);
-  }
-  return oldDevice;
-}
-
-/*
-   Usage:
-   cutorch.synchronize([device])
-   Synchronizes the current or specified device with the host.
-*/
 static int cutorch_synchronize(lua_State *L)
 {
-  int oldDevice = optSetDevice(L, 1, "synchronize");
   THCudaCheck(cudaDeviceSynchronize());
-  THCState_setDevice(cutorch_getstate(L), oldDevice);
   return 0;
 }
 
@@ -299,14 +277,13 @@ static int cutorch_setDefaultStream(lua_State *L)
 
 /*
    Usage:
-   cutorch.streamWaitFor(waiterStream, {waitForStream1, ..., waitForStreamN} [, device])
-   for streams on the specified or current device. Creates a one-way barrier where
+   cutorch.streamWaitFor(waiterStream, {waitForStream1, ..., waitForStreamN})
+   for streams on the current device. Creates a one-way barrier where
    waiterStream waits for waitForStream1-N to reach the current point.
 */
 static int cutorch_streamWaitFor(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
-  int oldDevice = optSetDevice(L, 3, "streamWaitFor");
 
   int curDev = -1;
   THCudaCheck(cudaGetDevice(&curDev));
@@ -333,7 +310,6 @@ static int cutorch_streamWaitFor(lua_State *L)
   THCudaCheck(cudaStreamWaitEvent(streamWaiting, event, 0));
   THCudaCheck(cudaEventDestroy(event));
 
-  THCState_setDevice(state, oldDevice);
   return 0;
 }
 
@@ -403,14 +379,13 @@ static int cutorch_streamWaitForMultiDevice(lua_State *L)
 
 /*
    Usage:
-   cutorch.streamBarrier({stream1, stream2, ..., streamN} [, device])
-   applies to streams for the current or specified device. Creates a N-way barrier
+   cutorch.streamBarrier({stream1, stream2, ..., streamN})
+   applies to streams for the current device. Creates a N-way barrier
    to synchronize all of the streams given
 */
 static int cutorch_streamBarrier(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
-  int oldDevice = optSetDevice(L, 2, "streamBarrier");
 
   int curDev = -1;
   THCudaCheck(cudaGetDevice(&curDev));
@@ -434,7 +409,6 @@ static int cutorch_streamBarrier(lua_State *L)
   waitSingleDeviceEvent(L, state, 1, curDev, event);
   THCudaCheck(cudaEventDestroy(event));
 
-  THCState_setDevice(state, oldDevice);
   return 0;
 }
 
@@ -494,8 +468,8 @@ static int cutorch_streamBarrierMultiDevice(lua_State *L)
 
 /*
    Usage:
-   cutorch.streamSynchronize(n [, device])
-   For the current or given device, synchronizes with the given stream only
+   cutorch.streamSynchronize(n)
+   For the current device, synchronizes with the given stream only
    (cudaStreamSynchronize).
    0 is the default stream on the device.
 */
@@ -504,7 +478,6 @@ static int cutorch_streamSynchronize(lua_State *L)
   THCState *state = cutorch_getstate(L);
   int streamId = (int) luaL_checknumber(L, 1);
 
-  int oldDevice = optSetDevice(L, 2, "streamSynchronize");
   int curDev = -1;
   THCudaCheck(cudaGetDevice(&curDev));
 
@@ -512,20 +485,14 @@ static int cutorch_streamSynchronize(lua_State *L)
   cudaStream_t stream = THCState_getDeviceStream(state, curDev, streamId);
   THCudaCheck(cudaStreamSynchronize(stream));
 
-  THCState_setDevice(state, oldDevice);
   return 0;
 }
 
 static int cutorch_getDevice(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
   int device;
-  if (THCState_getDeviceMode(state) == THCStateDeviceModeAuto) {
-    device = 0;
-  } else {
-    THCudaCheck(cudaGetDevice(&device));
-    device++;
-  }
+  THCudaCheck(cudaGetDevice(&device));
+  device++;
   lua_pushnumber(L, device);
   return 1;
 }
@@ -545,35 +512,35 @@ static int cutorch_getDeviceCount(lua_State *L)
   return 1;
 }
 
-/*
-   Usage:
-   cutorch.getMemoryUsage([device])
-   Returns the free and total memory, in bytes, for the current or specified device.
-*/
 static int cutorch_getMemoryUsage(lua_State *L) {
   size_t freeBytes = 0;
   size_t totalBytes = 0;
-  int oldDevice = optSetDevice(L, 1, "getMemoryUsage");
+  int curDevice;
+  THCudaCheck(cudaGetDevice(&curDevice));
 
-  THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
-
+  int device = luaL_optint(L, 1, -10);
+  if (device == -10) { /* no argument passed, current device mem usage */
+    THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+  } else { /* argument was given, particular device's memory usage */
+    THCudaCheck(cudaSetDevice(device-1)); /* zero indexed */
+    THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+    THCudaCheck(cudaSetDevice(curDevice));
+  }
   lua_pushnumber(L, freeBytes);
   lua_pushnumber(L, totalBytes);
-  THCState_setDevice(cutorch_getstate(L), oldDevice);
   return 2;
 }
 
 static int cutorch_setDevice(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
-  int device = (int)luaL_checknumber(L, 1);
+  int device = (int)luaL_checknumber(L, 1)-1;
+  THCudaCheck(cudaSetDevice(device));
+  THCRandom_setGenerator(state, device);
+  THCudaBlas_setHandle(state, device);
 
-  if (device == 0) {
-    THCState_setDeviceMode(state, THCStateDeviceModeAuto);
-  } else {
-    THCState_setDeviceMode(state, THCStateDeviceModeManual);
-    THCState_setDevice(state, device - 1);
-  }
+  /* The stream is per device, so update the stream as well */
+  THCState_setStream(state, device, THCState_getCurrentStreamIndex(state));
 
   return 0;
 }
@@ -582,19 +549,11 @@ static int cutorch_setDevice(lua_State *L)
   lua_pushnumber(L, prop.NAME); \
   lua_setfield(L, -2, #NAME);
 
-/*
-   Usage:
-   cutorch.getDeviceProperties([device])
-   Sets and returns device proprties for the current or specified device.
-*/
 static int cutorch_getDeviceProperties(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
-  int oldDevice = optSetDevice(L, 1, "getDeviceProperties");
-  int device;
-  THCudaCheck(cudaGetDevice(&device));
-
   struct cudaDeviceProp prop;
+  int device = (int)luaL_checknumber(L, 1)-1;
+
   THCudaCheck(cudaGetDeviceProperties(&prop, device));
   lua_newtable(L);
   SET_DEVN_PROP(canMapHostMemory);
@@ -628,30 +587,16 @@ static int cutorch_getDeviceProperties(lua_State *L)
   lua_pushstring(L, prop.name);
   lua_setfield(L, -2, "name");
 
-  THCState_setDevice(state, oldDevice);
   return 1;
 }
 
-/*
-   Usage:
-   cutorch.seed([device])
-   Sets and returns a random seed for the current or specified device.
-*/
 static int cutorch_seed(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
-  int oldDevice = optSetDevice(L, 1, "seed");
-  unsigned long seed = THCRandom_seed(state);
-  THCState_setDevice(state, oldDevice);
+  unsigned long seed = THCRandom_seed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
-/*
-   Usage:
-   cutorch.seedAll()
-   Sets and returns a random seed for all devices.
-*/
 static int cutorch_seedAll(lua_State *L)
 {
   unsigned long seed = THCRandom_seedAll(cutorch_getstate(L));
@@ -659,41 +604,20 @@ static int cutorch_seedAll(lua_State *L)
   return 1;
 }
 
-/*
-   Usage:
-   cutorch.initialSeed([device])
-   Returns the seed for the current or specified device.
-*/
 static int cutorch_initialSeed(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
-  int oldDevice = optSetDevice(L, 1, "initialSeed");
-  unsigned long seed = THCRandom_initialSeed(state);
-  THCState_setDevice(state, oldDevice);
+  unsigned long seed = THCRandom_initialSeed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
-/*
-   Usage:
-   cutorch.manualSeed(seed [, device])
-   Sets the seed for the current or specified device.
-*/
 static int cutorch_manualSeed(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
   unsigned long seed = luaL_checknumber(L, 1);
-  int oldDevice = optSetDevice(L, 2, "manualSeed");
-  THCRandom_manualSeed(state, seed);
-  THCState_setDevice(state, oldDevice);
+  THCRandom_manualSeed(cutorch_getstate(L), seed);
   return 0;
 }
 
-/*
-   Usage:
-   cutorch.manualSeedAll(seed)
-   Sets the seed for all devices.
-*/
 static int cutorch_manualSeedAll(lua_State* L)
 {
   unsigned long seed = luaL_checknumber(L, 1);
@@ -701,33 +625,18 @@ static int cutorch_manualSeedAll(lua_State* L)
   return 0;
 }
 
-
-/*
-   Usage:
-   cutorch.getRNGState([device])
-*/
 static int cutorch_getRNGState(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
-  int oldDevice = optSetDevice(L, 1, "getRNGState");
   THByteTensor* t = THByteTensor_new();
-  THCRandom_getRNGState(state, t);
+  THCRandom_getRNGState(cutorch_getstate(L), t);
   luaT_pushudata(L, t, "torch.ByteTensor");
-  THCState_setDevice(state, oldDevice);
   return 1;
 }
 
-/*
-   Usage:
-   cutorch.getRNGState(rng_state [, device])
-*/
 static int cutorch_setRNGState(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
   THByteTensor* t = luaT_checkudata(L, 1, "torch.ByteTensor");
-  int oldDevice = optSetDevice(L, 2, "setRNGState");
-  THCRandom_setRNGState(state, t);
-  THCState_setDevice(state, oldDevice);
+  THCRandom_setRNGState(cutorch_getstate(L), t);
   return 0;
 }
 

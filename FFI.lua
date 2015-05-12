@@ -4,11 +4,6 @@ if ok then
    local cdefs = [[
 typedef struct CUstream_st *cudaStream_t;
 
-typedef enum THCStateDeviceMode {
-  THCStateDeviceModeManual,
-  THCStateDeviceModeAuto
-} THCStateDeviceMode;
-
 typedef struct THCState
 {
   struct THCRNGState* rngState;
@@ -19,7 +14,6 @@ typedef struct THCState
   int numDevices;
   int numUserStreams;
   int currentPerDeviceStream;
-  THCStateDeviceMode deviceMode;
 } THCState;
 
 cudaStream_t THCState_getCurrentStream(THCState *state);
@@ -29,7 +23,6 @@ typedef struct THCudaStorage
     float *data;
     long size;
     int refcount;
-    int device;
     char flag;
     THAllocator *allocator;
     void *allocatorContext;

@@ -8,15 +8,13 @@ Cutorch provides the following:
 - a new tensor type: `torch.CudaTensor` that acts like `torch.FloatTensor`, but all it's operations are on the GPU. Most of the tensor operations are supported by cutorch. There are a few missing ones, which are being implemented. The missing list can be found here: https://github.com/torch/cutorch/issues/70
 - `cutorch.*` - Functions to set/get GPU, get device properties, memory usage, set/get low-level streams, set/get random number generator's seed, synchronization etc. They are described in more detail below.
 
-<a name="cutorch.cudatensor"/>
 ### torch.CudaTensor
 This new tensor type behaves exactly like a `torch.FloatTensor`, but has a couple of extra functions of note:
 - `t:getDevice()` - Given a CudaTensor `t`, you can call :getDevice on it to find out the GPU ID on which the tensor memory is allocated.
 
-<a name="cutorch.api"/>
 ###`cutorch.*` API
 - `cutorch.synchronize()` : All of the CUDA API is asynchronous (barring a few functions), which means that you can queue up operations. To wait for the operations to finish, you can issue `cutorch.synchronize()` in your code, when the code waits for all GPU operations on the current GPU to finish.
-- `cutorch.setDevice(i)` : If one has multiple-GPUs, you can switch the default GPU (to allocate CUDA tensors and do operations). The GPU IDs are 1-indexed, so having 4 GPUs means, you can setDevice(1), setDevice(2), setDevice(3), setDevice(4). Alternatively, you can use [auto-device mode](#cutorch.api.autodevice).
+- `cutorch.setDevice(i)` : If one has multiple-GPUs, you can switch the default GPU (to allocate CUDA tensors and do operations). The GPU IDs are 1-indexed, so having 4 GPUs means, you can setDevice(1), setDevice(2), setDevice(3), setDevice(4).
 - `idx = cutorch.getDevice()` : Returns the currently set GPU device index.
 - `count = cutorch.getDeviceCount()` : Gets the number of available GPUs.
 - `totalMemory, freeMemory = cutorch.getMemoryUsage(devID)` : Gets the total and free memory in bytes for the given device ID.
@@ -28,23 +26,9 @@ This new tensor type behaves exactly like a `torch.FloatTensor`, but has a coupl
 - `cutorch.getRNGState([device])` - returns the current RNG state in the form of a byte tensor, for the current or specified device.
 - `cutorch.setRNGState(state [, device])` - Sets the RNG state from a previously saved state, on the current or specified device.
 - `cutorch.getState()` - Returns the global state of the cutorch package. This state is not for users, it stores the raw RNG states, cublas handles and other thread and device-specific stuff.
-- `cutorch.withDevice(devID, f)` - This is a convenience for multi-GPU code, that takes in a device ID as well as a function f. It switches cutorch to the new device, executes the function f, and switches back cutorch to the original device. Alternatively, you can use [auto-device mode](#cutorch.api.autodevice).
 
-<a name="cutorch.api.autodevice"/>
-#### Auto-device mode
+- `cutorch.withDevice(devID, f)` - This is a convenience for multi-GPU code, that takes in a device ID as well as a function f. It switches cutorch to the new device, executes the function f, and switches back cutorch to the original device.
 
-Computations on CUDA tensors must be run on the CUDA device where the tensor resides. Running a computation on a tensor from the wrong device will lead to a cutorch error. 
-
-If device is set to 0, cutorch will automatically determine where to run computation. In this mode, tensors must be created with the `torch.CudaTensorOn(device,...)`, `:cudaOn(device,...)`, and `:cloneOn(device)` convenience methods.
-
-```lua
-cutorch.setDevice(0)
-local t1 = torch.CudaTensorOn(2, 1000)  -- on device 2
-local t2 = torch.Tensor(1000):cudaOn(3) -- on device 3
-local t3 = t1 + 1                       -- on device 2
-```
-
-<a name="cutorch.api.streams"/>
 #### Low-level streams functions (dont use this as a user, easy to shoot yourself in the foot):
 - `cutorch.reserveStreams(n)`: creates n user streams for use on every device.
 - `n = cutorch.getNumStreams()`: returns the number of user streams available on every device. By `default`, this is `0`, meaning only the default stream (stream 0) is available.
@@ -57,7 +41,7 @@ local t3 = t1 + 1                       -- on device 2
 - `cutorch.streamBarrierMultiDevice({[device]={streamsToWaitOn...}...})`: As with streamBarrier but allows barriers between streams on arbitrary devices. Creates a cross-device N-to-N-way barrier between all (device, stream) values listed.
 - `cutorch.streamSynchronize(stream)`: equivalent to `cudaStreamSynchronize(stream)` for the current device. Blocks the CPU until stream completes its queued kernels/events.
 
-#### Common Examples
+##### Common Examples
 Transfering a FloatTensor `src` to the GPU:
 ```lua
 dest = src:cuda() -- dest is on the current GPU
@@ -66,12 +50,21 @@ dest = src:cuda() -- dest is on the current GPU
 Allocating a tensor on a given GPU:
 Allocate `src` on GPU 3
 ```lua
-src = torch.CudaTensorOn(3, 100)
+cutorch.setDevice(3)
+src = torch.CudaTensor(100)
 ```
 
 Copying a CUDA tensor from one GPU to another:
-Given a tensor called `src` on GPU 1, if you want to create its clone on GPU 2, then:
+Given a tensor called `src` on GPU 1, if you want to create it's clone on GPU 2, then:
 
 ```lua
-local dest = src:cloneOn(2)
+cutorch.setDevice(2)
+local dest = src:clone()
+```
+
+OR
+
+```
+local dest
+cutorch.withDevice(2, function() dest = src:clone() end)
 ```
