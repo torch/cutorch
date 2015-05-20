@@ -72,7 +72,8 @@ rawset(torch.getmetatable('torch.CudaTensor'), 'long', Tensor__long)
 
 do
     local metatable = torch.getmetatable('torch.CudaTensor')
-    for _,func in pairs{'expand', 'expandAs', 'view', 'viewAs', 'repeatTensor', 'permute'} do
+    for _,func in pairs{'expand', 'expandAs', 'view', 'viewAs', 'repeatTensor',
+                        'permute', 'split', 'chunk'} do
         rawset(metatable, func, torch[func])
     end
 end
