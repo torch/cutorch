@@ -190,6 +190,38 @@ function test.permute()
    compareFloatAndCuda(x, 'permute', unpack(perm))
 end
 
+function test.split()
+   local sz = {math.floor(torch.uniform(minsize,maxsize)),
+               math.floor(torch.uniform(minsize,maxsize)),
+               math.floor(torch.uniform(minsize,maxsize))}
+   local x = torch.rand(unpack(sz))
+   local dim = torch.random(3)
+   local size = torch.random(sz[dim])
+   local y = x:split(size, dim)
+   local y_ref = x:float():split(size, dim)
+
+   tester:asserteq(#y, #y_ref)
+   for i = 1, math.min(#y, #y_ref) do
+      tester:assertTensorEq(y[i]:float(), y_ref[i], 0)
+   end
+end
+
+function test.chunk()
+   local sz = {math.floor(torch.uniform(minsize,maxsize)),
+               math.floor(torch.uniform(minsize,maxsize)),
+               math.floor(torch.uniform(minsize,maxsize))}
+   local x = torch.rand(unpack(sz))
+   local dim = torch.random(3)
+   local n = torch.random(sz[dim])
+   local y = x:chunk(n, dim)
+   local y_ref = x:float():chunk(n, dim)
+
+   tester:asserteq(#y, #y_ref)
+   for i = 1, math.min(#y, #y_ref) do
+      tester:assertTensorEq(y[i]:float(), y_ref[i], 0)
+   end
+end
+
 function test.copyRandomizedTest()
    local maxSize = 1000000 -- 1M elements max
    local ndimInput = torch.random(10)
