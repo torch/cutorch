@@ -2016,6 +2016,15 @@ function test.streamBarrierMultiDevice()
    cutorch.synchronize()
 end
 
+function test.cudaHostTensor()
+  local t = cutorch.createCudaHostTensor(3, 4, 5)
+  tester:assertTableEq(t:size():totable(), {3, 4, 5})
+
+  local u = torch.Tensor(4, 5, 6)
+  local v = cutorch.createCudaHostTensor(u:size())
+  tester:assertTableEq(u:size():totable(), v:size():totable())
+end
+
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
 -- It would be nice to fix torch.Tester() eventually.
 local function setUp()

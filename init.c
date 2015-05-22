@@ -687,6 +687,10 @@ int luaopen_libcutorch(lua_State *L)
   THCState* state = (THCState*)malloc(sizeof(THCState));
   THCudaInit(state);
 
+  /* Register torch.CudaHostAllocator. */
+  luaT_pushudata(L, state->cudaHostAllocator, "torch.Allocator");
+  lua_setfield(L, -2, "CudaHostAllocator");
+
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaTensorMath_init(L);

@@ -14,6 +14,7 @@ typedef struct THCState
   int numDevices;
   int numUserStreams;
   int currentPerDeviceStream;
+  struct THAllocator* cudaHostAllocator;
 } THCState;
 
 cudaStream_t THCState_getCurrentStream(THCState *state);
