@@ -551,9 +551,14 @@ static int cutorch_setDevice(lua_State *L)
 
 static int cutorch_getDeviceProperties(lua_State *L)
 {
-  struct cudaDeviceProp prop;
   int device = (int)luaL_checknumber(L, 1)-1;
 
+  // switch context to given device so the call to cudaMemGetInfo is for the correct device
+  int oldDevice;
+  THCudaCheck(cudaGetDevice(&oldDevice));
+  THCudaCheck(cudaSetDevice(device));
+
+  struct cudaDeviceProp prop;
   THCudaCheck(cudaGetDeviceProperties(&prop, device));
   lua_newtable(L);
   SET_DEVN_PROP(canMapHostMemory);
@@ -586,6 +591,9 @@ static int cutorch_getDeviceProperties(lua_State *L)
 
   lua_pushstring(L, prop.name);
   lua_setfield(L, -2, "name");
+
+  // restore context
+  THCudaCheck(cudaSetDevice(oldDevice));
 
   return 1;
 }
