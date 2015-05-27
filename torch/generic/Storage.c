@@ -45,7 +45,7 @@ static int torch_Storage_(new)(lua_State *L)
     storage = THStorage_(newWithData)(state, ptr + offset, size);
     storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_VIEW;
     storage->view = src;
-    THStorage_(retain)(storage->view);
+    THStorage_(retain)(state, storage->view);
   }
   else if(lua_type(L, 2) == LUA_TNUMBER)
   {
