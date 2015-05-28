@@ -16,6 +16,11 @@ local test_tolerance = 1e-5
 local unpack = unpack or table.unpack
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
+-- Picks an integer between a and b, inclusive of endpoints
+local function chooseInt(a, b)
+   return math.floor(torch.uniform(a, b + 1))
+end
+
 local function isEqual(a, b, tolerance, ...)
    if a == nil and b == nil then return true end
    if a == nil and b ~= nil then return false end
@@ -40,8 +45,9 @@ local function checkMultiDevice(x, fn, ...)
    if device_count >= 2 then
       local x = x:cuda()
       cutorch.setDevice(cutorch.getDevice() == 1 and 2 or 1)
-      local ok = pcall(function(...) x[fn](x, ...) end, ...)
+      local ok, err = pcall(function(...) x[fn](x, ...) end, ...)
       tester:assert(not ok, "Multi-device checks failed for: " .. tostring(fn))
+      -- tester:assert(err:find("checkGPU"), "Multi-device check error message wrong for " .. tostring(fn) .. ". error: " .. tostring(err))
    end
 end
 
@@ -139,7 +145,7 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
 end
 
 function test.squeeze()
-   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 1, sz, 1)
    compareFloatAndCuda(x, 'squeeze')
 
@@ -157,7 +163,7 @@ function test.squeeze()
 end
 
 function test.expand()
-   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 1)
    compareFloatAndCuda(x, 'expand', sz, sz)
 
@@ -166,20 +172,20 @@ function test.expand()
 end
 
 function test.view()
-   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 3)
    compareFloatAndCuda(x, 'view', sz, 3, 1)
 end
 
 function test.viewAs()
-   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 3)
    local y = torch.FloatTensor():rand(sz, 3, 1)
    compareFloatAndCudaTensorArgs(x, 'viewAs', y)
 end
 
 function test.repeatTensor()
-   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 3)
    compareFloatAndCuda(x, 'repeatTensor', sz, 2)
 end
@@ -191,9 +197,9 @@ function test.permute()
 end
 
 function test.split()
-   local sz = {math.floor(torch.uniform(minsize,maxsize)),
-               math.floor(torch.uniform(minsize,maxsize)),
-               math.floor(torch.uniform(minsize,maxsize))}
+   local sz = {chooseInt(minsize, maxsize),
+               chooseInt(minsize, maxsize),
+               chooseInt(minsize, maxsize)}
    local x = torch.rand(unpack(sz))
    local dim = torch.random(3)
    local size = torch.random(sz[dim])
@@ -207,9 +213,9 @@ function test.split()
 end
 
 function test.chunk()
-   local sz = {math.floor(torch.uniform(minsize,maxsize)),
-               math.floor(torch.uniform(minsize,maxsize)),
-               math.floor(torch.uniform(minsize,maxsize))}
+   local sz = {chooseInt(minsize, maxsize),
+               chooseInt(minsize, maxsize),
+               chooseInt(minsize, maxsize)}
    local x = torch.rand(unpack(sz))
    local dim = torch.random(3)
    local n = torch.random(sz[dim])
@@ -409,7 +415,7 @@ function test.copyNoncontiguous()
      end
      compareFloatAndCuda(x, f)
 
-   local sz = math.floor(torch.uniform(minsize,maxsize))
+   local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 1)
    local f = function(src)
       return src.new(sz, sz):copy(src:expand(sz, sz))
@@ -472,7 +478,7 @@ end
 
 function test.largeNoncontiguous()
    local x = torch.FloatTensor():randn(20, 1, 60, 60)
-   local sz = math.floor(torch.uniform(maxsize, 2*maxsize))
+   local sz = chooseInt(maxsize, 2 * maxsize)
    local f = function(src)
       return src.new(20, sz, 60, 60):copy(src:expand(20, sz, 60, 60))
    end
@@ -480,16 +486,16 @@ function test.largeNoncontiguous()
 end
 
 function test.zero()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'zero')
    checkMultiDevice(x, 'zero')
 end
 
 function test.fill()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
    compareFloatAndCudaTensorArgs(x, 'fill', v)
@@ -497,16 +503,16 @@ function test.fill()
 end
 
 function test.reshape()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))*2
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)*2
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'reshape', sz1/2, sz2*2)
    checkMultiDevice(x, 'reshape', sz1/2, sz2*2)
 end
 
 function test.zeros()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local t = torch.getdefaulttensortype()
    torch.setdefaulttensortype('torch.CudaTensor')
    local x = torch.zeros(sz1, sz2)
@@ -515,8 +521,8 @@ function test.zeros()
 end
 
 function test.ones()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local t = torch.getdefaulttensortype()
    torch.setdefaulttensortype('torch.CudaTensor')
    local x = torch.ones(sz1, sz2)
@@ -526,8 +532,8 @@ end
 
 
 function test.add()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
@@ -543,8 +549,8 @@ function test.add()
 end
 
 function test.cmul()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cmul', y)
@@ -552,8 +558,8 @@ function test.cmul()
 end
 
 function test.cpow()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cpow', y)
@@ -561,8 +567,8 @@ function test.cpow()
 end
 
 function test.cdiv()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cdiv', y)
@@ -570,8 +576,8 @@ function test.cdiv()
 end
 
 function test.cdiv3()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor(sz1, sz2)
@@ -580,8 +586,8 @@ function test.cdiv3()
 end
 
 function test.addcmul()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
@@ -599,8 +605,8 @@ function test.addcmul()
 end
 
 function test.addcdiv()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
@@ -617,8 +623,8 @@ function test.addcdiv()
 end
 
 function test.logicalValue()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
@@ -628,8 +634,8 @@ function test.logicalValue()
 end
 
 function test.logicalTensor()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
@@ -640,8 +646,8 @@ function test.logicalTensor()
 end
 
 function test.mean()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'mean')
    compareFloatAndCuda(x, 'mean', 1)
@@ -651,8 +657,8 @@ function test.mean()
 end
 
 function test.max()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
    compareFloatAndCuda(x, 'max')
    compareFloatAndCuda(x, 'max', 1)
@@ -662,8 +668,8 @@ function test.max()
 end
 
 function test.min()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
    compareFloatAndCuda(x, 'min')
    compareFloatAndCuda(x, 'min', 1)
@@ -672,28 +678,44 @@ function test.min()
    checkMultiDevice(x, 'min', 1)
 end
 
-for i, v in ipairs{{10}, {5, 5}} do
-  test['allAndAny' .. i] =
-    function()
-      local x = torch.CudaTensor(unpack(v)):fill(1)
-      tester:assert(x:all(), 'error in all()')
-      tester:assert(x:any(), 'error in any()')
+function test.allAndAny()
+   for tries = 1, 10 do
+      local size1 = chooseInt(10, 100)
+      local t = nil
+      if torch.uniform(0, 1) > 0.5 then
+         t = torch.CudaTensor(size1):fill(1)
+      else
+         local size2 = chooseInt(10, 100)
+         t = torch.CudaTensor(size1, size2):fill(1)
 
-      x[3] = 0
-      tester:assert(not x:all(), 'error in all()')
-      tester:assert(x:any(), 'error in any()')
+         if torch.uniform(0, 1) > 0.5 then
+            t = t:transpose(1, 2)
+         end
+      end
 
-      x:zero()
-      tester:assert(not x:all(), 'error in all()')
-      tester:assert(not x:any(), 'error in any()')
-    end
+      tester:assert(t:all(), 'error in all()')
+      tester:assert(t:any(), 'error in any()')
+
+      if t:dim() == 1 then
+         t[chooseInt(1, t:size()[1])] = 0
+      else
+         t[chooseInt(1, t:size()[1])][chooseInt(1, t:size()[2])] = 0
+      end
+
+      tester:assert(not t:all(), 'error in all()')
+      tester:assert(t:any(), 'error in any()')
+
+      t:zero()
+      tester:assert(not t:all(), 'error in all()')
+      tester:assert(not t:any(), 'error in any()')
+   end
 end
 
 function test.sum()
    local minsize = 10
    local maxsize = 20
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    test_tolerance = 1e-1
    compareFloatAndCuda(x, 'sum')
@@ -707,8 +729,8 @@ end
 function test.cumsum()
    local minsize = 10
    local maxsize = 20
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'cumsum')
    compareFloatAndCuda(x, 'cumsum', 1)
@@ -720,8 +742,8 @@ end
 function test.prod()
    local minsize = 10
    local maxsize = 20
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'prod')
    compareFloatAndCuda(x, 'prod', 1)
@@ -733,8 +755,8 @@ end
 function test.cumprod()
    local minsize = 10
    local maxsize = 20
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'cumprod')
    compareFloatAndCuda(x, 'cumprod', 1)
@@ -744,16 +766,16 @@ function test.cumprod()
 end
 
 function test.round()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'round')
    checkMultiDevice(x, 'round')
 end
 
 function test.var()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'var')
    compareFloatAndCuda(x, 'var', 1, true)
@@ -765,8 +787,8 @@ function test.var()
 end
 
 function test.std()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'std')
    compareFloatAndCuda(x, 'std', 1, true)
@@ -780,8 +802,8 @@ end
 -- Test element-wise unary operators with both one and two arguments.
 local function testUnary1(fn)
    local function test()
-      local sz1 = math.floor(torch.uniform(minsize,maxsize))
-      local sz2 = math.floor(torch.uniform(minsize,maxsize))
+      local sz1 = chooseInt(minsize, maxsize)
+      local sz2 = chooseInt(minsize, maxsize)
       local x = torch.FloatTensor():rand(sz1, sz2)
       compareFloatAndCudaTensorArgs(x, fn)
    end
@@ -790,8 +812,8 @@ end
 
 local function testUnary2(fn)
    local function test()
-      local sz1 = math.floor(torch.uniform(minsize,maxsize))
-      local sz2 = math.floor(torch.uniform(minsize,maxsize))
+      local sz1 = chooseInt(minsize, maxsize)
+      local sz2 = chooseInt(minsize, maxsize)
       local x = torch.FloatTensor():rand(sz1, sz2)
       local y = torch.FloatTensor()
       compareFloatAndCudaTensorArgs(y, fn, x)
@@ -814,8 +836,8 @@ for _,name in ipairs({"log", "log1p", "exp",
 end
 
 function test.atan2(fn)
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor()
@@ -824,8 +846,8 @@ function test.atan2(fn)
 end
 
 function test.pow1()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local pow = torch.uniform(minvalue,maxvalue)
    compareFloatAndCudaTensorArgs(x, 'pow', pow)
@@ -833,8 +855,8 @@ function test.pow1()
 end
 
 function test.pow2()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor()
    local pow = torch.uniform(minvalue,maxvalue)
@@ -843,8 +865,8 @@ function test.pow2()
 end
 
 function test.powExponentTensor()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local pow = torch.uniform(minvalue,maxvalue)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor()
@@ -853,8 +875,8 @@ function test.powExponentTensor()
 end
 
 function test.clamp1()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2):mul(5):add(-2.5)
    local min_val = -1
    local max_val = 1
@@ -867,8 +889,8 @@ function test.clamp1()
 end
 
 function test.clamp2()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2):mul(5):add(-2.5)
    local min_val = -1
    local max_val = 1
@@ -882,22 +904,22 @@ function test.clamp2()
 end
 
 function test.index()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local sz3 = math.floor(torch.uniform(10,20))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local sz3 = chooseInt(10, 20)
    local x = torch.FloatTensor():rand(sz1, sz2)
 
-   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
    compareFloatAndCuda(x, 'index', index, longIndex)
 
    index = 2
-   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+   longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    compareFloatAndCuda(x, 'index', index, longIndex)
 
    x = torch.FloatTensor():rand(sz1)
    index = 1
-   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    compareFloatAndCuda(x, 'index', index, longIndex)
 
    x = torch.FloatTensor():rand(sz1,sz2,sz3)
@@ -912,28 +934,28 @@ function test.index()
 end
 
 function test.indexCopy()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize)) -- dim1
-   local sz2 = math.floor(torch.uniform(minsize,maxsize)) -- dim2
+   local sz1 = chooseInt(minsize, maxsize) -- dim1
+   local sz2 = chooseInt(minsize, maxsize) -- dim2
    local x = torch.FloatTensor():rand(sz1, sz2) -- input
 
 
    -- Case 1: 2D tensor, indexCopy over first dimension, 2 indices
    -- choose two indices from the first dimension, i.e. [1,sz1]
-   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
    local src = torch.FloatTensor(2, sz2):uniform()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
    index = 2
-   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+   longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    src = torch.FloatTensor(sz1, 2):uniform():cuda()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
    x = torch.FloatTensor():rand(sz1)
    index = 1
-   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    src = torch.FloatTensor(2):uniform()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
@@ -946,23 +968,23 @@ function test.indexCopy()
 end
 
 function test.indexFill()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
 
-   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
    local val = torch.randn(1)[1]
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
 
    index = 2
-   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+   longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    val = torch.randn(1)[1]
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
 
    x = torch.FloatTensor():rand(sz1)
    index = 1
-   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    val = torch.randn(1)[1]
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
 
@@ -1299,8 +1321,8 @@ local function checkIfUniformlyDistributed(t, min, max)
 end
 
 function test.uniform()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local min = torch.uniform()
    local max = min + torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
@@ -1311,8 +1333,8 @@ function test.uniform()
 end
 
 function test.bernoulli()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local p = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
@@ -1327,9 +1349,9 @@ function test.bernoulli()
 end
 
 function test.normal()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local mean, std = torch.uniform(), torch.uniform()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local mean, std = torch.uniform(), 0.1 * torch.uniform()
    local tolerance = 0.01
    local t = torch.CudaTensor(sz1, sz2)
 
@@ -1340,9 +1362,9 @@ function test.normal()
 end
 
 function test.logNormal()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local mean, std = torch.uniform(), torch.uniform()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local mean, std = torch.uniform(), 0.1 * torch.uniform()
    local tolerance = 0.01
    local t = torch.CudaTensor(sz1, sz2)
 
@@ -1354,8 +1376,8 @@ function test.logNormal()
 end
 
 function test.geometric()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local p = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
@@ -1367,8 +1389,8 @@ function test.geometric()
 end
 
 function test.exponential()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local lambda = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
@@ -1380,8 +1402,8 @@ function test.exponential()
 end
 
 function test.cauchy()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local median, sigma = torch.uniform(), torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
@@ -1392,8 +1414,8 @@ function test.cauchy()
 end
 
 function test.random_seed()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), torch.uniform()
    local tolerance = 0.01
    local t = torch.CudaTensor(sz1, sz2)
@@ -1407,8 +1429,8 @@ function test.random_seed()
 end
 
 function test.restore_rng()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), torch.uniform()
    local tolerance = 0.01
    local t = torch.CudaTensor(sz1, sz2)
@@ -1570,14 +1592,12 @@ function test.maskedSelect()
           "Error in maskedSelect indexing non-contig x[x:gt(y)]")
 end
 
---[[
-waiting on clarification for: https://github.com/torch/torch7/pull/187
 function test.maskedCopy()
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)
 
    -- contiguous, cuda mask
-   local x = torch.randn(n_row, n_col):float()
+   local x = torch.rand(n_row, n_col):float()
    local y = x:clone():fill(-1)
    local mask = torch.ByteTensor(n_row,n_col):bernoulli()
    y:maskedCopy(mask, x:clone())
@@ -1590,7 +1610,7 @@ function test.maskedCopy()
    checkMultiDevice(y_cuda, 'maskedCopy', mask, x)
 
    -- non-contiguous source, cuda mask
-   local x = torch.randn(n_row, n_col):float()
+   local x = torch.rand(n_row, n_col):float()
    local y = x:clone():fill(-1)
    local mask = torch.ByteTensor(n_row,n_col):bernoulli()
    y:maskedCopy(mask, x:t())
@@ -1602,7 +1622,7 @@ function test.maskedCopy()
                        "Error in maskedCopy (non-contiguous source)")
 
    -- non-contiguous result, cuda mask
-   local x = torch.randn(n_row, n_col):float()
+   local x = torch.rand(n_row, n_col):float()
    local y = x:clone():fill(-1)
    local mask = torch.ByteTensor(n_row,n_col):bernoulli()
    y:t():maskedCopy(mask, x:t())
@@ -1614,9 +1634,9 @@ function test.maskedCopy()
                         "Error in maskedCopy (non-contiguous dest)")
 
    -- indexing maskedCopy a[a:gt(0.5)] for example
-   local gt = torch.randn(n_row, n_col):float()
+   local gt = torch.rand(n_row, n_col):float()
    local x = gt:clone()
-   local y = torch.randn(n_row, n_col):float()
+   local y = torch.rand(n_row, n_col):float()
    x[x:gt(0.5)] = y
    local x_cuda = gt:cuda()
    y=y:cuda()
@@ -1625,9 +1645,9 @@ function test.maskedCopy()
                              "Error in maskedCopy indexing x[x:gt(y)]")
 
    -- indexing maskedCopy non-contiguous src a[a:gt(0.5)] for example
-   local gt = torch.randn(n_row, n_col):float()
+   local gt = torch.rand(n_row, n_col):float()
    local x = gt:clone()
-   local y = torch.randn(n_row, n_col):float()
+   local y = torch.rand(n_row, n_col):float()
    x[x:gt(0.5)] = y:t()
    local x_cuda = gt:cuda()
    y=y:cuda()
@@ -1636,17 +1656,17 @@ function test.maskedCopy()
                             "Error in maskedCopy indexing x[x:gt(y)]")
 
    -- indexing maskedCopy non-contiguous dst a[a:gt(0.5)] for example
-   local gt = torch.randn(n_row, n_col):float()
+   local gt = torch.rand(n_row, n_col):float()
    local x = gt:clone()
-   local y = torch.randn(n_row, n_col):float()
+   local y = torch.rand(n_row, n_col):float()
    x:t()[x:t():gt(0.5)] = y
    local x_cuda = gt:cuda()
    y=y:cuda()
-   x_cuda:t()[x_cuda:t():gt(0.5)] = y:t()
+   x_cuda:t()[x_cuda:t():gt(0.5)] = y
+
    tester:assertTensorEq(x, x_cuda:float(), 0.00001,
                          "Error in maskedCopy indexing x[x:gt(y)]")
 end
-]]--
 
 function test.maskedFill()
    local n_row = math.random(minsize,maxsize)
@@ -1661,7 +1681,7 @@ function test.maskedFill()
    mask=mask:cuda()
    x_cuda:maskedFill(mask, 334)
    tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill")
-   checkMultiDevice(x_cuda, 'maskedSelect', mask, 334)
+   checkMultiDevice(x_cuda, 'maskedFill', mask, 334)
 
    -- non-contiguous, no result tensor, cuda mask
    local x = gt:clone()
