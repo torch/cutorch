@@ -49,6 +49,12 @@ INSTALL(FILES
           THCTensorSort.h
           THCApply.cuh
           THCReduce.cuh
+          THCReduceAll.cuh
           THCReduceApplyUtils.cuh
+          THCDeviceUtils.cuh
+          THCDeviceTensor.cuh
+          THCDeviceTensor-inl.cuh
+          THCDeviceTensorUtils.cuh
+          THCDeviceTensorUtils-inl.cuh
 	  THCAllocator.h
           DESTINATION "${Torch_INSTALL_INCLUDE_SUBDIR}/THC")

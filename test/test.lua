@@ -40,8 +40,9 @@ local function checkMultiDevice(x, fn, ...)
    if device_count >= 2 then
       local x = x:cuda()
       cutorch.setDevice(cutorch.getDevice() == 1 and 2 or 1)
-      local ok = pcall(function(...) x[fn](x, ...) end, ...)
+      local ok, err = pcall(function(...) x[fn](x, ...) end, ...)
       tester:assert(not ok, "Multi-device checks failed for: " .. tostring(fn))
+      -- tester:assert(err:find("checkGPU"), "Multi-device check error message wrong for " .. tostring(fn) .. ". error: " .. tostring(err))
    end
 end
 
@@ -1557,14 +1558,12 @@ function test.maskedSelect()
           "Error in maskedSelect indexing non-contig x[x:gt(y)]")
 end
 
---[[
-waiting on clarification for: https://github.com/torch/torch7/pull/187
 function test.maskedCopy()
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)
 
    -- contiguous, cuda mask
-   local x = torch.randn(n_row, n_col):float()
+   local x = torch.rand(n_row, n_col):float()
    local y = x:clone():fill(-1)
    local mask = torch.ByteTensor(n_row,n_col):bernoulli()
    y:maskedCopy(mask, x:clone())
@@ -1577,7 +1576,7 @@ function test.maskedCopy()
    checkMultiDevice(y_cuda, 'maskedCopy', mask, x)
 
    -- non-contiguous source, cuda mask
-   local x = torch.randn(n_row, n_col):float()
+   local x = torch.rand(n_row, n_col):float()
    local y = x:clone():fill(-1)
    local mask = torch.ByteTensor(n_row,n_col):bernoulli()
    y:maskedCopy(mask, x:t())
@@ -1589,7 +1588,7 @@ function test.maskedCopy()
                        "Error in maskedCopy (non-contiguous source)")
 
    -- non-contiguous result, cuda mask
-   local x = torch.randn(n_row, n_col):float()
+   local x = torch.rand(n_row, n_col):float()
    local y = x:clone():fill(-1)
    local mask = torch.ByteTensor(n_row,n_col):bernoulli()
    y:t():maskedCopy(mask, x:t())
@@ -1601,9 +1600,9 @@ function test.maskedCopy()
                         "Error in maskedCopy (non-contiguous dest)")
 
    -- indexing maskedCopy a[a:gt(0.5)] for example
-   local gt = torch.randn(n_row, n_col):float()
+   local gt = torch.rand(n_row, n_col):float()
    local x = gt:clone()
-   local y = torch.randn(n_row, n_col):float()
+   local y = torch.rand(n_row, n_col):float()
    x[x:gt(0.5)] = y
    local x_cuda = gt:cuda()
    y=y:cuda()
@@ -1612,9 +1611,9 @@ function test.maskedCopy()
                              "Error in maskedCopy indexing x[x:gt(y)]")
 
    -- indexing maskedCopy non-contiguous src a[a:gt(0.5)] for example
-   local gt = torch.randn(n_row, n_col):float()
+   local gt = torch.rand(n_row, n_col):float()
    local x = gt:clone()
-   local y = torch.randn(n_row, n_col):float()
+   local y = torch.rand(n_row, n_col):float()
    x[x:gt(0.5)] = y:t()
    local x_cuda = gt:cuda()
    y=y:cuda()
@@ -1623,17 +1622,17 @@ function test.maskedCopy()
                             "Error in maskedCopy indexing x[x:gt(y)]")
 
    -- indexing maskedCopy non-contiguous dst a[a:gt(0.5)] for example
-   local gt = torch.randn(n_row, n_col):float()
+   local gt = torch.rand(n_row, n_col):float()
    local x = gt:clone()
-   local y = torch.randn(n_row, n_col):float()
+   local y = torch.rand(n_row, n_col):float()
    x:t()[x:t():gt(0.5)] = y
    local x_cuda = gt:cuda()
    y=y:cuda()
-   x_cuda:t()[x_cuda:t():gt(0.5)] = y:t()
+   x_cuda:t()[x_cuda:t():gt(0.5)] = y
+
    tester:assertTensorEq(x, x_cuda:float(), 0.00001,
                          "Error in maskedCopy indexing x[x:gt(y)]")
 end
-]]--
 
 function test.maskedFill()
    local n_row = math.random(minsize,maxsize)
@@ -1648,7 +1647,7 @@ function test.maskedFill()
    mask=mask:cuda()
    x_cuda:maskedFill(mask, 334)
    tester:assertTensorEq(x, x_cuda:float(), 0.00001, "Error in maskedFill")
-   checkMultiDevice(x_cuda, 'maskedSelect', mask, 334)
+   checkMultiDevice(x_cuda, 'maskedFill', mask, 334)
 
    -- non-contiguous, no result tensor, cuda mask
    local x = gt:clone()

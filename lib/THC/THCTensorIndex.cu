@@ -12,10 +12,6 @@
 #include <thrust/reduce.h>
 #include <thrust/inner_product.h>
 
-#ifndef DIVUP
-#define DIVUP(x, y) (((x) + (y) - 1) / (y))
-#endif
-
 __global__ void THCudaTensor_kernel_indexFill(
    float *tensor, long* stride, float *index, long src_nDim,
    int dim, long idx_size, long tensor_size, long size_dim, float val
