@@ -2063,5 +2063,6 @@ end
 
 if runtests then
    cutorch.test()
+   os.exit(#tester.errors == 0 and 0 or 1)
 end
 return test
