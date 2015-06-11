@@ -905,6 +905,9 @@ function test.index()
    longIndex = torch.randperm(sz3):long()
    compareFloatAndCuda(x, 'index', index, longIndex)
 
+   tester:assert(isEqual(x:cuda():index(index, longIndex:cuda()), x:index(index, longIndex)),
+      "Divergent results between CPU and CUDA for function 'index'")
+
    checkMultiDevice(x, 'index', index, longIndex)
 end
 
@@ -918,21 +921,26 @@ function test.indexCopy()
    -- choose two indices from the first dimension, i.e. [1,sz1]
    local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    local index = 1
-   local src = torch.Tensor(2, sz2):uniform()
+   local src = torch.FloatTensor(2, sz2):uniform()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
    index = 2
    longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
-   src = torch.Tensor(sz1, 2):uniform():cuda()
+   src = torch.FloatTensor(sz1, 2):uniform():cuda()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
-   src = torch.Tensor(2):uniform()
+   src = torch.FloatTensor(2):uniform()
    compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+
+   tester:assert(isEqual(
+      x:cuda():indexCopy(index, longIndex:cuda(), src:cuda()),
+      x:indexCopy(index, longIndex, src)),
+      "Divergent results between CPU and CUDA for function 'indexCopy'")
 
    checkMultiDevice(x, 'indexCopy', index, longIndex, src)
 end
@@ -957,6 +965,11 @@ function test.indexFill()
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    val = torch.randn(1)[1]
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+
+   tester:assert(isEqual(
+      x:cuda():indexFill(index, longIndex:cuda(), val),
+      x:indexFill(index, longIndex, val)),
+      "Divergent results between CPU and CUDA for function 'indexFill'")
 
    checkMultiDevice(x, 'indexFill', index, longIndex, val)
 end
