@@ -10,6 +10,12 @@
 # define TORCH_EXTERNC extern
 #endif
 
+#ifdef __GNUC__
+# define TORCH_UNUSED __attribute__((unused))
+#else
+# define TORCH_UNUSED
+#endif
+
 #ifdef WIN32
 # ifdef torch_EXPORTS
 #  define TORCH_API TORCH_EXTERNC __declspec(dllexport)
@@ -24,7 +30,7 @@
 /*
 ** Adapted from Lua 5.2.0
 */
-static void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
+TORCH_UNUSED static void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
   luaL_checkstack(L, nup+1, "too many upvalues");
   for (; l->name != NULL; l++) {  /* fill the table with given functions */
     int i;
