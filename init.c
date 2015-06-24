@@ -770,6 +770,12 @@ int luaopen_libcutorch(lua_State *L)
   luaT_pushudata(L, state->cudaHostAllocator, "torch.Allocator");
   lua_setfield(L, -2, "CudaHostAllocator");
 
+#ifdef USE_MAGMA
+  THCMagma_init(state);
+  lua_pushboolean(L, 1);
+  lua_setfield(L, -2, "magma");
+#endif
+
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaTensorMath_init(L);

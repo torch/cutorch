@@ -163,6 +163,56 @@ wrap.types.LongArg = {
    end
 }
 
+wrap.types.charoption = {
+
+   helpname = function(arg)
+                 if arg.values then
+                    return "(" .. table.concat(arg.values, '|') .. ")"
+                 end
+              end,
+
+   declare = function(arg)
+                local txt = {}
+                table.insert(txt, string.format("const char *arg%d = NULL;", arg.i))
+                if arg.default then
+                   table.insert(txt, string.format("char arg%d_default = '%s';", arg.i, arg.default))
+                end
+                return table.concat(txt, '\n')
+           end,
+
+   init = function(arg)
+             return string.format("arg%d = &arg%d_default;", arg.i, arg.i)
+          end,
+
+   check = function(arg, idx)
+              local txt = {}
+              local txtv = {}
+              table.insert(txt, string.format('(arg%d = lua_tostring(L, %d)) && (', arg.i, idx))
+              for _,value in ipairs(arg.values) do
+                 table.insert(txtv, string.format("*arg%d == '%s'", arg.i, value))
+              end
+              table.insert(txt, table.concat(txtv, ' || '))
+              table.insert(txt, ')')
+              return table.concat(txt, '')
+         end,
+
+   read = function(arg, idx)
+          end,
+
+   carg = function(arg, idx)
+             return string.format('arg%d', arg.i)
+          end,
+
+   creturn = function(arg, idx)
+             end,
+
+   precall = function(arg)
+             end,
+
+   postcall = function(arg)
+              end
+}
+
 function interface.luaname2wrapname(self, name)
    return string.format('cutorch_CudaTensor_%s', name)
 end
@@ -499,6 +549,18 @@ for _,name in ipairs({"min", "max"}) do
            {name="index"}})
 end
 
+wrap("tril",
+     cname("tril"),
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor},
+      {name="int", default=0}})
+
+wrap("triu",
+     cname("triu"),
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor},
+      {name="int", default=0}})
+
 for _,name in ipairs({"log", "log1p", "exp",
                       "cos", "acos", "cosh",
                       "sin", "asin", "sinh",
@@ -597,6 +659,93 @@ for _,f in ipairs({{name='exponential'}}) do
          {name=real, default=f.a}})
 end
 
+for _,name in ipairs({"gesv","gels"}) do
+   wrap(name,
+        cname(name),
+        {{name=Tensor, returned=true},
+         {name=Tensor, returned=true},
+         {name=Tensor},
+         {name=Tensor}},
+        cname(name),
+        {{name=Tensor, default=true, returned=true, invisible=true},
+         {name=Tensor, default=true, returned=true, invisible=true},
+         {name=Tensor},
+         {name=Tensor}})
+end
+
+wrap("symeig",
+     cname("syev"),
+     {{name=Tensor, returned=true},
+      {name=Tensor, returned=true},
+      {name=Tensor},
+      {name='charoption', values={'N', 'V'}, default='N'},
+      {name='charoption', values={'U', 'L'}, default='U'}},
+     cname("syev"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor},
+      {name='charoption', values={'N', 'V'}, default='N'},
+      {name='charoption', values={'U', 'L'}, default='U'}})
+
+wrap("eig",
+     cname("geev"),
+     {{name=Tensor, returned=true},
+      {name=Tensor, returned=true},
+      {name=Tensor},
+      {name='charoption', values={'N', 'V'}, default='N'}},
+     cname("geev"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor},
+      {name='charoption', values={'N', 'V'}, default='N'}})
+
+wrap("svd",
+     cname("gesvd"),
+     {{name=Tensor, returned=true},
+      {name=Tensor, returned=true},
+      {name=Tensor, returned=true},
+      {name=Tensor},
+      {name='charoption', values={'A', 'S'}, default='S'}},
+     cname("gesvd"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor},
+      {name='charoption', values={'A', 'S'}, default='S'}})
+
+wrap("inverse",
+     cname("getri"),
+     {{name=Tensor, returned=true},
+      {name=Tensor}},
+     cname("getri"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor}})
+
+wrap("potri",
+     cname("potri"),
+     {{name=Tensor, returned=true},
+      {name=Tensor}},
+     cname("potri"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor}})
+
+wrap("potrf",
+     cname("potrf"),
+     {{name=Tensor, returned=true},
+      {name=Tensor}},
+     cname("potrf"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor}})
+
+wrap("qr",
+     cname("qr"),
+     {{name=Tensor, returned=true},
+      {name=Tensor, returned=true},
+      {name=Tensor}},
+     cname("qr"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor}})
 
 wrap("mean",
      cname("meanall"),

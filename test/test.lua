@@ -1302,6 +1302,136 @@ function test.ger()
    end
 end
 
+if cutorch.magma then
+   function test.gesv()
+      local a = torch.Tensor(5, 5):uniform(-1, 1)
+      local b = torch.Tensor(5, 3):uniform(-1, 1)
+      local rb1, ra1 = torch.gesv(b, a)
+      local rb2, ra2 = torch.gesv(b:cuda(), a:cuda())
+      tester:assertle((rb2 - rb1:cuda()):abs():max(), 1e-5, "wrong gesv answer")
+      tester:assertle((ra2 - ra1:cuda()):abs():max(), 1e-5, "wrong gesv answer")
+   end
+
+   function test.gels()
+      local a = torch.Tensor{
+         {-0.8862, 0.8186,  0.2334,  0.8008,  0.2377},
+         { 0.6116, 0.2242,  0.2854,  0.5427,  0.5937},
+         {-0.3716,-0.7247, -0.7658, -0.1285,  0.6749},
+         {-0.5878, 0.7596, -0.7765, -0.5373,  0.6326},
+         { 0.0868,-0.4918,  0.7771, -0.7550, -0.6020},
+      }
+      local b = torch.Tensor{
+         { 0.4807, 0.1842, 0.7908},
+         {-0.0035, 0.7557, 0.1627},
+         { 0.3495,-0.0840, 0.8164},
+         { 0.5360, 0.2048, 0.2745},
+         { 0.8535,-0.3938,-0.2140},
+      }
+      local rb1, ra1 = torch.gels(b, a)
+      local rb2, ra2 = torch.gels(b:cuda(), a:cuda())
+      tester:assertle((rb2 - rb1:cuda()):abs():max(), 5e-4, "wrong gels answer")
+      tester:assertle((ra2 - ra1:cuda()):abs():max(), 5e-4, "wrong gels answer")
+   end
+
+   function test.symeig()
+      local a = torch.Tensor({{ 1.96,  0.00,  0.00,  0.00,  0.00},
+                              {-6.49,  3.80,  0.00,  0.00,  0.00},
+                              {-0.47, -6.39,  4.17,  0.00,  0.00},
+                              {-7.20,  1.50, -1.51,  5.70,  0.00},
+                              {-0.65, -6.34,  2.67,  1.80, -7.10}}):t()
+      local e1,v1 = torch.symeig(a, 'V')
+      local e2,v2 = torch.symeig(a:cuda(), 'V')
+      tester:assertle((e2 - e1:cuda()):abs():max(), 1e-5, "wrong symeig answer")
+      tester:assertle((v2 - v1:cuda()):abs():max(), 1e-5, "wrong symeig answer")
+   end
+
+   function test.eig()
+      local a = torch.Tensor{
+         {-0.1425, -0.4750, -0.8551, 0.6729, -0.7453},
+         {-0.2696,  0.4330,  0.5077, 0.3709, -0.6053},
+         { 0.4330,  0.6727, -0.5049, 0.4600,  0.6249},
+         { 0.5766, -0.6743,  0.6903, 0.3646, -0.4571},
+         {-0.8956, -0.4074, -0.7583, 0.1838, -0.0091},
+      }
+      local e1,v1 = torch.eig(a, 'V')
+      local e2,v2 = torch.eig(a:cuda(), 'V')
+      tester:assertle((e2 - e1:cuda()):abs():max(), 1e-6, "wrong eig answer")
+      tester:assertle((v2:abs() - v1:abs():cuda()):abs():max(), 1e-6, "wrong eig answer")
+   end
+
+   function test.svd()
+      local a = torch.CudaTensor{
+         {8.79,  6.11, -9.15,  9.57, -3.49,  9.84},
+         {9.93,  6.91, -7.93,  1.64,  4.02,  0.15},
+         {9.83,  5.04,  4.86,  8.83,  9.80, -8.99},
+         {5.45, -0.27,  4.85,  0.74, 10.00, -6.02},
+         {3.16,  7.98,  3.01,  5.80,  4.27, -5.31}}
+
+      local u,s,v = torch.svd(a, 'A')
+
+      local temp = torch.Tensor(a:size(2)):zero()
+      temp:narrow(1, 1, a:size(1)):copy(s)
+      local sigma = torch.diag(temp):resize(a:size(1), a:size(2)):cuda()
+
+      local m = u * sigma * v:t()
+
+      tester:assertle((m - a):abs():max(), 1e-5, "svd: a != u * s * vT")
+      tester:assertle((u*u:t() - torch.eye(a:size(1)):cuda()):abs():max(), 1e-6, "svd: u should be unitary")
+      tester:assertle((v*v:t() - torch.eye(a:size(2)):cuda()):abs():max(), 1e-6, "svd: v should be unitary")
+   end
+
+   function test.inverse()
+      local a = torch.randn(5, 5)
+      local i1 = torch.inverse(a)
+      local i2 = torch.inverse(a:cuda())
+      tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
+   end
+
+   function test.potri()
+      local A = torch.Tensor{
+         { 0.9023,  1.5967,  0.3388, -0.0746, -0.5717},
+         {-2.0442,  2.3974, -1.0883,  0.4018, -0.3938},
+         {-0.1065, -1.3180,  0.3542,  1.3684,  0.3934},
+         {-0.2987,  1.9035, -1.4192, -0.9738,  1.4384},
+         {-0.5315,  0.4958,  0.4449, -0.4676, -0.4878},
+      }
+      A = A * A:t()
+
+      local i1 = torch.potri(A)
+      local i2 = torch.potri(A:cuda())
+      local M = A:cuda() * i2
+      tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potri answer")
+      tester:assertle((M - torch.eye(A:size(1)):cuda()):abs():max(), 1e-5, "potri not an inverse")
+   end
+
+   function test.potrf()
+      local A = torch.Tensor{
+         { 8.7937, 0.5104, 1.5955,-0.6738,-3.3883},
+         { 0.5104, 1.4286, 0.0236, 0.4734, 0.2807},
+         { 1.5955, 0.0236, 1.4539,-1.1123, 0.8161},
+         {-0.6738, 0.4734,-1.1123, 2.4071,-1.2756},
+         {-3.3883, 0.2807, 0.8161,-1.2756, 4.3415},
+      }
+      local i1 = torch.potrf(A)
+      local i2 = torch.potrf(A:cuda())
+      tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potrf answer")
+   end
+
+   function test.qr()
+      local A = torch.Tensor{
+         { 0.9023,  1.5967,  0.3388, -0.0746, -0.5717},
+         {-2.0442,  2.3974, -1.0883,  0.4018, -0.3938},
+         {-0.1065, -1.3180,  0.3542,  1.3684,  0.3934},
+         {-0.2987,  1.9035, -1.4192, -0.9738,  1.4384},
+         {-0.5315,  0.4958,  0.4449, -0.4676, -0.4878},
+      }
+      local q1,r1 = torch.qr(A)
+      local q2,r2 = torch.qr(A:cuda())
+      tester:assertle((q2 - q1:cuda()):abs():max(), 1e-5, "wrong qr answer")
+      tester:assertle((r2 - r1:cuda()):abs():max(), 1e-5, "wrong qr answer")
+   end
+end
+
 function test.isSameSizeAs()
    local t1 = torch.CudaTensor(3, 4, 9, 10)
    local t2 = torch.CudaTensor(3, 4)
