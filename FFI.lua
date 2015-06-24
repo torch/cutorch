@@ -4,16 +4,30 @@ if ok then
    local cdefs = [[
 typedef struct CUstream_st *cudaStream_t;
 
+struct cublasContext;
+typedef struct cublasContext *cublasHandle_t;
+typedef struct CUhandle_st *cublasHandle_t;
+
+typedef struct _THCCudaResourcesPerDevice {
+  cudaStream_t* streams;
+  cublasHandle_t* blasHandles;
+  size_t scratchSpacePerStream;
+  void** devScratchSpacePerStream;
+} THCCudaResourcesPerDevice;
+
+
 typedef struct THCState
 {
   struct THCRNGState* rngState;
-  struct THCBlasState* blasState;
   struct cudaDeviceProp* deviceProperties;
   cudaStream_t currentStream;
-  cudaStream_t** streamsPerDevice;
+  cublasHandle_t currentBlasHandle;
+  THCCudaResourcesPerDevice* resourcesPerDevice;
   int numDevices;
   int numUserStreams;
+  int numUserBlasHandles;
   int currentPerDeviceStream;
+  int currentPerDeviceBlasHandle;
   struct THAllocator* cudaHostAllocator;
 } THCState;
 
@@ -27,6 +41,7 @@ typedef struct THCudaStorage
     char flag;
     THAllocator *allocator;
     void *allocatorContext;
+    struct THCudaStorage *view;
 } THCudaStorage;
 
 typedef struct THCudaTensor

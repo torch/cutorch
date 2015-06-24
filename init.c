@@ -212,6 +212,23 @@ static int cutorch_reserveStreams(lua_State *L)
 
 /*
    Usage:
+   cutorch.reserveBlasHandles(n)
+   Allocates n blasHandles for every device present. If fewer than
+   n blasHandles are currently allocated, an additional number will be added.
+   If more than n blasHandles are currently allocated, does nothing.
+   Unlike for streams, there is no default blasHandle.
+*/
+static int cutorch_reserveBlasHandles(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  int numHandles = (int) luaL_checknumber(L, 1);
+  THCState_reserveBlasHandles(state, numHandles);
+
+  return 0;
+}
+
+/*
+   Usage:
    n = cutorch.getNumStreams()
    Returns the number of user streams allocated for every device present.
    By default, is 0.
@@ -220,6 +237,20 @@ static int cutorch_getNumStreams(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   lua_pushnumber(L, THCState_getNumStreams(state));
+
+  return 1;
+}
+
+/*
+   Usage:
+   n = cutorch.getNumBlasHandles()
+   Returns the number of user blasHandles allocated for every device present.
+   By default, is 1.
+*/
+static int cutorch_getNumBlasHandles(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  lua_pushnumber(L, THCState_getNumBlasHandles(state));
 
   return 1;
 }
@@ -249,6 +280,28 @@ static int cutorch_setStream(lua_State *L)
 
 /*
    Usage:
+   cutorch.setBlasHandle(n)
+   For all devices, sets the current blasHandle in use to the index
+   specified. e.g.,
+   ---
+   cutorch.setDevice(1)
+   cutorch.setBlasHandle(3)
+   -- device 1 blasHandle 3 in use here
+   cutorch.setDevice(2)
+   -- device 2 blasHandle 3 in use here
+   ---
+*/
+static int cutorch_setBlasHandle(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  int handle = (int) luaL_checknumber(L, 1);
+  THCState_setBlasHandleForCurrentDevice(state, handle);
+
+  return 0;
+}
+
+/*
+   Usage:
    n = cutorch.getStream()
    Returns the current user stream for all devices in use (as previously
    set via cutorch.setStream(n). 0 is the default stream on the device
@@ -258,6 +311,20 @@ static int cutorch_getStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   lua_pushnumber(L, THCState_getCurrentStreamIndex(state));
+
+  return 1;
+}
+
+/*
+   Usage:
+   n = cutorch.getBlasHandle()
+   Returns the current blasHandle for all devices in use (as previously
+   set via cutorch.setBlasHandle(n).
+*/
+static int cutorch_getBlasHandle(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  lua_pushnumber(L, THCState_getCurrentBlasHandleIndex(state));
 
   return 1;
 }
@@ -537,10 +604,10 @@ static int cutorch_setDevice(lua_State *L)
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
   THCRandom_setGenerator(state, device);
-  THCudaBlas_setHandle(state, device);
 
   /* The stream is per device, so update the stream as well */
   THCState_setStream(state, device, THCState_getCurrentStreamIndex(state));
+  THCState_setBlasHandle(state, device, THCState_getCurrentBlasHandleIndex(state));
 
   return 0;
 }
@@ -658,6 +725,10 @@ static int cutorch_getState(lua_State *L)
 
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
+  {"reserveBlasHandles", cutorch_reserveBlasHandles},
+  {"getNumBlasHandles", cutorch_getNumBlasHandles},
+  {"setBlasHandle", cutorch_setBlasHandle},
+  {"getBlasHandle", cutorch_getBlasHandle},
   {"reserveStreams", cutorch_reserveStreams},
   {"getNumStreams", cutorch_getNumStreams},
   {"setStream", cutorch_setStream},
