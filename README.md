@@ -17,7 +17,7 @@ This new tensor type behaves exactly like a `torch.FloatTensor`, but has a coupl
 - `cutorch.setDevice(i)` : If one has multiple-GPUs, you can switch the default GPU (to allocate CUDA tensors and do operations). The GPU IDs are 1-indexed, so having 4 GPUs means, you can setDevice(1), setDevice(2), setDevice(3), setDevice(4).
 - `idx = cutorch.getDevice()` : Returns the currently set GPU device index.
 - `count = cutorch.getDeviceCount()` : Gets the number of available GPUs.
-- `totalMemory, freeMemory = cutorch.getMemoryUsage(devID)` : Gets the total and free memory in bytes for the given device ID.
+- `freeMemory, totalMemory = cutorch.getMemoryUsage(devID)` : Gets the total and free memory in bytes for the given device ID.
 - `cutorch.seed([devID])` - Sets and returns a random seed for the current or specified device.
 - `cutorch.seedAll()` - Sets and returns a random seed for all available GPU devices.
 - `cutorch.initialSeed([devID])` - Returns the seed for the current or specified device
