@@ -678,6 +678,42 @@ function test.min()
    checkMultiDevice(x, 'min', 1)
 end
 
+function test.cmax()
+  local sz1 = chooseInt(minsize, maxsize)
+  local sz2 = chooseInt(minsize, maxsize)
+  local a = torch.FloatTensor(sz1, sz2):uniform()
+  local b = torch.FloatTensor(sz1, sz2):uniform()
+  local c = torch.FloatTensor(sz1, sz2):zero()
+  local v = torch.uniform()
+
+  compareFloatAndCudaTensorArgs(c, 'cmax', a, b)
+  compareFloatAndCudaTensorArgs(c, 'cmax', a, v)
+  compareFloatAndCudaTensorArgs(a, 'cmax', b)
+  compareFloatAndCuda(a, 'cmax', v)
+  checkMultiDevice(c, 'cmax', a, b)
+  checkMultiDevice(c, 'cmax', a, v)
+  checkMultiDevice(a, 'cmax', b)
+  checkMultiDevice(a, 'cmax', v)
+end
+
+function test.cmin()
+  local sz1 = chooseInt(minsize, maxsize)
+  local sz2 = chooseInt(minsize, maxsize)
+  local a = torch.FloatTensor(sz1, sz2):uniform()
+  local b = torch.FloatTensor(sz1, sz2):uniform()
+  local c = torch.FloatTensor(sz1, sz2):zero()
+  local v = torch.uniform()
+
+  compareFloatAndCudaTensorArgs(c, 'cmin', a, b)
+  compareFloatAndCudaTensorArgs(c, 'cmin', a, v)
+  compareFloatAndCudaTensorArgs(a, 'cmin', b)
+  compareFloatAndCuda(a, 'cmin', v)
+  checkMultiDevice(c, 'cmin', a, b)
+  checkMultiDevice(c, 'cmin', a, v)
+  checkMultiDevice(a, 'cmin', b)
+  checkMultiDevice(a, 'cmin', v)
+end
+
 function test.allAndAny()
    for tries = 1, 10 do
       local size1 = chooseInt(10, 100)
