@@ -361,6 +361,35 @@ wrap("maskedSelect",
       {name=Tensor},
       {name=Tensor}})
 
+wrap("gather",
+     cname("gather"),
+     {{name=Tensor, default=true, returned=true,
+       init=function(arg)
+               return table.concat(
+                  {
+                     arg.__metatable.init(arg),
+                     string.format("TH%s_checkGPU(cutorch_getstate(L), 1, %s);",
+                                   Tensor, arg.args[4]:carg()),
+                     string.format("TH%s_resizeAs(cutorch_getstate(L), %s, %s);", Tensor, arg:carg(), arg.args[4]:carg()),
+                  }, '\n')
+            end
+      },
+      {name=Tensor},
+      {name="index"},
+      {name=Tensor}})
+
+wrap("scatter",
+     cname("scatter"),
+     {{name=Tensor, returned=true},
+      {name="index"},
+      {name=Tensor},
+      {name=Tensor}},
+     cname("scatterFill"),
+     {{name=Tensor, returned=true},
+      {name="index"},
+      {name=Tensor},
+      {name=real}})
+
 wrap("sort",
      cname("sort"),
      {{name=Tensor, default=true, returned=true},
