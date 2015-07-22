@@ -645,6 +645,13 @@ wrap("randn",
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
       {name="LongArg"}})
 
+wrap("multinomial",
+     cname("multinomial"),
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+        {name=Tensor},
+        {name="int"},
+        {name="boolean", default=false}})
+
 wrap("clamp",
      cname("clamp"),
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
