@@ -16,7 +16,7 @@
 # define TORCH_UNUSED
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 # ifdef torch_EXPORTS
 #  define TORCH_API TORCH_EXTERNC __declspec(dllexport)
 # else
