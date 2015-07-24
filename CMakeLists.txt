@@ -7,7 +7,9 @@ FIND_PACKAGE(Torch REQUIRED)
 FIND_PACKAGE(CUDA 5.5 REQUIRED)
 FIND_PACKAGE(MAGMA)
 
+IF (NOT WIN32)
 SET(CMAKE_C_FLAGS "-std=c99 -Werror=implicit-function-declaration")
+ENDIF (NOT WIN32)
 
 INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS})
 
@@ -24,3 +26,7 @@ ADD_TORCH_WRAP(cudatensormathwrap TensorMath.lua)
 
 ADD_TORCH_PACKAGE(cutorch "${src}" "${luasrc}")
 TARGET_LINK_LIBRARIES(cutorch luaT THC)
+
+IF(LUALIB)
+  TARGET_LINK_LIBRARIES(cutorch ${LUALIB})
+ENDIF()
