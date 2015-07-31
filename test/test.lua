@@ -1188,6 +1188,50 @@ function test.addmm()
          multiCheck = true
       end
    end
+
+   -- check all zero-strided cases for the inputs
+   -- considers that the output tensor is not zero-strided
+   local n, k, m = 10, 10, 10
+   local function generateTensor(t,idx)
+      local tensor = torch.FloatTensor()
+      local s1,s2
+      if t == 1 then
+        s1 = n
+        s2 = m
+      elseif t == 2 then
+        s1 = n
+        s2 = k
+      else
+        s1 = k
+        s2 = m
+      end
+      if idx == 1 then
+        tensor:resize(s1,s2)
+      elseif idx == 2 then
+        tensor:resize(s1,1)
+      elseif idx == 3 then
+        tensor:resize(1,s2)
+      else
+        tensor:resize(1,1)
+      end
+      if t == 1 then
+        tensor:zero()
+      else
+        tensor:uniform()
+      end
+      tensor = tensor:expand(s1,s2)
+      return tensor
+   end
+   
+   for i = 1, 4*4*4 do
+      local a_idx = (i-1)%4 + 1
+      local b_idx = math.floor(((i-1)%16)/4)  + 1
+      local c_idx = 1 -- math.floor((i-1)/16) + 1
+      local c = generateTensor(1,c_idx)
+      local a = generateTensor(2,a_idx)
+      local b = generateTensor(3,b_idx)
+      compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
+   end
 end
 
 function test.mm()
@@ -1212,6 +1256,50 @@ function test.mm()
          checkMultiDevice(c, 'mm', a, b)
          multiCheck = true
       end
+   end
+
+   -- check all zero-strided cases for the inputs
+   -- considers that the output tensor is not zero-strided
+   local n, k, m = 10, 10, 10
+   local function generateTensor(t,idx)
+      local tensor = torch.FloatTensor()
+      local s1,s2
+      if t == 1 then
+        s1 = n
+        s2 = m
+      elseif t == 2 then
+        s1 = n
+        s2 = k
+      else
+        s1 = k
+        s2 = m
+      end
+      if idx == 1 then
+        tensor:resize(s1,s2)
+      elseif idx == 2 then
+        tensor:resize(s1,1)
+      elseif idx == 3 then
+        tensor:resize(1,s2)
+      else
+        tensor:resize(1,1)
+      end
+      if t == 1 then
+        tensor:zero()
+      else
+        tensor:uniform()
+      end
+      tensor = tensor:expand(s1,s2)
+      return tensor
+   end
+   
+   for i = 1, 4*4*4 do
+      local a_idx = (i-1)%4 + 1
+      local b_idx = math.floor(((i-1)%16)/4)  + 1
+      local c_idx = 1 -- math.floor((i-1)/16) + 1
+      local c = generateTensor(1,c_idx)
+      local a = generateTensor(2,a_idx)
+      local b = generateTensor(3,b_idx)
+      compareFloatAndCudaTensorArgs(c, 'mm', a, b)
    end
 end
 
