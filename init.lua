@@ -29,4 +29,6 @@ function cutorch.createCudaHostTensor(...)
   return torch.FloatTensor(storage, 1, size:storage())
 end
 
+cutorch.setHeapTracking(true)
+
 return cutorch

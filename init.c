@@ -723,6 +723,24 @@ static int cutorch_getState(lua_State *L)
   return 1;
 }
 
+static void luaCutorchGCFunction(void *data)
+{
+  lua_State *L = data;
+  lua_gc(L, LUA_GCCOLLECT, 0);
+}
+
+static int cutorch_setHeapTracking(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  int enabled = luaT_checkboolean(L,1);
+  if(enabled) {
+    THCSetGCHandler(state, luaCutorchGCFunction, L);
+  } else {
+    THCSetGCHandler(state, NULL, NULL);
+  }
+  return 0;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"reserveBlasHandles", cutorch_reserveBlasHandles},
@@ -753,6 +771,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
   {"getState", cutorch_getState},
+  {"setHeapTracking", cutorch_setHeapTracking},
   {NULL, NULL}
 };
 
