@@ -2169,7 +2169,7 @@ function test.streamWaitFor()
    end
 
    -- Queue a bunch of work on different streams
-   for stream = 1, numStreams do
+   for stream = numStreams, 1, -1 do
       cutorch.setStream(stream)
       for i = 1, iter do
          tensors[stream]:add(1)
@@ -2309,7 +2309,7 @@ function test.streamBarrier()
    end
 
    -- Queue a bunch of work on different streams
-   for stream = 1, numStreams do
+   for stream = numStreams, 1, -1 do
       cutorch.setStream(stream)
       for i = 1, iter do
          tensors[stream]:add(1)
