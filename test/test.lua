@@ -2035,6 +2035,106 @@ function test.multi_gpu_copy_noncontig()
    end
 end
 
+function test.cudaTypeCopy()
+
+   local types = {
+      {'float', 'FloatTensor'},
+      {'byte',  'ByteTensor'},
+      {'char',  'CharTensor'},
+      {'short', 'ShortTensor'},
+      {'long',  'LongTensor'},
+      {'double','DoubleTensor'},
+
+      {'cuda',      'CudaTensor'},
+      {'cudaByte',  'CudaByteTensor'},
+      {'cudaChar',  'CudaCharTensor'},
+      {'cudaShort', 'CudaShortTensor'},
+      {'cudaLong',  'CudaLongTensor'},
+      {'cudaDouble','CudaDoubleTensor'},
+   }
+
+   local N = 100
+   local t0 = torch.range(1,12):reshape(3,4)
+
+   -- t carries over from one iteration to the next
+   local t = t0:clone()
+   for i = 1, N do
+      -- convert to a random (CPU or GPU) type)
+      local conversionFunc, tensorSubtype = unpack(types[torch.random(#types)])
+      local tensorType = 'torch.' .. tensorSubtype
+
+      if torch.random(0,1) ~= 0 then
+         -- this is equivalent to t = t:float()
+         t = t[conversionFunc](t)
+      else
+         -- this is equivalent to t = torch.XTensor():copy(t)
+         t = torch[tensorSubtype](3,4):copy(t)
+      end
+      
+      -- check the type
+      tester:assert(t:type() == tensorType, t:type() .. ' ~= ' .. tensorType)
+
+      -- check metadata
+      tester:assert(t:isContiguous())
+      tester:assert(t:size(1) == 3 and t:size(2) == 4)
+      tester:assert(t:nDimension() == 2)
+
+      -- check data
+      tester:assertTensorEq(t:double(), t0, 0)
+
+      
+      -- check indexing
+      -- FIXME: doesn't work yet
+      -- tester:assert(ct[{1,1}] == 1)
+   end
+
+   -- check narrowing conversions
+   tester:assert(torch.Tensor(1):fill(500):cudaByte():float()[1] == 244)
+   tester:assert(torch.Tensor(1):fill(500):cudaChar():float()[1] == -12)
+end
+
+
+function test.cudaStorageTypeCopy()
+
+   local types = {
+      {'float', 'FloatStorage'},
+      {'byte',  'ByteStorage'},
+      {'char',  'CharStorage'},
+      {'short', 'ShortStorage'},
+      {'long',  'LongStorage'},
+      {'double','DoubleStorage'},
+
+      {'cuda',      'CudaStorage'},
+      {'cudaByte',  'CudaByteStorage'},
+      {'cudaChar',  'CudaCharStorage'},
+      {'cudaShort', 'CudaShortStorage'},
+      {'cudaLong',  'CudaLongStorage'},
+      {'cudaDouble','CudaDoubleStorage'},
+   }
+
+   local N = 100
+   local t0 = torch.range(1,12):reshape(3,4):storage()
+
+   -- t carries over from one iteration to the next
+   local t = torch.DoubleStorage(t0:size()):copy(t0)
+   for i = 1, N do
+      -- convert to a random (CPU or GPU) type)
+      local conversionFunc, storageSubtype = unpack(types[torch.random(#types)])
+      local storageType = 'torch.' .. storageSubtype
+
+      -- this is equivalent to t = torch.XStorage():copy(t)
+      t = torch[storageSubtype](12):copy(t)
+      
+      -- check the type
+      tester:assert(torch.type(t) == storageType, torch.type(t) .. ' ~= ' .. storageType)
+
+      local d = torch.DoubleStorage(12):copy(t)
+      for i = 1, t:size() do
+         tester:assert(d[i] == t0[i], storageSubtype .. ': ' .. i .. ': ' .. d[i] .. ' ~= ' .. t0[i])
+      end
+   end
+end
+
 function test.maskedSelect()
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)

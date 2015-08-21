@@ -33,49 +33,71 @@ typedef struct THCState
 
 cudaStream_t THCState_getCurrentStream(THCState *state);
 
-typedef struct THCudaStorage
+]]
+
+   local CudaTypes = {
+      {'float', ''},
+      {'unsigned char', 'Byte'},
+      {'char', 'Char'},
+      {'short', 'Short'},
+      {'int', 'Int'},
+      {'long','Long'},
+      {'double','Double'},
+  }
+
+   for _, typedata in ipairs(CudaTypes) do
+      local real, Real = unpack(typedata)
+      ctype_def = [[
+typedef struct THCStorage
 {
-    float *data;
+    real *data;
     long size;
     int refcount;
     char flag;
     THAllocator *allocator;
     void *allocatorContext;
-    struct THCudaStorage *view;
-} THCudaStorage;
+    struct THCStorage *view;
+} THCStorage;
 
-typedef struct THCudaTensor
+typedef struct THCTensor
 {
     long *size;
     long *stride;
     int nDimension;
 
-    THCudaStorage *storage;
+    THCStorage *storage;
     long storageOffset;
     int refcount;
 
     char flag;
 
-} THCudaTensor;
+} THCTensor;
 ]]
+
+      ctype_def = ctype_def:gsub('real',real):gsub('THCStorage','THCuda'..Real..'Storage'):gsub('THCTensor','THCuda'..Real..'Tensor')
+      cdefs = cdefs .. ctype_def
+   end
    ffi.cdef(cdefs)
 
-   local Storage = torch.getmetatable('torch.CudaStorage')
-   local Storage_tt = ffi.typeof('THCudaStorage**')
+   for _, typedata in ipairs(CudaTypes) do
+      local real, Real = unpack(typedata)
+      local Storage = torch.getmetatable('torch.Cuda' .. Real .. 'Storage')
+      local Storage_tt = ffi.typeof('THCuda' .. Real .. 'Storage**')
 
-   rawset(Storage, "cdata", function(self) return Storage_tt(self)[0] end)
-   rawset(Storage, "data", function(self) return Storage_tt(self)[0].data end)
-   -- Tensor
-   local Tensor = torch.getmetatable('torch.CudaTensor')
-   local Tensor_tt = ffi.typeof('THCudaTensor**')
+      rawset(Storage, "cdata", function(self) return Storage_tt(self)[0] end)
+      rawset(Storage, "data", function(self) return Storage_tt(self)[0].data end)
+      -- Tensor
+      local Tensor = torch.getmetatable('torch.Cuda' .. Real .. 'Tensor')
+      local Tensor_tt = ffi.typeof('THCuda' .. Real .. 'Tensor**')
 
-   rawset(Tensor, "cdata", function(self) return Tensor_tt(self)[0] end)
+      rawset(Tensor, "cdata", function(self) return Tensor_tt(self)[0] end)
 
-   rawset(Tensor, "data",
-          function(self)
-             self = Tensor_tt(self)[0]
-             return self.storage ~= nil and self.storage.data + self.storageOffset or nil
-          end
-   )
+      rawset(Tensor, "data",
+             function(self)
+                self = Tensor_tt(self)[0]
+                return self.storage ~= nil and self.storage.data + self.storageOffset or nil
+             end
+      )
+   end
 
 end
