@@ -1222,7 +1222,7 @@ function test.addmm()
       tensor = tensor:expand(s1,s2)
       return tensor
    end
-   
+
    for i = 1, 4*4*4 do
       local a_idx = (i-1)%4 + 1
       local b_idx = math.floor(((i-1)%16)/4)  + 1
@@ -1291,7 +1291,7 @@ function test.mm()
       tensor = tensor:expand(s1,s2)
       return tensor
    end
-   
+
    for i = 1, 4*4*4 do
       local a_idx = (i-1)%4 + 1
       local b_idx = math.floor(((i-1)%16)/4)  + 1
@@ -1796,7 +1796,7 @@ function test.multinomial_without_replacement_gets_all()
       -- Sort, and we should have the original results, since without replacement
       -- sampling everything, we should have chosen every value uniquely
       result = result:sort(2)
-      tester:assert(orig, result, 0)
+      tester:assertTensorEq(orig, result, 0, "error in multinomial_without_replacement_gets_all")
    end
 end
 
