@@ -51,6 +51,22 @@ static int cutorch_CudaTensor_copy(lua_State *L)
   return 1;
 }
 
+static int cutorch_CudaTensor_copyAsync(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  THCudaTensor *storage = luaT_checkudata(L, 1, "torch.CudaTensor");
+  void *src;
+  if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )
+    THCudaTensor_copy(state, storage, src);
+  else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
+    THCudaTensor_copyAsyncFloat(state, storage, src);
+  else
+    luaL_typerror(L, 2, "torch.FloatTensor or torch.CudaTensor");
+
+  lua_settop(L, 1);
+  return 1;
+}
+
 #define CUDA_IMPLEMENT_TENSOR_COPY(TYPEC)                               \
   static int cutorch_##TYPEC##Tensor_copy(lua_State *L)                 \
   {                                                                     \
@@ -88,6 +104,19 @@ CUDA_IMPLEMENT_TENSOR_COPY(Int)
 CUDA_IMPLEMENT_TENSOR_COPY(Long)
 CUDA_IMPLEMENT_TENSOR_COPY(Float)
 CUDA_IMPLEMENT_TENSOR_COPY(Double)
+
+static int cutorch_FloatTensor_copyAsync(lua_State *L)
+{
+  THFloatTensor *storage = luaT_checkudata(L, 1, "torch.FloatTensor");
+  void *src;
+  if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )
+    THFloatTensor_copyAsyncCuda(cutorch_getstate(L), storage, src);
+  else
+    luaL_typerror(L, 2, "torch.CudaTensor");
+
+  lua_settop(L, 1);
+  return 1;
+}
 
 static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
 {
@@ -219,6 +248,17 @@ void cutorch_CudaTensor_init(lua_State* L)
       lua_setfield(L, -2, "copy");
       lua_pop(L, 1);
     }
+
+    // Register async copy methods.
+    luaT_pushmetatable(L, "torch.CudaTensor");
+    lua_pushcfunction(L, cutorch_CudaTensor_copyAsync);
+    lua_setfield(L, -2, "copyAsync");
+    lua_pop(L, 1);
+
+    luaT_pushmetatable(L, "torch.FloatTensor");
+    lua_pushcfunction(L, cutorch_FloatTensor_copyAsync);
+    lua_setfield(L, -2, "copyAsync");
+    lua_pop(L, 1);
   }
 
   luaT_pushmetatable(L, "torch.CudaTensor");
