@@ -1069,7 +1069,38 @@ function test.renorm()
    checkMultiDevice(x, 'renorm', 4, 2, maxnorm)
 end
 
-function test.indexSelect()
+function test.indexSelect1()
+   local numDims = 1 + torch.random(4)
+   local sizes = {}
+   for i = 1, numDims do
+      table.insert(sizes, 1 + torch.random(4))
+   end
+
+   local x = torch.randn(unpack(sizes)):float()
+   local seed = torch.initialSeed()
+
+   local fn = function(input)
+      torch.manualSeed(seed)
+
+      local a = nil
+      local b = nil
+      local selectdim = torch.random(input:nDimension())
+      -- selectdim is 2 or more, so this is valid
+      local indices = torch.randperm(input:size(selectdim) - 1):long()
+      while a == b do
+         a = torch.random(input:nDimension())
+         b = torch.random(input:nDimension())
+      end
+      return input:transpose(a, b):index(selectdim, indices)
+   end
+
+   for i = 1, 5 do
+      compareFloatAndCuda(x, fn)
+      seed = torch.seed()
+   end
+end
+
+function test.indexSelect2()
    --  test for speed
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)
