@@ -1082,16 +1082,21 @@ function test.indexSelect1()
    local fn = function(input)
       torch.manualSeed(seed)
 
+      -- Transpose two random dimensions.
       local a = nil
       local b = nil
-      local selectdim = torch.random(input:nDimension())
-      -- selectdim is 2 or more, so this is valid
-      local indices = torch.randperm(input:size(selectdim) - 1):long()
       while a == b do
          a = torch.random(input:nDimension())
          b = torch.random(input:nDimension())
       end
-      return input:transpose(a, b):index(selectdim, indices)
+      input = input:transpose(a, b)
+
+      -- Pick a random dimension and indices.
+      local selectdim = torch.random(input:nDimension())
+      -- All dimensions are 2 or more, so this is valid.
+      local indices = torch.randperm(input:size(selectdim) - 1):long()
+
+      return input:index(selectdim, indices)
    end
 
    for i = 1, 5 do
