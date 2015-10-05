@@ -107,6 +107,68 @@ wrap.types.CudaTensor = {
    end
 }
 
+wrap.types.CudaTensorArray = {
+
+   helpname = function(arg)
+                 return string.format('{%s+}', typename)
+            end,
+
+   declare = function(arg)
+                local txt = {}
+                table.insert(txt, string.format('TH%s **arg%d_data = NULL;', typename, arg.i))
+                table.insert(txt, string.format('long arg%d_size = 0;', arg.i))
+                table.insert(txt, string.format('int arg%d_i = 0;', arg.i))
+                return table.concat(txt, '\n')
+           end,
+
+   check = function(arg, idx)
+              return string.format('lua_istable(L, %d)', idx)
+         end,
+
+   read = function(arg, idx)
+             local txt = {}
+             -- Iterate over the array to find its length, leave elements on stack.
+             table.insert(txt, string.format('do'))
+             table.insert(txt, string.format('{'))
+             table.insert(txt, string.format('  arg%d_size++;', arg.i))
+             table.insert(txt, string.format('  lua_rawgeti(L, %d, arg%d_size);', idx, arg.i))
+             table.insert(txt, string.format('}'))
+             table.insert(txt, string.format('while (!lua_isnil(L, -1));'))
+             table.insert(txt, string.format('arg%d_size--;', arg.i))
+             -- Pop nil element from stack.
+             table.insert(txt, string.format('lua_pop(L, 1);'))
+             -- Allocate tensor pointers and read values from stack backwards.
+             table.insert(txt, string.format('arg%d_data = (TH%s**)THAlloc(arg%d_size * sizeof(TH%s*));', arg.i, typename, arg.i, typename))
+             table.insert(txt, string.format('for (arg%d_i = arg%d_size - 1; arg%d_i >= 0; arg%d_i--)', arg.i, arg.i, arg.i, arg.i))
+             table.insert(txt, string.format('{'))
+             table.insert(txt, string.format('  if (!(arg%d_data[arg%d_i] = luaT_toudata(L, -1, "torch.%s")))', arg.i, arg.i, typename))
+             table.insert(txt, string.format('    luaL_error(L, "expected %s in tensor array");', typename))
+             table.insert(txt, string.format('  lua_pop(L, 1);'))
+             table.insert(txt, string.format('}'))
+             table.insert(txt, string.format(''))
+             return table.concat(txt, '\n')
+          end,
+
+   init = function(arg)
+          end,
+
+   carg = function(arg)
+             return string.format('arg%d_data,arg%d_size', arg.i, arg.i)
+          end,
+
+   creturn = function(arg)
+                error('TensorArray cannot be returned.')
+             end,
+
+   precall = function(arg)
+             end,
+
+   postcall = function(arg)
+                 return string.format('THFree(arg%d_data);', arg.i)
+              end
+}
+
+
 wrap.types.LongArg = {
 
    vararg = true,
@@ -224,6 +286,12 @@ end
 local function lastdim(argn)
    return function(arg)
       return string.format("THCudaTensor_nDimension(cutorch_getstate(L), %s)", arg.args[argn]:carg())
+   end
+end
+
+local function lastdimarray(argn)
+   return function(arg)
+      return string.format("THCudaTensor_nDimension(cutorch_getstate(L), arg%d_data[0])", arg.args[argn].i)
    end
 end
 
@@ -677,6 +745,17 @@ for _,name in pairs({'all', 'any'}) do
        {{name=Tensor},
         {name="boolean", creturned=true}})
 end
+
+wrap("cat",
+     cname("cat"),
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor},
+      {name=Tensor},
+      {name="index", default=lastdim(2)}},
+     cname("catArray"),
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor .. "Array"},
+      {name="index", default=lastdimarray(2)}})
 
 for _,f in ipairs({{name='geometric'},
                    {name='bernoulli', a=0.5}}) do

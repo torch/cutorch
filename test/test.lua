@@ -2204,6 +2204,37 @@ function test.sort()
    checkMultiDevice(x1, 'sort', 1, true)
 end
 
+function test.cat()
+   for dim = 1, 3 do
+      local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
+      local y = torch.CudaTensor(17, msize, msize):uniform():transpose(1, dim)
+      local mx = torch.cat(x, y, dim)
+      tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+      tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+
+      local mxx = torch.CudaTensor()
+      torch.cat(mxx, x, y, dim)
+      tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+   end
+end
+
+function test.catArray()
+   for dim = 1, 3 do
+      local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
+      local y = torch.CudaTensor(17, msize, msize):uniform():transpose(1, dim)
+      local z = torch.CudaTensor(19, msize, msize):uniform():transpose(1, dim)
+
+      local mx = torch.CudaTensor.cat({x, y, z}, dim)
+      tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+      tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+      tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
+
+      local mxx = torch.CudaTensor()
+      torch.cat(mxx, {x, y, z}, dim)
+      tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+   end
+end
+
 function test.streamWaitFor()
    local size = 2000000
    local iter = 20 + torch.random(10)
