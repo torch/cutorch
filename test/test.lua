@@ -1048,6 +1048,22 @@ function test.indexFill()
    checkMultiDevice(x, 'indexFill', index, longIndex, val)
 end
 
+function test.norm()
+   for i = 1, 5 do
+      for n = 0, 3 do
+         local cpu = torch.FloatTensor(chooseInt(20, 50), 2):uniform(-0.5, 0.5)
+
+         if torch.random(1, 2) == 1 then
+            cpu = cpu:transpose(1, 2)
+         end
+
+         compareFloatAndCuda(cpu, 'norm', n)
+         compareFloatAndCuda(cpu, 'norm', n, 1)
+         compareFloatAndCuda(cpu, 'norm', n, 2)
+      end
+   end
+end
+
 function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
