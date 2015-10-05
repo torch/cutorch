@@ -1,5 +1,5 @@
 require "torch"
-cutorch = paths.require("libcutorch")
+paths.require "libcutorch"
 
 torch.CudaStorage.__tostring__ = torch.FloatStorage.__tostring__
 torch.CudaTensor.__tostring__ = torch.FloatTensor.__tostring__

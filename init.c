@@ -16,7 +16,7 @@ int checkAndCountListOfStreams(lua_State *L, THCState *state, int arg,
                                int device)
 {
   if (!lua_istable(L, arg)) {
-    THError("expecting table of device streams");
+    THError("expecting array of device streams");
   }
 
   /* Push table to top */
@@ -26,8 +26,11 @@ int checkAndCountListOfStreams(lua_State *L, THCState *state, int arg,
   int streams = 0;
   lua_pushnil(L);
   while (lua_next(L, -2)) {
+    if (!lua_isnumber(L, -2)) {
+      THError("expected array of streams, not table");
+    }
     if (!lua_isnumber(L, -1)) {
-      THError("streamWaitFor: list of streams must be numeric");
+      THError("array of stream ids must contain numeric ids");
     }
     int streamId = (int) lua_tonumber(L, -1);
 
@@ -117,7 +120,7 @@ void createMultiDeviceEvents(lua_State *L, THCState *state, int arg,
   while (lua_next(L, -2)) {
     int device = (int) lua_tonumber(L, -2) - 1;
     THCudaCheck(cudaSetDevice(device));
-    events += createSingleDeviceEvents(L, state, -1, device, events);    
+    events += createSingleDeviceEvents(L, state, -1, device, events);
     ++gpu;
 
     lua_pop(L, 1);
@@ -138,7 +141,7 @@ void waitSingleDeviceEvents(lua_State *L, THCState *state, int arg,
   lua_pushnil(L);
   while (lua_next(L, -2)) {
     int streamId = (int) lua_tonumber(L, -1);
-    cudaStream_t stream = 
+    cudaStream_t stream =
       THCState_getDeviceStream(state, device, streamId);
     for (int i = 0; i < numEvents; i++) {
       THCudaCheck(cudaStreamWaitEvent(stream, event[i], 0));
@@ -374,7 +377,7 @@ static int cutorch_streamWaitFor(lua_State *L)
   }
   /* One-way dependency; streamWaiting will wait for the list of streams to
      wait on to complete execution of pending scheduled kernels/events */
-  cudaEvent_t * events = (cudaEvent_t*)malloc(sizeof(cudaEvent_t) * streams);  
+  cudaEvent_t * events = (cudaEvent_t*)malloc(sizeof(cudaEvent_t) * streams);
   createSingleDeviceEvents(L, state, 2, curDev, events);
   /* Then, wait on them */
   for (int i = 0; i < streams; i++) {
@@ -584,6 +587,32 @@ static int cutorch_getDeviceCount(lua_State *L)
   return 1;
 }
 
+static int cutorch_getPeerToPeerAccess(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  int dev = (int) luaL_checknumber(L, 1) - 1;
+  int devToAccess = (int) luaL_checknumber(L, 2) - 1;
+
+  /* device bounds checking is performed within */
+  int enabled = THCState_getPeerToPeerAccess(state, dev, devToAccess);
+  lua_pushboolean(L, enabled);
+
+  return 1;
+}
+
+static int cutorch_setPeerToPeerAccess(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  int dev = (int) luaL_checknumber(L, 1) - 1;
+  int devToAccess = (int) luaL_checknumber(L, 2) - 1;
+  int enable = lua_toboolean(L, 3);
+
+  /* device bounds checking is performed within */
+  THCState_setPeerToPeerAccess(state, dev, devToAccess, enable);
+
+  return 0;
+}
+
 static int cutorch_getMemoryUsage(lua_State *L) {
   size_t freeBytes = 0;
   size_t totalBytes = 0;
@@ -728,6 +757,48 @@ static int cutorch_getState(lua_State *L)
   return 1;
 }
 
+static int cutorch_Event_new(lua_State *L)
+{
+  cudaEvent_t *event = luaT_alloc(L, sizeof(cudaEvent_t));
+  THCudaCheck(cudaEventCreate(event));
+
+  THCState *state = cutorch_getstate(L);
+  THCudaCheck(cudaEventRecord(*event, THCState_getCurrentStream(state)));
+  luaT_pushudata(L, event, "cutorch.Event");
+
+  return 1;
+}
+
+static int cutorch_Event_free(lua_State *L)
+{
+  cudaEvent_t *event = luaT_checkudata(L, 1, "cutorch.Event");
+  THCudaCheck(cudaEventDestroy(*event));
+  luaT_free(L, event);
+
+  return 0;
+}
+
+static int cutorch_Event_waitOn(lua_State *L)
+{
+  cudaEvent_t *event = luaT_checkudata(L, 1, "cutorch.Event");
+  THCState *state = cutorch_getstate(L);
+  THCudaCheck(cudaStreamWaitEvent(THCState_getCurrentStream(state), *event, 0));
+
+  return 0;
+}
+
+static const struct luaL_Reg cutorch_Event__[] = {
+  {"waitOn", cutorch_Event_waitOn},
+  {NULL, NULL}
+};
+
+static void cutorch_Event_init(lua_State *L)
+{
+  luaT_newmetatable(L, "cutorch.Event", NULL, cutorch_Event_new, cutorch_Event_free, NULL);
+  luaT_setfuncs(L, cutorch_Event__, 0);
+  lua_pop(L, 1);
+}
+
 static void luaCutorchGCFunction(void *data)
 {
   lua_State *L = data;
@@ -765,6 +836,8 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getDevice", cutorch_getDevice},
   {"deviceReset", cutorch_deviceReset},
   {"getDeviceCount", cutorch_getDeviceCount},
+  {"getPeerToPeerAccess", cutorch_getPeerToPeerAccess},
+  {"setPeerToPeerAccess", cutorch_setPeerToPeerAccess},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"getMemoryUsage", cutorch_getMemoryUsage},
   {"setDevice", cutorch_setDevice},
@@ -785,6 +858,8 @@ LUA_EXTERNC DLL_EXPORT int luaopen_libcutorch(lua_State *L);
 int luaopen_libcutorch(lua_State *L)
 {
   lua_newtable(L);
+  lua_pushvalue(L, -1);
+  lua_setglobal(L, "cutorch");
   luaL_setfuncs(L, cutorch_stuff__, 0);
 
   THCState* state = (THCState*)malloc(sizeof(THCState));
@@ -804,6 +879,7 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaTensor_init(L);
   cutorch_CudaTensorMath_init(L);
   cutorch_CudaTensorOperator_init(L);
+  cutorch_Event_init(L);
 
   /* Store state in cutorch table. */
   lua_pushlightuserdata(L, state);
