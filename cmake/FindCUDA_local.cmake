@@ -325,9 +325,9 @@ macro(CUDA_FIND_HELPER_FILE _name _extension)
   # processed.  Using this variable, we can pull out the current path, and
   # provide a way to get access to the other files we need local to here.
   get_filename_component(CMAKE_CURRENT_LIST_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-  set(CUDA_${_name} "${CMAKE_CURRENT_LIST_DIR}/FindCUDA/${_full_name}")
+  set(CUDA_${_name} "${CMAKE_CURRENT_LIST_DIR}/FindCUDA_local/${_full_name}")
   if(NOT EXISTS "${CUDA_${_name}}")
-    set(error_message "${_full_name} not found in ${CMAKE_CURRENT_LIST_DIR}/FindCUDA")
+    set(error_message "${_full_name} not found in ${CMAKE_CURRENT_LIST_DIR}/FindCUDA_local")
     if(CUDA_FIND_REQUIRED)
       message(FATAL_ERROR "${error_message}")
     else()
@@ -802,8 +802,9 @@ set(CUDA_TOOLKIT_ROOT_DIR_INTERNAL "${CUDA_TOOLKIT_ROOT_DIR}" CACHE INTERNAL
 set(CUDA_SDK_ROOT_DIR_INTERNAL "${CUDA_SDK_ROOT_DIR}" CACHE INTERNAL
   "This is the value of the last time CUDA_SDK_ROOT_DIR was set successfully." FORCE)
 
-include(${CMAKE_CURRENT_LIST_DIR}/FindPackageHandleStandardArgs.cmake)
-find_package_handle_standard_args(CUDA
+find_package(PackageHandleStandardArgs)
+# include(${CMAKE_CURRENT_LIST_DIR}/FindPackageHandleStandardArgs.cmake)
+find_package_handle_standard_args(CUDA_local
   REQUIRED_VARS
     CUDA_TOOLKIT_ROOT_DIR
     CUDA_NVCC_EXECUTABLE
