@@ -179,59 +179,59 @@ endif()
 set(CUDACC_DEFINE -D__CUDACC__)
 
 # Generate the dependency file
-cuda_execute_process(
-  "Generating dependency file: ${NVCC_generated_dependency_file}"
-  COMMAND "${CUDA_NVCC_EXECUTABLE}"
-  -M
-  ${CUDACC_DEFINE}
-  "${source_file}"
-  -o "${NVCC_generated_dependency_file}"
-  ${CCBIN}
-  ${nvcc_flags}
-  ${nvcc_host_compiler_flags}
-  ${depends_CUDA_NVCC_FLAGS}
-  -DNVCC
-  ${CUDA_NVCC_INCLUDE_ARGS}
-  )
+#cuda_execute_process(
+#  "Generating dependency file: ${NVCC_generated_dependency_file}"
+#  COMMAND "${CUDA_NVCC_EXECUTABLE}"
+#  -M
+#  ${CUDACC_DEFINE}
+#  "${source_file}"
+#  -o "${NVCC_generated_dependency_file}"
+#  ${CCBIN}
+#  ${nvcc_flags}
+#  ${nvcc_host_compiler_flags}
+#  ${depends_CUDA_NVCC_FLAGS}
+#  -DNVCC
+#  ${CUDA_NVCC_INCLUDE_ARGS}
+#  )
 
-if(CUDA_result)
-  message(FATAL_ERROR "Error generating ${generated_file}")
-endif()
+#if(CUDA_result)
+#  message(FATAL_ERROR "Error generating ${generated_file}")
+#endif()
 
 # Generate the cmake readable dependency file to a temp file.  Don't put the
 # quotes just around the filenames for the input_file and output_file variables.
 # CMake will pass the quotes through and not be able to find the file.
-cuda_execute_process(
-  "Generating temporary cmake readable file: ${cmake_dependency_file}.tmp"
-  COMMAND "${CMAKE_COMMAND}"
-  -D "input_file:FILEPATH=${NVCC_generated_dependency_file}"
-  -D "output_file:FILEPATH=${cmake_dependency_file}.tmp"
-  -P "${CUDA_make2cmake}"
-  )
+#cuda_execute_process(
+#  "Generating temporary cmake readable file: ${cmake_dependency_file}.tmp"
+#  COMMAND "${CMAKE_COMMAND}"
+#  -D "input_file:FILEPATH=${NVCC_generated_dependency_file}"
+#  -D "output_file:FILEPATH=${cmake_dependency_file}.tmp"
+#  -P "${CUDA_make2cmake}"
+#  )
 
-if(CUDA_result)
-  message(FATAL_ERROR "Error generating ${generated_file}")
-endif()
+#if(CUDA_result)
+#  message(FATAL_ERROR "Error generating ${generated_file}")
+#endif()
 
 # Copy the file if it is different
-cuda_execute_process(
-  "Copy if different ${cmake_dependency_file}.tmp to ${cmake_dependency_file}"
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" "${cmake_dependency_file}"
-  )
+#cuda_execute_process(
+#  "Copy if different ${cmake_dependency_file}.tmp to ${cmake_dependency_file}"
+#  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" "${cmake_dependency_file}"
+#  )
 
-if(CUDA_result)
-  message(FATAL_ERROR "Error generating ${generated_file}")
-endif()
+#if(CUDA_result)
+#  message(FATAL_ERROR "Error generating ${generated_file}")
+#endif()
 
 # Delete the temporary file
-cuda_execute_process(
-  "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
-  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}"
-  )
+#cuda_execute_process(
+#  "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
+#  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}"
+#  )
 
-if(CUDA_result)
-  message(FATAL_ERROR "Error generating ${generated_file}")
-endif()
+#if(CUDA_result)
+#  message(FATAL_ERROR "Error generating ${generated_file}")
+#endif()
 
 # Generate the code
 cuda_execute_process(

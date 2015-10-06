@@ -1288,12 +1288,19 @@ macro(CUDA_WRAP_SRCS cuda_target format generated_files)
       endif()
 
       # Build the generated file and dependency file ##########################
+      set(newdepend "")
+      foreach(depend ${CUDA_NVCC_DEPEND})
+          if(NOT ${depend} STREQUAL "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${cuda_target}.dir")
+              set(newdepend "${newdepend};${depend}")
+          endif()
+      endforeach()
+      set(CUDA_NVCC_DEPEND "${newdepend}")
       add_custom_command(
         OUTPUT ${generated_file}
         # These output files depend on the source_file and the contents of cmake_dependency_file
-        ${main_dep}
+        #${main_dep}
         DEPENDS ${CUDA_NVCC_DEPEND}
-        DEPENDS ${custom_target_script}
+        #DEPENDS ${custom_target_script}
         # Make sure the output directory exists before trying to write to it.
         COMMAND ${CMAKE_COMMAND} -E make_directory "${generated_file_path}"
         COMMAND ${CMAKE_COMMAND} ARGS
@@ -1396,7 +1403,7 @@ function(CUDA_LINK_SEPARABLE_COMPILATION_OBJECTS output_file cuda_target options
     set(do_obj_build_rule TRUE)
     if (MSVC_VERSION GREATER 1599)
       # VS 2010 and 2012 have this problem.  If future versions fix this issue,
-      # it should still work, it just won't bs as nice as the other method.
+      # it should still work, it just won't be as nice as the other method.
       set(do_obj_build_rule FALSE)
     endif()
 
