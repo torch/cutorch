@@ -2204,6 +2204,15 @@ function test.sort()
    checkMultiDevice(x1, 'sort', 1, true)
 end
 
+function test.sortLargeSlice()
+   local n_row = 32
+   local n_col = 4096
+   local x = torch.FloatTensor(n_row, n_col)
+   x:copy(torch.randperm(n_row * n_col))
+   compareFloatAndCuda(x, 'sort', 2, true)
+   compareFloatAndCuda(x, 'sort', 2, false)
+end
+
 function test.cat()
    for dim = 1, 3 do
       local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
