@@ -24,9 +24,17 @@ end
 -- Creates a FloatTensor using the CudaHostAllocator.
 -- Accepts either a LongStorage or a sequence of numbers.
 function cutorch.createCudaHostTensor(...)
-  local size = torch.LongTensor(torch.isStorage(...) and ... or {...})
-  local storage = torch.FloatStorage(cutorch.CudaHostAllocator, size:prod())
-  return torch.FloatTensor(storage, 1, size:storage())
+   local size
+   if not ... then
+      size = torch.LongTensor{0}
+   elseif torch.isStorage(...) then
+      size = torch.LongTensor(...)
+   else
+      size = torch.LongTensor{...}
+   end
+
+   local storage = torch.FloatStorage(cutorch.CudaHostAllocator, size:prod())
+   return torch.FloatTensor(storage, 1, size:storage())
 end
 
 cutorch.setHeapTracking(true)
