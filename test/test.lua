@@ -2553,6 +2553,10 @@ function test.cudaHostTensor()
   local u = torch.Tensor(4, 5, 6)
   local v = cutorch.createCudaHostTensor(u:size())
   tester:assertTableEq(u:size():totable(), v:size():totable())
+
+  local w = cutorch.createCudaHostTensor()
+  tester:assert(w:storage() ~= nil, 'Empty CUDA host tensor must have a storage')
+  tester:asserteq(w:nElement(), 0, 'Expected an empty tensor')
 end
 
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
