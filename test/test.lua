@@ -1019,6 +1019,40 @@ function test.indexCopy()
    checkMultiDevice(x, 'indexCopy', index, longIndex, src)
 end
 
+function test.indexAdd()
+   local sz1 = chooseInt(minsize, maxsize) -- dim1
+   local sz2 = chooseInt(minsize, maxsize) -- dim2
+   local x = torch.FloatTensor():rand(sz1, sz2) -- input
+
+
+   -- Case 1: 2D tensor, indexCopy over first dimension, 2 indices
+   -- choose two indices from the first dimension, i.e. [1,sz1]
+   local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
+   local index = 1
+   local src = torch.FloatTensor(2, sz2):uniform()
+   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
+   index = 2
+   longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
+   src = torch.FloatTensor(sz1, 2):uniform():cuda()
+   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
+   x = torch.FloatTensor():rand(sz1)
+   index = 1
+   longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
+   src = torch.FloatTensor(2):uniform()
+   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   tester:assert(isEqual(
+      x:cuda():indexAdd(index, longIndex:cuda(), src:cuda()),
+      x:indexAdd(index, longIndex, src)),
+      "Divergent results between CPU and CUDA for function 'indexAdd'")
+
+   checkMultiDevice(x, 'indexAdd', index, longIndex, src)
+end
+
 function test.indexFill()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
