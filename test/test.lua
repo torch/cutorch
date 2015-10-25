@@ -1019,6 +1019,40 @@ function test.indexCopy()
    checkMultiDevice(x, 'indexCopy', index, longIndex, src)
 end
 
+function test.indexAdd()
+   local sz1 = chooseInt(minsize, maxsize) -- dim1
+   local sz2 = chooseInt(minsize, maxsize) -- dim2
+   local x = torch.FloatTensor():rand(sz1, sz2) -- input
+
+
+   -- Case 1: 2D tensor, indexCopy over first dimension, 2 indices
+   -- choose two indices from the first dimension, i.e. [1,sz1]
+   local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
+   local index = 1
+   local src = torch.FloatTensor(2, sz2):uniform()
+   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
+   index = 2
+   longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
+   src = torch.FloatTensor(sz1, 2):uniform():cuda()
+   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
+   x = torch.FloatTensor():rand(sz1)
+   index = 1
+   longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
+   src = torch.FloatTensor(2):uniform()
+   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   tester:assert(isEqual(
+      x:cuda():indexAdd(index, longIndex:cuda(), src:cuda()),
+      x:indexAdd(index, longIndex, src)),
+      "Divergent results between CPU and CUDA for function 'indexAdd'")
+
+   checkMultiDevice(x, 'indexAdd', index, longIndex, src)
+end
+
 function test.indexFill()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
@@ -1046,6 +1080,22 @@ function test.indexFill()
       "Divergent results between CPU and CUDA for function 'indexFill'")
 
    checkMultiDevice(x, 'indexFill', index, longIndex, val)
+end
+
+function test.norm()
+   for i = 1, 5 do
+      for n = 0, 3 do
+         local cpu = torch.FloatTensor(chooseInt(20, 50), 2):uniform(-0.5, 0.5)
+
+         if torch.random(1, 2) == 1 then
+            cpu = cpu:transpose(1, 2)
+         end
+
+         compareFloatAndCuda(cpu, 'norm', n)
+         compareFloatAndCuda(cpu, 'norm', n, 1)
+         compareFloatAndCuda(cpu, 'norm', n, 2)
+      end
+   end
 end
 
 function test.renorm()
@@ -2204,6 +2254,46 @@ function test.sort()
    checkMultiDevice(x1, 'sort', 1, true)
 end
 
+function test.sortLargeSlice()
+   local n_row = 32
+   local n_col = 4096
+   local x = torch.FloatTensor(n_row, n_col)
+   x:copy(torch.randperm(n_row * n_col))
+   compareFloatAndCuda(x, 'sort', 2, true)
+   compareFloatAndCuda(x, 'sort', 2, false)
+end
+
+function test.cat()
+   for dim = 1, 3 do
+      local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
+      local y = torch.CudaTensor(17, msize, msize):uniform():transpose(1, dim)
+      local mx = torch.cat(x, y, dim)
+      tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+      tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+
+      local mxx = torch.CudaTensor()
+      torch.cat(mxx, x, y, dim)
+      tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+   end
+end
+
+function test.catArray()
+   for dim = 1, 3 do
+      local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
+      local y = torch.CudaTensor(17, msize, msize):uniform():transpose(1, dim)
+      local z = torch.CudaTensor(19, msize, msize):uniform():transpose(1, dim)
+
+      local mx = torch.CudaTensor.cat({x, y, z}, dim)
+      tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+      tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+      tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
+
+      local mxx = torch.CudaTensor()
+      torch.cat(mxx, {x, y, z}, dim)
+      tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+   end
+end
+
 function test.streamWaitFor()
    local size = 2000000
    local iter = 20 + torch.random(10)
@@ -2513,6 +2603,10 @@ function test.cudaHostTensor()
   local u = torch.Tensor(4, 5, 6)
   local v = cutorch.createCudaHostTensor(u:size())
   tester:assertTableEq(u:size():totable(), v:size():totable())
+
+  local w = cutorch.createCudaHostTensor()
+  tester:assert(w:storage() ~= nil, 'Empty CUDA host tensor must have a storage')
+  tester:asserteq(w:nElement(), 0, 'Expected an empty tensor')
 end
 
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
