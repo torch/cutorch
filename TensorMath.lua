@@ -11,6 +11,19 @@ interface:print('#include "torch/utils.h"')
 interface:print('')
 interface:print('')
 
+interface:print([[
+static int torch_isnonemptytable(lua_State *L, int idx)
+{
+  int empty;
+  if (!lua_istable(L, idx)) return 0;
+
+  lua_rawgeti(L, idx, 1);
+  empty = lua_isnil(L, -1);
+  lua_pop(L, 1);
+  return !empty;
+}
+]])
+
 -- specific to CUDA
 local typename = 'CudaTensor'
 
@@ -122,7 +135,7 @@ wrap.types.CudaTensorArray = {
            end,
 
    check = function(arg, idx)
-              return string.format('lua_istable(L, %d)', idx)
+              return string.format('torch_isnonemptytable(L, %d)', idx)
          end,
 
    read = function(arg, idx)
