@@ -25,6 +25,12 @@ static int torch_Tensor_(size)(lua_State *L)
   return 1;
 }
 
+static int torch_Tensor_(elementSize)(lua_State *L)
+{
+  lua_pushnumber(L, THStorage_(elementSize)(cutorch_getstate(L)));
+  return 1;
+}
+
 static int torch_Tensor_(stride)(lua_State *L)
 {
   THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
@@ -563,6 +569,14 @@ static int torch_Tensor_(isContiguous)(lua_State *L)
 {
   THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   lua_pushboolean(L, THTensor_(isContiguous)(cutorch_getstate(L), tensor));
+  return 1;
+}
+
+static int torch_Tensor_(isSize)(lua_State *L)
+{
+  THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
+  THLongStorage *size = luaT_checkudata(L, 2, "torch.LongStorage");
+  lua_pushboolean(L, THTensor_(isSize)(cutorch_getstate(L), tensor, size));
   return 1;
 }
 
@@ -1152,6 +1166,7 @@ static const struct luaL_Reg torch_Tensor_(_) [] = {
   {"free", torch_Tensor_(free)},
   {"contiguous", torch_Tensor_(contiguous)},
   {"size", torch_Tensor_(size)},
+  {"elementSize", torch_Tensor_(elementSize)},
   {"__len__", torch_Tensor_(size)},
   {"stride", torch_Tensor_(stride)},
   {"dim", torch_Tensor_(nDimension)},
@@ -1174,6 +1189,7 @@ static const struct luaL_Reg torch_Tensor_(_) [] = {
   {"t", torch_Tensor_(t)},
   {"unfold", torch_Tensor_(unfold)},
   {"isContiguous", torch_Tensor_(isContiguous)},
+  {"isSize", torch_Tensor_(isSize)},
   {"isSameSizeAs", torch_Tensor_(isSameSizeAs)},
   {"nElement", torch_Tensor_(nElement)},
   {"copy", torch_Tensor_(copy)},

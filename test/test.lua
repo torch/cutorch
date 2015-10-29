@@ -1669,6 +1669,22 @@ function test.isSameSizeAs()
    tester:assert(t1:isSameSizeAs(t4) == true, "wrong answer ")
 end
 
+function test.isSize()
+   local t1 = torch.CudaTensor(3, 4, 5)
+   local s1 = torch.LongStorage({3, 4, 5})
+   local s2 = torch.LongStorage({5, 4, 3})
+
+   tester:assert(t1:isSize(s1) == true, "wrong answer ")
+   tester:assert(t1:isSize(s2) == false, "wrong answer ")
+   tester:assert(t1:isSize(t1:size()) == true, "wrong answer ")
+end
+
+function test.elementSize()
+  local float = torch.CudaStorage():elementSize()
+  tester:asserteq(float, torch.CudaTensor():elementSize())
+  tester:assertne(float, 0)
+end
+
 -- Test random number generation.
 local function checkIfUniformlyDistributed(t, min, max)
    tester:assertge(t:min(), min - 1e-6, "values are too low")
