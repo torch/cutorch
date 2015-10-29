@@ -321,6 +321,9 @@ float THCudaTensor_sumall(THCState *state, THCudaTensor *self)
 
 float THCudaTensor_prodall(THCState *state, THCudaTensor *self)
 {
+  if ( THCudaTensor_nDimension(state, self) == 0 ) {
+    THError("Cannot take the element-wise product of an empty (0-dimensional) tensor");
+  }
   THAssert(THCudaTensor_checkGPU(state, 1, self));
   float val = 1.0f;
   if (!THCudaTensor_reduceAll(state, self,
