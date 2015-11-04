@@ -94,6 +94,13 @@ FUNCTION(SELECT_NVCC_ARCH_FLAGS out_variable)
     unSET(CUDA_ARCH_PTX CACHE)
   ENDIF()
 
+  # Allow a user to specify architecture from env
+  IF($ENV{CUDA_ARCH_BIN})
+    SET(CUDA_ARCH_NAME "Manual")
+    SET(CUDA_ARCH_BIN $ENV{CUDA_ARCH_BIN})
+    unSET(CUDA_ARCH_PTX)
+  ENDIF()
+
   IF(${CUDA_ARCH_NAME} STREQUAL "Fermi")
     SET(__cuda_arch_bin "2.0 2.1(2.0)")
   elseIF(${CUDA_ARCH_NAME} STREQUAL "Kepler")
