@@ -688,7 +688,7 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "sin", "asin", "sinh",
                       "tan", "atan", "tanh",
                       "sqrt",
-                      "ceil", "floor",
+                      "ceil", "floor", "neg",
                       "abs", "sign", "round"}) do
 
    wrap(name,
