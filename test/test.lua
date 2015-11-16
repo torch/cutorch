@@ -5,9 +5,8 @@ if not cutorch then
 end
 
 local test = {}
-local msize = 100
 local minsize = 100
-local maxsize = 1000
+local maxsize = 500
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -380,17 +379,43 @@ function test.copyRandomizedTest()
       torch.CudaStorage(input_storage_float:size()):copy(input_storage_float)
    local output_storage_cuda =
       torch.CudaStorage(output_storage_float:size()):copy(output_storage_float)
+
+   -- Also test cross-device copy behavior, if multiple devices are available.
+   local input_device = chooseInt(1, cutorch.getDeviceCount())
+   local output_device = chooseInt(1, cutorch.getDeviceCount())
+
+   -- Selectively disable p2p access to test that codepath as well
+   local access_disabled = false
+   if input_device ~= output_device and chooseInt(1, 2) == 1 then
+      -- p2p access between this pair of devices might not be available at all
+      if cutorch.getPeerToPeerAccess(output_device, input_device) then
+         access_disabled = true
+         cutorch.setPeerToPeerAccess(output_device, input_device, false)
+      end
+   end
+
+   local prev_device = cutorch.getDevice()
+
+   cutorch.setDevice(input_device)
    local input_tensor_cuda = torch.CudaTensor(input_storage_cuda,
                                           input_tensor_float:storageOffset(),
                                           input_tensor_float:size(),
                                           input_tensor_float:stride())
+
+   cutorch.setDevice(output_device)
    local output_tensor_cuda = torch.CudaTensor(output_storage_cuda,
                                           output_tensor_float:storageOffset(),
                                           output_tensor_float:size(),
                                           output_tensor_float:stride())
 
+   cutorch.setDevice(prev_device)
+
    output_tensor_float:copy(input_tensor_float)
    output_tensor_cuda:copy(input_tensor_cuda)
+
+   if access_disabled then
+      cutorch.setPeerToPeerAccess(output_device, input_device, true)
+   end
 
    -- now compare output_storage_cuda and output_storage_float for exactness
    local flat_tensor_float = torch.FloatTensor(input_storage_float)
@@ -1954,10 +1979,19 @@ function test.multi_gpu_copy_noncontig()
    local t1, t2
    for transposeSrc = 0,1 do
      for transposeDst = 0,1 do
-        cutorch.withDevice(srcDevice,
-           function() t1 = torch.CudaTensor(100000, 1000):fill(1) end)
-        cutorch.withDevice(dstDevice,
-           function() t2 = torch.CudaTensor(100000, 1000):fill(2) end)
+        cutorch.withDevice(
+           srcDevice,
+           function()
+              t1 = torch.CudaTensor(100000, 1000):fill(1)
+              cutorch.synchronize()
+        end)
+
+        cutorch.withDevice(
+           dstDevice,
+           function()
+              t2 = torch.CudaTensor(100000, 1000):fill(2)
+              cutorch.synchronize()
+        end)
 
         if transposeSrc == 1 then -- maybe make t1 non-contiguous
            cutorch.withDevice(srcDevice, function() t1=t1:transpose(1,2) end)
@@ -1965,7 +1999,6 @@ function test.multi_gpu_copy_noncontig()
         if transposeDst == 1 then -- maybe make t2 non-contiguous
            cutorch.withDevice(dstDevice, function() t2=t2:transpose(1,2) end)
         end
-        cutorch.synchronize()
 
         -- try to induce a race on t2
         cutorch.withDevice(dstDevice, function() t2:fill(3) end)
@@ -1976,10 +2009,6 @@ function test.multi_gpu_copy_noncontig()
 
         -- try to induce a race on t1
         cutorch.withDevice(srcDevice, function() t1:fill(4) end)
-
-        -- only synchronize with dstDevice because
-        -- previous line guarantees synchronization with srcDevice
-        cutorch.withDevice(dstDevice, function() cutorch.synchronize() end)
 
         local t2_max
         cutorch.withDevice(dstDevice, function() t2_max = t2:max() end)
@@ -2281,8 +2310,8 @@ end
 
 function test.cat()
    for dim = 1, 3 do
-      local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
-      local y = torch.CudaTensor(17, msize, msize):uniform():transpose(1, dim)
+      local x = torch.CudaTensor(13, minsize, minsize):uniform():transpose(1, dim)
+      local y = torch.CudaTensor(17, minsize, minsize):uniform():transpose(1, dim)
       local mx = torch.cat(x, y, dim)
       tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
       tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
@@ -2295,9 +2324,9 @@ end
 
 function test.catArray()
    for dim = 1, 3 do
-      local x = torch.CudaTensor(13, msize, msize):uniform():transpose(1, dim)
-      local y = torch.CudaTensor(17, msize, msize):uniform():transpose(1, dim)
-      local z = torch.CudaTensor(19, msize, msize):uniform():transpose(1, dim)
+      local x = torch.CudaTensor(13, minsize, minsize):uniform():transpose(1, dim)
+      local y = torch.CudaTensor(17, minsize, minsize):uniform():transpose(1, dim)
+      local z = torch.CudaTensor(19, minsize, minsize):uniform():transpose(1, dim)
 
       local mx = torch.CudaTensor.cat({x, y, z}, dim)
       tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
@@ -2327,9 +2356,9 @@ function test.streamWaitFor()
    end
 
    -- Queue a bunch of work on different streams
-   for stream = numStreams, 1, -1 do
-      cutorch.setStream(stream)
-      for i = 1, iter do
+   for i = 1, iter do
+      for stream = numStreams, 1, -1 do
+         cutorch.setStream(stream)
          tensors[stream]:add(1)
       end
    end
@@ -2367,13 +2396,14 @@ function test.streamWaitForMultiDevice()
    end
 
    local size = 2000000
-   local iter = 20 + torch.random(10)
-   local result = torch.CudaTensor(size):zero()
+   local iter = 80 + torch.random(10)
    local numStreams = torch.random(10)
    cutorch.reserveStreams(numStreams + 1)
 
    -- Create scratch space on the last device to receive all results
+   -- `tmpResults` and `results` will be operated on in `numStreams + 1`
    cutorch.setDevice(numDevices)
+   cutorch.setStream(numStreams + 1)
    local tmpResults = {}
    local results = torch.CudaTensor(size):zero()
 
@@ -2386,50 +2416,59 @@ function test.streamWaitForMultiDevice()
       table.insert(tmpResults, tmpResultsPerDevice)
    end
 
+   -- In order to test isolating the one-way barrier below, sync all the work
+   -- above so we know the `zero()` is complete.
+   cutorch.streamSynchronize(numStreams + 1)
+
    -- Allocate data on all devices (except the last)
    local tensors = {}
-   local waitingOn = {}
 
    for dev = 1, numDevices - 1 do
       cutorch.setDevice(dev)
       local tensorsPerDevice = {}
-      local waitingOnPerDevice = {}
 
       for stream = 1, numStreams do
          cutorch.setStream(stream)
          table.insert(tensorsPerDevice, torch.CudaTensor(size):zero())
-         table.insert(waitingOnPerDevice, stream)
       end
 
       table.insert(tensors, tensorsPerDevice)
-      table.insert(waitingOn, waitingOnPerDevice)
    end
 
    -- Queue work to all streams, all devices (except the last)
-   for dev = 1, numDevices - 1 do
-      cutorch.setDevice(dev)
-      for stream = 1, numStreams do
-         cutorch.setStream(stream)
-         for i = 1, iter do
+   for i = 1, iter do
+      for dev = 1, numDevices - 1 do
+         cutorch.setDevice(dev)
+         for stream = 1, numStreams do
+            cutorch.setStream(stream)
             tensors[dev][stream]:add(1)
          end
       end
    end
 
-   -- Cross-device/stream wait
-   cutorch.streamWaitForMultiDevice(numDevices, numStreams + 1, waitingOn)
-
-   -- Copy back to device `numDevices`, stream (numStreams + 1)
-   cutorch.setDevice(numDevices)
-   cutorch.setStream(numStreams + 1)
-
+   -- Copy back to device `numDevices`
    for dev = 1, numDevices - 1 do
+      cutorch.setDevice(dev)
       for stream = 1, numStreams do
+         cutorch.setStream(stream)
+
+         -- These copies will be ordered in the source stream (dev, stream), but
+         -- tmpResults is on device `numDevices`.
          tmpResults[dev][stream]:copy(tensors[dev][stream])
+
+         -- We will wait on the above copy to complete in the dest too
+         cutorch.streamWaitForMultiDevice(numDevices, numStreams + 1, {[dev]={stream}})
+
+         -- Note that because the copy is ordered in (dev, stream), we are free
+         -- to modify the value after issuing the above copy.
+         tensors[dev][stream]:zero()
       end
    end
 
    -- Sum up the results
+   cutorch.setDevice(numDevices)
+   cutorch.setStream(numStreams + 1)
+
    for dev = 1, numDevices - 1 do
       for stream = 1, numStreams do
          results:add(tmpResults[dev][stream])
@@ -2441,7 +2480,7 @@ function test.streamWaitForMultiDevice()
    -- return to default device/stream
    cutorch.setDevice(1)
    cutorch.setStream(0)
-   result = nil
+   results = nil
    tmpResults = nil
    tensors = nil
    collectgarbage()
@@ -2552,26 +2591,30 @@ function test.streamBarrierMultiDevice()
    end
 
    -- Queue work to all streams, all devices
-   for dev = 1, numDevices do
-      cutorch.setDevice(dev)
-      for stream = 1, numStreams do
-         cutorch.setStream(stream)
-         for i = 1, iter do
+   for i = 1, iter do
+      for dev = 1, numDevices do
+         cutorch.setDevice(dev)
+         for stream = 1, numStreams do
+            cutorch.setStream(stream)
             tensors[dev][stream]:add(1)
          end
       end
    end
 
-   -- -- Create an all-way barrier
+   -- Create an all-way barrier
    cutorch.streamBarrierMultiDevice(waitingFor)
 
-   -- -- All-to-all copy (done in stream 1 on each device)
+   -- All-to-all copy (done in stream 1 on each device)
    for dev = 1, numDevices do
       cutorch.setDevice(dev)
       cutorch.setStream(1)
 
       for otherDev = 1, numDevices do
          for otherStream = 1, numStreams do
+            -- This copy is ordered in the source (otherDev, stream 1)
+            -- which produced the value.
+            -- (dev, stream 1) on all devices is complete due to the all-way
+            -- barrier above.
             tmpResults[dev][otherDev][otherStream]:copy(tensors[otherDev][otherStream])
          end
       end
@@ -2585,6 +2628,12 @@ function test.streamBarrierMultiDevice()
 
       for otherDev = 1, numDevices do
          for otherStream = 1, numStreams do
+            -- Since the copy above is ordered in stream (otherDev, 1),
+            -- we need to wait for its completion
+            if dev ~= otherDev then
+               cutorch.streamWaitForMultiDevice(dev, 1, {[otherDev]={1}})
+            end
+
             results[dev]:add(tmpResults[dev][otherDev][otherStream])
          end
       end
@@ -2610,6 +2659,29 @@ function test.streamBarrierMultiDevice()
    collectgarbage()
    collectgarbage()
    cutorch.synchronize()
+end
+
+function test.cudaEvent()
+   cutorch.reserveStreams(2)
+   cutorch.setStream(1)
+
+   local t1 = torch.CudaTensor(100000000):zero()
+   local t2 = torch.CudaTensor(1):zero()
+
+   local t1View = t1:narrow(1, 100000000, 1)
+   t1:fill(1)
+   -- Event is created here
+   local event = cutorch.Event()
+
+   cutorch.setStream(2)
+
+   -- assert below will fail without this
+   event:waitOn()
+   t2:copy(t1View)
+   tester:asserteq(t2[1], 1)
+
+   -- revert to default stream
+   cutorch.setStream(0)
 end
 
 function test.cudaHostTensor()
