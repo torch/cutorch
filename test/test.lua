@@ -20,6 +20,59 @@ local function chooseInt(a, b)
    return math.floor(torch.uniform(a, b + 1))
 end
 
+-- Constructs a tensor from a larger storage, with holes in each dimension
+local function createHoledTensor(size)
+   local osize = {}
+   for i = 1, #size do osize[i] = size[i] end
+   -- randomly inflate a few dimensions in osize
+   for i = 1, 3 do
+      local dim = torch.random(1,#osize)
+      local add = torch.random(4, 15)
+      osize[dim] = osize[dim] + add
+   end
+   local input = torch.FloatTensor(torch.LongStorage(osize))
+   -- now extract the input of correct size from 'input'
+   for i = 1, #size do
+      if input:size(i) ~= size[i] then
+         local bounds = torch.random(1, input:size(i) - size[i] + 1)
+         input = input:narrow(i, bounds, size[i])
+      end
+   end
+   return input
+end
+
+-- Create a tensor of a given size, allowing for transpositions or holes
+local function createTestTensor(allowHoles, allowTransposition, sizes)
+   local t = nil
+   if allowHoles then
+      t = createHoledTensor(sizes)
+   else
+      t = torch.FloatTensor(unpack(sizes))
+   end
+
+   if allowTransposition then
+      local dims = t:nDimension()
+
+      local numTranspositions = chooseInt(1, dims)
+
+      for i = 1, numTranspositions do
+         local dim1 = chooseInt(1, dims)
+         local dim2 = chooseInt(1, dims)
+
+         if dim1 ~= dim2 then
+            t = t:transpose(dim1, dim2)
+         end
+      end
+   end
+
+   if allowHoles then
+      t:storage():fill(-1)
+   end
+   t:copy(torch.linspace(1, t:nElement(), t:nElement()))
+
+   return t
+end
+
 local function isEqual(a, b, tolerance, ...)
    if a == nil and b == nil then return true end
    if a == nil and b ~= nil then return false end
@@ -50,15 +103,27 @@ local function checkMultiDevice(x, fn, ...)
    end
 end
 
+local function cloneExactlyToGPU(t)
+   -- keep the size/stride of original tensor, handling tensors that
+   -- potentially have holes as well
+   local tGPU = nil
+
+   if t:storage() then
+      local sGPU = torch.CudaStorage(t:storage():size()):copy(t:storage())
+      tGPU = torch.CudaTensor(sGPU, t:storageOffset(), t:size(), t:stride())
+   else
+      tGPU = torch.CudaTensor()
+   end
+
+   return tGPU
+end
+
 local function compareFloatAndCuda(x, fn, ...)
    local args = {...}
    args['input'] = x
-   local x_cpu    = x:float()
-   -- keep the size/stride of original tensor
-   local x_cuda   = torch.CudaTensor(x_cpu:size(), x_cpu:stride())
-   if x_cpu:storage() then
-      x_cuda:storage():copy(x_cpu:storage())
-   end
+   local x_cpu = x:float()
+   local x_cuda = cloneExactlyToGPU(x_cpu)
+
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
    local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    if type(fn) == 'string' then
@@ -101,11 +166,8 @@ end
 
 local function compareFloatAndCudaTensorArgs(x, fn, ...)
    local x_cpu = x:float()
-   -- keep the size/stride of original tensor
-   local x_cuda = torch.CudaTensor(x_cpu:size(), x_cpu:stride())
-   if x_cpu:storage() then
-      x_cuda:storage():copy(x_cpu:storage())
-   end
+   local x_cuda = cloneExactlyToGPU(x_cpu)
+
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
    local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    -- Transformation of args
@@ -314,26 +376,6 @@ function test.copyRandomizedTest()
    tester:assert(nelem1, nelem2, 'input and output sizes have to be the same')
    local input, output
 
-   local function createHoledTensor(size)
-      local osize = {}
-      for i = 1, #size do osize[i] = size[i] end
-      -- randomly inflate a few dimensions in osize
-      for i = 1, 3 do
-         local dim = torch.random(1,#osize)
-         local add = torch.random(4, 15)
-         osize[dim] = osize[dim] + add
-      end
-      local input = torch.FloatTensor(torch.LongStorage(osize))
-      -- now extract the input of correct size from 'input'
-      for i = 1, #size do
-         if input:size(i) ~= size[i] then
-            local bounds = torch.random(1, input:size(i) - size[i] + 1)
-            input = input:narrow(i, bounds, size[i])
-         end
-      end
-      return input
-   end
-
    -- extract a sub-cube with probability 50%
    -- (to introduce unreachable storage locations)
    local holedInput = torch.random(1, 2)
@@ -434,11 +476,11 @@ function test.copyRandomizedTest()
 end
 
 function test.copyNoncontiguous()
-     local x = torch.FloatTensor():rand(1, 1)
-     local f = function(src)
-        return src.new(2, 2):copy(src:expand(2, 2))
-     end
-     compareFloatAndCuda(x, f)
+   local x = torch.FloatTensor():rand(1, 1)
+   local f = function(src)
+      return src.new(2, 2):copy(src:expand(2, 2))
+   end
+   compareFloatAndCuda(x, f)
 
    local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 1)
@@ -1144,77 +1186,40 @@ function test.renorm()
    checkMultiDevice(x, 'renorm', 4, 2, maxnorm)
 end
 
-function test.indexSelect1()
-   local numDims = 1 + torch.random(4)
-   local sizes = {}
-   for i = 1, numDims do
-      table.insert(sizes, 1 + torch.random(4))
-   end
+function test.indexSelect()
+   for tries = 1, 5 do
+      local dims = 1 + torch.random(4)
+      local sizes = {}
 
-   local x = torch.randn(unpack(sizes)):float()
-   local seed = torch.initialSeed()
+      while true do
+         local size = 1
+         for i = 1, dims do
+            sizes[i] = chooseInt(2, 100)
+            size = size * sizes[i]
+         end
 
-   local fn = function(input)
-      torch.manualSeed(seed)
-
-      -- Transpose two random dimensions.
-      local a = nil
-      local b = nil
-      while a == b do
-         a = torch.random(input:nDimension())
-         b = torch.random(input:nDimension())
+         -- Limit total size to something that won't take forever to run
+         if size < 1000000 then
+            break
+         end
       end
-      input = input:transpose(a, b)
 
-      -- Pick a random dimension and indices.
-      local selectdim = torch.random(input:nDimension())
-      -- All dimensions are 2 or more, so this is valid.
-      local indices = torch.randperm(input:size(selectdim) - 1):long()
+      -- 50/50 chance of contig/non-contig
+      local contig = chooseInt(1, 2) == 1
+      local holes = false
+      local tr = false
+      if not contig then
+         holes = chooseInt(1, 2) == 1
+         tr = chooseInt(1, 2) == 1
+      end
 
-      return input:index(selectdim, indices)
+      local t = createTestTensor(holes, tr, sizes)
+      local selectdim = chooseInt(1, t:nDimension())
+      local numIndices = chooseInt(1, t:size(selectdim))
+      local indices = torch.randperm(numIndices):long()
+
+      compareFloatAndCuda(t, 'index', selectdim, indices)
    end
-
-   for i = 1, 5 do
-      compareFloatAndCuda(x, fn)
-      seed = torch.seed()
-   end
-end
-
-function test.indexSelect2()
-   --  test for speed
-   local n_row = math.random(minsize,maxsize)
-   local n_col = math.random(minsize,maxsize)
-   local n_idx = math.random(n_col)
-
-   local x = torch.randn(n_row, n_col):float()
-   local indices = torch.randperm(n_idx):long()
-   local z = torch.FloatTensor()
-
-   local tm = {}
-   local title = string.format('indexSelect ')
-   times[title] = tm
-
-   z:index(x, 2, indices)
-   local groundtruth = z:clone()
-   local clock = torch.Timer()
-   for i=1,nloop do
-      z:index(x, 2, indices)
-   end
-   tm.cpu = clock:time().real
-
-   x = x:cuda()
-   z = torch.CudaTensor()
-
-   z:index(x, 2, indices)
-   local rescuda = z:clone():float()
-   clock:reset()
-   for i=1,nloop do
-      z:index(x, 2, indices)
-   end
-   tm.gpu = clock:time().real
-
-   tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
-
 end
 
 function test.addmv()
