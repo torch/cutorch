@@ -1699,6 +1699,18 @@ function test.isSameSizeAs()
    tester:assert(t1:isSameSizeAs(t4) == true, "wrong answer ")
 end
 
+function test.isSetTo()
+  local t1 = torch.CudaTensor(7, 4, 9)
+  local t2 = torch.CudaTensor(7, 8, 2)
+  local t3 = t2:view(7*8*2)
+  tester:assert(t1:isSetTo(t2) == false, "t1 and t2 are not the same tensor. ")
+  tester:assert(t2:isSetTo(t3) == false, "t2 and t3 share storage but are different views. ")
+  t2:set(t1)
+  tester:assert(t1:isSetTo(t2) == true, "t1 and t2 are the same tensor now.")
+  tester:assert(t2:isSetTo(t1) == true, "by symmetry. ")
+  tester:assert(t3:isSetTo(t1) == false, "now they are completely unrelated.")
+end
+
 function test.isSize()
    local t1 = torch.CudaTensor(3, 4, 5)
    local s1 = torch.LongStorage({3, 4, 5})
