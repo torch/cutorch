@@ -3,8 +3,22 @@
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
 
+extern void cutorch_CudaByteStorage_init(lua_State* L);
+extern void cutorch_CudaCharStorage_init(lua_State* L);
+extern void cutorch_CudaShortStorage_init(lua_State* L);
+extern void cutorch_CudaIntStorage_init(lua_State* L);
+extern void cutorch_CudaLongStorage_init(lua_State* L);
 extern void cutorch_CudaStorage_init(lua_State* L);
+extern void cutorch_CudaDoubleStorage_init(lua_State* L);
+
+extern void cutorch_CudaByteTensor_init(lua_State* L);
+extern void cutorch_CudaCharTensor_init(lua_State* L);
+extern void cutorch_CudaShortTensor_init(lua_State* L);
+extern void cutorch_CudaIntTensor_init(lua_State* L);
+extern void cutorch_CudaLongTensor_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
+extern void cutorch_CudaDoubleTensor_init(lua_State* L);
+
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
 
@@ -875,8 +889,22 @@ int luaopen_libcutorch(lua_State *L)
   lua_setfield(L, -2, "magma");
 #endif
 
+  cutorch_CudaByteStorage_init(L);
+  cutorch_CudaCharStorage_init(L);
+  cutorch_CudaShortStorage_init(L);
+  cutorch_CudaIntStorage_init(L);
+  cutorch_CudaLongStorage_init(L);
   cutorch_CudaStorage_init(L);
+  cutorch_CudaDoubleStorage_init(L);
+
+  cutorch_CudaByteTensor_init(L);
+  cutorch_CudaCharTensor_init(L);
+  cutorch_CudaShortTensor_init(L);
+  cutorch_CudaIntTensor_init(L);
+  cutorch_CudaLongTensor_init(L);
   cutorch_CudaTensor_init(L);
+  cutorch_CudaDoubleTensor_init(L);
+  
   cutorch_CudaTensorMath_init(L);
   cutorch_CudaTensorOperator_init(L);
   cutorch_Event_init(L);

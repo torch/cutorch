@@ -21,54 +21,41 @@ end
 local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
-local function Tensor__cuda(self)
-   return self:type('torch.CudaTensor')
-end
-local function Tensor__double(self)
-   return self:type('torch.DoubleTensor')
-end
-local function Tensor__float(self)
-   return self:type('torch.FloatTensor')
+
+local TensorTypes = {
+   float  = 'torch.FloatTensor',
+   double = 'torch.DoubleTensor',
+   byte   = 'torch.ByteTensor',
+   char   = 'torch.CharTensor',
+   int    = 'torch.IntTensor',
+   short  = 'torch.ShortTensor',
+   long   = 'torch.LongTensor',
+   cuda       = 'torch.CudaTensor',
+   cudaDouble = 'torch.CudaDoubleTensor',
+   cudaByte   = 'torch.CudaByteTensor',
+   cudaChar   = 'torch.CudaCharTensor',
+   cudaInt    = 'torch.CudaIntTensor',
+   cudaShort  = 'torch.CudaShortTensor',
+   cudaLong   = 'torch.CudaLongTensor'
+}
+
+
+local function Tensor__converter(type)
+    return function(self)
+        return self:type(type)
+    end
 end
 
-local function Tensor__byte(self)
-   return self:type('torch.ByteTensor')
+for _, SrcType in pairs(TensorTypes) do
+    for FuncName, DstType in pairs(TensorTypes) do
+        rawset(torch.getmetatable(SrcType), FuncName, Tensor__converter(DstType))
+    end
 end
 
-local function Tensor__char(self)
-   return self:type('torch.CharTensor')
+for _, CudaTensorType in pairs(TensorTypes) do
+    rawset(torch.getmetatable(CudaTensorType), 'type', Tensor__type)
+    rawset(torch.getmetatable(CudaTensorType), 'typeAs', Tensor__typeAs)
 end
-
-local function Tensor__int(self)
-   return self:type('torch.IntTensor')
-end
-
-local function Tensor__short(self)
-   return self:type('torch.ShortTensor')
-end
-
-local function Tensor__long(self)
-   return self:type('torch.LongTensor')
-end
-
-rawset(torch.getmetatable('torch.DoubleTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.FloatTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.ByteTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CharTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.IntTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.ShortTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.LongTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CudaTensor'), 'cuda', Tensor__cuda)
-
-rawset(torch.getmetatable('torch.CudaTensor'), 'type', Tensor__type)
-rawset(torch.getmetatable('torch.CudaTensor'), 'typeAs', Tensor__typeAs)
-rawset(torch.getmetatable('torch.CudaTensor'), 'double', Tensor__double)
-rawset(torch.getmetatable('torch.CudaTensor'), 'float', Tensor__float)
-rawset(torch.getmetatable('torch.CudaTensor'), 'byte', Tensor__byte)
-rawset(torch.getmetatable('torch.CudaTensor'), 'char', Tensor__char)
-rawset(torch.getmetatable('torch.CudaTensor'), 'int', Tensor__int)
-rawset(torch.getmetatable('torch.CudaTensor'), 'short', Tensor__short)
-rawset(torch.getmetatable('torch.CudaTensor'), 'long', Tensor__long)
 
 do
     local metatable = torch.getmetatable('torch.CudaTensor')
