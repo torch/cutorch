@@ -206,9 +206,29 @@ void waitMultiDeviceEvents(lua_State *L, THCState *state, int arg,
   lua_pop(L, 1);
 }
 
+/* Synchronizes the host with respect to the current device */
 static int cutorch_synchronize(lua_State *L)
 {
   THCudaCheck(cudaDeviceSynchronize());
+  return 0;
+}
+
+/* Synchronizes the host with respect to all devices */
+static int cutorch_synchronizeAll(lua_State *L)
+{
+  int prevDev = -1;
+  THCudaCheck(cudaGetDevice(&prevDev));
+
+  int devices = -1;
+  THCudaCheck(cudaGetDeviceCount(&devices));
+
+  for (int i = 0; i < devices; ++i) {
+    THCudaCheck(cudaSetDevice(i));
+    THCudaCheck(cudaDeviceSynchronize());
+  }
+
+  THCudaCheck(cudaSetDevice(prevDev));
+
   return 0;
 }
 
@@ -833,6 +853,7 @@ static int cutorch_setHeapTracking(lua_State *L)
 
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
+  {"synchronizeAll", cutorch_synchronizeAll},
   {"reserveBlasHandles", cutorch_reserveBlasHandles},
   {"getNumBlasHandles", cutorch_getNumBlasHandles},
   {"setBlasHandle", cutorch_setBlasHandle},
@@ -904,7 +925,7 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongTensor_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaDoubleTensor_init(L);
-  
+
   cutorch_CudaTensorMath_init(L);
   cutorch_CudaTensorOperator_init(L);
   cutorch_Event_init(L);
