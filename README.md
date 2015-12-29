@@ -13,7 +13,8 @@ This new tensor type behaves exactly like a `torch.FloatTensor`, but has a coupl
 - `t:getDevice()` - Given a CudaTensor `t`, you can call :getDevice on it to find out the GPU ID on which the tensor memory is allocated.
 
 ###`cutorch.*` API
-- `cutorch.synchronize()` : All of the CUDA API is asynchronous (barring a few functions), which means that you can queue up operations. To wait for the operations to finish, you can issue `cutorch.synchronize()` in your code, when the code waits for all GPU operations on the current GPU to finish.
+- `cutorch.synchronize()` : All of the CUDA API is asynchronous (barring a few functions), which means that you can queue up operations. To wait for the operations to finish, you can issue `cutorch.synchronize()` in your code, when the code waits for all GPU operations on the current GPU to finish. WARNING: synchronizes the CPU host with respect to the current device (as per `cutorch.getDevice()`) only.
+- `cutorch.synchronizeAll()` : Same as `cutorch.synchronize()` except synchronizes the CPU host with all visible GPU devices in the system. Equivalent to calling `cutorch.synchronize()` once per each device.
 - `cutorch.setDevice(i)` : If one has multiple-GPUs, you can switch the default GPU (to allocate CUDA tensors and do operations). The GPU IDs are 1-indexed, so having 4 GPUs means, you can setDevice(1), setDevice(2), setDevice(3), setDevice(4).
 - `idx = cutorch.getDevice()` : Returns the currently set GPU device index.
 - `count = cutorch.getDeviceCount()` : Gets the number of available GPUs.
