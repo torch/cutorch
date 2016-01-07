@@ -64,3 +64,21 @@ do
         rawset(metatable, func, torch[func])
     end
 end
+
+local CudaTensorTypes = {
+   float  = 'torch.CudaTensor',
+   double = 'torch.CudaDoubleTensor',
+   byte   = 'torch.CudaByteTensor',
+   char   = 'torch.CudaCharTensor',
+   int    = 'torch.CudaIntTensor',
+   short  = 'torch.CudaShortTensor',
+   long   = 'torch.CudaLongTensor'
+}
+
+for ValueType, CudaTensorType in pairs(CudaTensorTypes) do
+  local function Tensor__totable(self)
+    local host_tensor = self[ValueType](self)
+    return host_tensor:totable()
+  end
+  rawset(torch.getmetatable(CudaTensorType), 'totable', Tensor__totable)
+end
