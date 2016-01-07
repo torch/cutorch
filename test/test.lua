@@ -2042,6 +2042,7 @@ function test.cudaTypeCopy()
       {'byte',  'ByteTensor'},
       {'char',  'CharTensor'},
       {'short', 'ShortTensor'},
+      {'int',   'IntTensor'},
       {'long',  'LongTensor'},
       {'double','DoubleTensor'},
 
@@ -2049,6 +2050,7 @@ function test.cudaTypeCopy()
       {'cudaByte',  'CudaByteTensor'},
       {'cudaChar',  'CudaCharTensor'},
       {'cudaShort', 'CudaShortTensor'},
+      {'cudaInt',   'CudaIntTensor'},
       {'cudaLong',  'CudaLongTensor'},
       {'cudaDouble','CudaDoubleTensor'},
    }
@@ -2101,6 +2103,7 @@ function test.cudaStorageTypeCopy()
       {'byte',  'ByteStorage'},
       {'char',  'CharStorage'},
       {'short', 'ShortStorage'},
+      {'int',   'IntStorage'},
       {'long',  'LongStorage'},
       {'double','DoubleStorage'},
 
@@ -2108,6 +2111,7 @@ function test.cudaStorageTypeCopy()
       {'cudaByte',  'CudaByteStorage'},
       {'cudaChar',  'CudaCharStorage'},
       {'cudaShort', 'CudaShortStorage'},
+      {'cudaInt',   'CudaIntStorage'},
       {'cudaLong',  'CudaLongStorage'},
       {'cudaDouble','CudaDoubleStorage'},
    }
