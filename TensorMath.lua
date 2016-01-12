@@ -687,7 +687,7 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "cos", "acos", "cosh",
                       "sin", "asin", "sinh",
                       "tan", "atan", "tanh",
-                      "sqrt",
+                      "sqrt", "sigmoid",
                       "ceil", "floor", "neg",
                       "abs", "sign", "round"}) do
 
