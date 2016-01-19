@@ -21,7 +21,7 @@ local function chooseInt(a, b)
 end
 
 -- Constructs a tensor from a larger storage, with holes in each dimension
-local function createHoledTensor(size)
+local function createHoledTensorWithSizes(size)
    local osize = {}
    for i = 1, #size do osize[i] = size[i] end
    -- randomly inflate a few dimensions in osize
@@ -42,10 +42,10 @@ local function createHoledTensor(size)
 end
 
 -- Create a tensor of a given size, allowing for transpositions or holes
-local function createTestTensor(allowHoles, allowTransposition, sizes)
+local function createTestTensorWithSizes(allowHoles, allowTransposition, sizes)
    local t = nil
    if allowHoles then
-      t = createHoledTensor(sizes)
+      t = createHoledTensorWithSizes(sizes)
    else
       t = torch.FloatTensor(unpack(sizes))
    end
@@ -66,11 +66,55 @@ local function createTestTensor(allowHoles, allowTransposition, sizes)
    end
 
    if allowHoles then
-      t:storage():fill(-1)
+      -- fill the holes with NaNs (the non-holes will be overwritten below)
+      -- this will help detect garbage usage
+      t:storage():fill(0/0)
    end
-   t:copy(torch.linspace(1, t:nElement(), t:nElement()))
+
+   -- The test tensor may be used for sort/selection testing, in which
+   -- case we wish to avoid duplicate elements, but might like some
+   -- randomness
+   t:copy(torch.randperm(t:nElement()))
 
    return t
+end
+
+-- Create a test tensor bounded by total size `maxSize`
+local function createTestTensorMaxSize(allowHoles, allowTransposition, maxSize)
+   local dims = chooseInt(1, 5)
+   local maxDimSize = math.ceil(math.pow(maxSize, 1 / dims))
+   local sizes = nil
+
+   while true do
+      sizes = {}
+      local size = 1
+
+      for i = 1, dims do
+         sizes[i] = chooseInt(1, maxDimSize)
+         size = size * sizes[i]
+      end
+
+      if (size > 1) and (size < maxSize) then
+         break
+      end
+   end
+
+   return createTestTensorWithSizes(allowHoles, allowTransposition, sizes)
+end
+
+-- Create a (potentially transposed, potentially with holes) tensor of a given
+-- max size
+local function createTestTensor(maxSize)
+   -- 50/50 chance of contig/non-contig
+   local contig = chooseInt(1, 2) == 1
+   local holes = false
+   local tr = false
+   if not contig then
+      holes = chooseInt(1, 2) == 1
+      tr = chooseInt(1, 2) == 1
+   end
+
+   return createTestTensorMaxSize(holes, tr, maxSize)
 end
 
 local function isEqual(a, b, tolerance, ...)
@@ -381,7 +425,7 @@ function test.copyRandomizedTest()
    local holedInput = torch.random(1, 2)
    local holedOutput = torch.random(1, 2)
    if holedInput == 1 then
-      input = createHoledTensor(inputSize)
+      input = createHoledTensorWithSizes(inputSize)
    else
       input = torch.FloatTensor(torch.LongStorage(inputSize))
    end
@@ -389,7 +433,7 @@ function test.copyRandomizedTest()
    input:copy(torch.linspace(1, input:nElement(), input:nElement()))
 
    if holedOutput == 1 then
-      output = createHoledTensor(outputSize)
+      output = createHoledTensorWithSizes(outputSize)
    else
       output = torch.FloatTensor(torch.LongStorage(outputSize))
    end
@@ -1188,32 +1232,7 @@ end
 
 function test.indexSelect()
    for tries = 1, 5 do
-      local dims = 1 + torch.random(4)
-      local sizes = {}
-
-      while true do
-         local size = 1
-         for i = 1, dims do
-            sizes[i] = chooseInt(2, 100)
-            size = size * sizes[i]
-         end
-
-         -- Limit total size to something that won't take forever to run
-         if size < 1000000 then
-            break
-         end
-      end
-
-      -- 50/50 chance of contig/non-contig
-      local contig = chooseInt(1, 2) == 1
-      local holes = false
-      local tr = false
-      if not contig then
-         holes = chooseInt(1, 2) == 1
-         tr = chooseInt(1, 2) == 1
-      end
-
-      local t = createTestTensor(holes, tr, sizes)
+      local t = createTestTensor(1000000)
       local selectdim = chooseInt(1, t:nDimension())
       local numIndices = chooseInt(1, t:size(selectdim))
       local indices = torch.randperm(numIndices):long()
@@ -2381,48 +2400,51 @@ function test.scatterFill()
 end
 
 function test.sort()
-   -- also tested this function with (100, 1000), but they are not
-   -- good as reasonable defaults (lots of time, lots of memory)
-   local minsize = 10
-   local maxsize = 50
-   local n_row = math.random(minsize,maxsize)
-   local n_col = math.random(minsize,maxsize)
-   local n_vol = math.random(minsize,maxsize)
-   -- use randperm so as to not matter if stable sort or not
-   local x = torch.zeros(n_vol, n_row, n_col)
-   for i=1,n_vol do
-         x[i]:copy(torch.randperm(n_row*n_col))
+   for tries = 1, 10 do
+      -- max size 2^24 for indexing using float32
+      local t = createTestTensor(2 ^ 24)
+      local selectdim = chooseInt(1, t:nDimension())
+      local dir = chooseInt(1, 2) == 1
+
+      compareFloatAndCuda(t, 'sort', selectdim, dir)
    end
-   x=x:float()
-   compareFloatAndCuda(x, 'sort', 3, true)
-   compareFloatAndCuda(x, 'sort', 3, false)
-   compareFloatAndCuda(x:transpose(2,3), 'sort', 2, true)  -- non-contiguous
-   compareFloatAndCuda(x:transpose(1,3), 'sort', 1, false) -- non-contiguous
-
-   -- in sorting dimension K, make sure you do not
-   -- have equal numbers that might lead to contention (because not stable sort)
-   local x2=x:transpose(2,3):clone()
-   compareFloatAndCuda(x2, 'sort', 2, true)
-   compareFloatAndCuda(x2, 'sort', 2, false)
-   compareFloatAndCuda(x2:transpose(2,3), 'sort', 3, true)  -- non-contiguous
-   compareFloatAndCuda(x2:transpose(1,3), 'sort', 2, false) -- non-contiguous
-
-
-   local x1=x:transpose(1,3):clone()
-   compareFloatAndCuda(x1, 'sort', 1, true)
-   compareFloatAndCuda(x1, 'sort', 1, false)
-   compareFloatAndCuda(x1:transpose(2,3), 'sort', 1, true)  -- non-contiguous
-   compareFloatAndCuda(x1:transpose(1,3), 'sort', 3, false) -- non-contiguous
-   checkMultiDevice(x1, 'sort', 1, true)
 end
 
-function test.sortLargeSlice()
-   local n_row = 32
-   local n_col = 4096
-   local x = torch.FloatTensor(n_row, n_col)
-   x:copy(torch.randperm(n_row * n_col))
-   compareFloatAndCuda(x, 'sort', 2, true)
-   compareFloatAndCuda(x, 'sort', 2, false)
+function test.topk()
+   local function runTopK(t, dim, k, dir)
+      -- FIXME: if the tensors ever contain equivalent values, then their indices
+      -- could in fact be different.
+
+      if torch.Tensor.type(t) == 'torch.CudaTensor' then
+         return t:topk(k, dim, dir, true)
+      else
+         local sorted, indices = t:sort(dim, dir)
+         return sorted:narrow(dim, 1, k), indices:narrow(dim, 1, k)
+      end
+   end
+
+   for tries = 1, 5 do
+      -- max size 2^24 for indexing
+      local t = createTestTensor(2 ^ 24)
+      local dim = chooseInt(1, t:nDimension())
+      local dimSize = t:size(dim)
+      local dir = chooseInt(1, 2) == 1
+
+      -- Test boundary conditions
+      local kTests = {1, dimSize}
+
+      -- and some other random ones
+      table.insert(kTests, chooseInt(1, dimSize))
+      for i = 1, 2 do
+         -- some sizes that fit in our inplace kernel range (the dimSize one
+         -- will fall back to Thrust)
+         table.insert(kTests, chooseInt(1, math.min(2048, dimSize)))
+      end
+
+      for k = 1, #kTests do
+         compareFloatAndCuda(t, runTopK, dim, kTests[k], dir)
+      end
+   end
 end
 
 function test.cat()
