@@ -49,4 +49,8 @@ function cutorch.createCudaHostTensor(...)
    return torch.FloatTensor(storage, 1, size:storage())
 end
 
+-- remove this line to disable automatic cutorch heap-tracking
+-- for garbage collection
+cutorch.setHeapTracking(true)
+
 return cutorch
