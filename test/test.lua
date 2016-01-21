@@ -990,7 +990,7 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "sin", "asin", "sinh",
                       "tan", "atan", "tanh",
                       "sqrt", "neg", "sigmoid",
-                      "ceil", "floor",
+                      "ceil", "floor", "cinv",
                       "abs", "sign"}) do
 
    test[name .. "1"] = testUnary1(name)
