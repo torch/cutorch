@@ -2154,6 +2154,49 @@ function test.cudaStorageTypeCopy()
    end
 end
 
+function test.tensorToTable()
+   local types = {
+      {'CudaTensor',       'FloatTensor'},
+      {'CudaByteTensor',   'ByteTensor'},
+      {'CudaCharTensor',   'CharTensor'},
+      {'CudaShortTensor',  'ShortTensor'},
+      {'CudaIntTensor',    'IntTensor'},
+      {'CudaLongTensor',   'LongTensor'},
+      {'CudaDoubleTensor', 'DoubleTensor'},
+   }
+
+   for _, types in ipairs(types) do
+      local cudaType, hostType = unpack(types)
+      local dim = torch.random(5)
+      local size = torch.LongTensor(dim):random(5):totable()
+      hostTensor = torch[hostType](size):random()
+      cudaTensor = torch[cudaType](size):copy(hostTensor)
+      tester:assertTableEq(hostTensor:totable(), cudaTensor:totable(),
+                           'wrong result for ' .. cudaType .. ':totable()')
+   end
+end
+
+function test.storageToTable()
+   local types = {
+      {'CudaStorage',       'FloatTensor'},
+      {'CudaByteStorage',   'ByteTensor'},
+      {'CudaCharStorage',   'CharTensor'},
+      {'CudaShortStorage',  'ShortTensor'},
+      {'CudaIntStorage',    'IntTensor'},
+      {'CudaLongStorage',   'LongTensor'},
+      {'CudaDoubleStorage', 'DoubleTensor'},
+   }
+
+   for _, types in ipairs(types) do
+      local cudaStorageType, hostTensorType = unpack(types)
+      local size = torch.random(10)
+      hostTensor = torch[hostTensorType](size):random()
+      cudaStorage = torch[cudaStorageType](size):copy(hostTensor:storage())
+      tester:assertTableEq(hostTensor:storage():totable(), cudaStorage:totable(),
+                           'wrong result for ' .. cudaStorageType .. ':totable()')
+   end
+end
+
 function test.maskedSelect()
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)

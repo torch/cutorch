@@ -190,15 +190,22 @@ static int torch_Storage_(string)(lua_State *L)
 
 static int torch_Storage_(totable)(lua_State *L)
 {
+  THCState *state = cutorch_getstate(L);
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
+  THStorage *host_storage;
   long i;
+
+  /* Copy storage from device to host. */
+  host_storage = THStorage_(newWithSize)(THCStorage_(size)(state, storage));
+  THStorage_(copyCuda)(state, host_storage, storage);
 
   lua_newtable(L);
   for(i = 0; i < storage->size; i++)
   {
-    lua_pushnumber(L, (lua_Number)storage->data[i]);
+    lua_pushnumber(L, (lua_Number)host_storage->data[i]);
     lua_rawseti(L, -2, i+1);
   }
+  THStorage_(free)(host_storage);
   return 1;
 }
 
