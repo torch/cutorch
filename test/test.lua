@@ -2471,8 +2471,8 @@ function test.topk()
    end
 
    for tries = 1, 5 do
-      -- max size 2^24 for indexing
-      local t = createTestTensor(2 ^ 24)
+      -- max size 2^20 for indexing
+      local t = createTestTensor(2 ^ 20)
       local dim = chooseInt(1, t:nDimension())
       local dimSize = t:size(dim)
       local dir = chooseInt(1, 2) == 1
