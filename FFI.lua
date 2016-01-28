@@ -47,7 +47,7 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
 
    for _, typedata in ipairs(CudaTypes) do
       local real, Real = unpack(typedata)
-      ctype_def = [[
+      local ctype_def = [[
 typedef struct THCStorage
 {
     real *data;
