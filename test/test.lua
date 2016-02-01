@@ -1577,6 +1577,13 @@ function test.ger()
    end
 end
 
+function test.inverse()
+   local a = torch.randn(5, 5)
+   local i1 = torch.inverse(a)
+   local i2 = torch.inverse(a:cuda())
+   tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
+end
+
 if cutorch.magma then
    function test.gesv()
       local a = torch.Tensor(5, 5):uniform(-1, 1)
@@ -1655,12 +1662,6 @@ if cutorch.magma then
       tester:assertle((v*v:t() - torch.eye(a:size(2)):cuda()):abs():max(), 1e-6, "svd: v should be unitary")
    end
 
-   function test.inverse()
-      local a = torch.randn(5, 5)
-      local i1 = torch.inverse(a)
-      local i2 = torch.inverse(a:cuda())
-      tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
-   end
 
    function test.potri()
       local A = torch.Tensor{
