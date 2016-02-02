@@ -3,7 +3,7 @@
 
 # Known NVIDIA GPU achitectures Torch can be compiled for.
 # This list will be used for CUDA_ARCH_NAME = All option
-SET(KNOWN_GPU_ARCHITECTURES "2.0 2.1(2.0) 3.0 3.5 5.0")
+SET(KNOWN_GPU_ARCHITECTURES "2.0 2.1(2.0) 3.0 3.5 5.0 5.2")
 
 ################################################################################################
 # Removes duplicates from LIST(s)
@@ -106,7 +106,7 @@ FUNCTION(SELECT_NVCC_ARCH_FLAGS out_variable)
   elseIF(${CUDA_ARCH_NAME} STREQUAL "Kepler")
     SET(__cuda_arch_bin "3.0 3.5")
   elseIF(${CUDA_ARCH_NAME} STREQUAL "Maxwell")
-    SET(__cuda_arch_bin "5.0")
+    SET(__cuda_arch_bin "5.0 5.2")
   elseIF(${CUDA_ARCH_NAME} STREQUAL "All")
     SET(__cuda_arch_bin ${KNOWN_GPU_ARCHITECTURES})
   elseIF(${CUDA_ARCH_NAME} STREQUAL "Auto")

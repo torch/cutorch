@@ -1,6 +1,6 @@
 local ok, ffi = pcall(require, 'ffi')
 if ok then
-
+   local unpack = unpack or table.unpack
    local cdefs = [[
 typedef struct CUstream_st *cudaStream_t;
 
