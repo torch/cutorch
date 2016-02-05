@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8 FATAL_ERROR)
 CMAKE_POLICY(VERSION 2.8)
 
-OPTION(INCREMENTAL_BUILDS "Rebuild only builds changed files.  Experimental." OFF)
+OPTION(INCREMENTAL_BUILDS "Rebuild only builds changed files.  Experimental." ON)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
