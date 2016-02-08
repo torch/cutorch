@@ -417,7 +417,7 @@ function test.copyRandomizedTest()
    local nelem2 = 1
    for i = 1, #inputSize do nelem1 = nelem1 * inputSize[i] end
    for i = 1, #outputSize do nelem2 = nelem2 * outputSize[i] end
-   tester:assert(nelem1, nelem2, 'input and output sizes have to be the same')
+   tester:asserteq(nelem1, nelem2, 'input and output sizes have to be the same')
    local input, output
 
    -- extract a sub-cube with probability 50%
