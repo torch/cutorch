@@ -31,6 +31,8 @@ void THCudaInit(THCState* state)
   state->numUserStreams = 0;
   state->numUserBlasHandles = 0;
 
+  state->showAllocations = 0;
+
   /* Enable P2P access between all pairs, if possible */
   THCudaEnablePeerToPeerAccess(state);
 

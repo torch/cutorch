@@ -60,6 +60,8 @@ THCStorage* THCStorage_(newWithSize)(THCState *state, long size)
   {
     THCStorage *storage = (THCStorage*)THAlloc(sizeof(THCStorage));
 
+    if(state->showAllocations) printf("Allocating CUDA storage %li bytes\n", size * sizeof(real));
+
     // update heap *before* attempting malloc, to free space for the malloc
     THCHeapUpdate(state, size * sizeof(real));
     cudaError_t err =
@@ -154,6 +156,7 @@ void THCStorage_(free)(THCState *state, THCStorage *self)
   if (THAtomicDecrementRef(&self->refcount))
   {
     if(self->flag & TH_STORAGE_FREEMEM) {
+      if(state->showAllocations) printf("Freeing CUDA storage %li bytes\n", self->size * sizeof(real));
       THCHeapUpdate(state, -self->size * sizeof(real));
       THCudaCheck(THCudaFree(state, self->data));
     }

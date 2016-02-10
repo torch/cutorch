@@ -691,6 +691,21 @@ static int cutorch_getMemoryUsage(lua_State *L) {
   return 2;
 }
 
+static int cutorch_setShowAllocations(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  int showAllocations = (int)luaT_checkboolean(L,1);
+  if(showAllocations != 0) {
+    printf("Activating showAllocations\n");
+    state->showAllocations = 1;
+  } else {
+    printf("Disabling showAllocations\n");
+    state->showAllocations = 0;
+  }
+
+  return 0;
+}
+
 static int cutorch_setDevice(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
@@ -909,6 +924,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"setKernelPeerToPeerAccess", cutorch_setKernelPeerToPeerAccess},
   {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
   {"getDeviceProperties", cutorch_getDeviceProperties},
+  {"setShowAllocations", cutorch_setShowAllocations},
   {"getMemoryUsage", cutorch_getMemoryUsage},
   {"setDevice", cutorch_setDevice},
   {"seed", cutorch_seed},

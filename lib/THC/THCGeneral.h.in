@@ -92,6 +92,8 @@ typedef struct THCState
   void *cutorchGCData;
   long heapSoftmax;
   long heapDelta;
+
+  int showAllocations;
 } THCState;
 
 THC_API void THCudaInit(THCState* state);
