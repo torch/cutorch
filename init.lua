@@ -1,5 +1,5 @@
 require "torch"
-paths.require "libcutorch"
+paths.require("libcutorch")
 
 torch.CudaByteStorage.__tostring__   = torch.ByteStorage.__tostring__
 torch.CudaByteTensor.__tostring__    = torch.ByteTensor.__tostring__
@@ -16,9 +16,9 @@ torch.CudaTensor.__tostring__        = torch.FloatTensor.__tostring__
 torch.CudaDoubleStorage.__tostring__ = torch.DoubleStorage.__tostring__
 torch.CudaDoubleTensor.__tostring__  = torch.DoubleTensor.__tostring__
 
-include('Tensor.lua')
-include('FFI.lua')
-include('test.lua')
+require('cutorch.Tensor')
+require('cutorch.FFI')
+require('cutorch.test')
 
 local unpack = unpack or table.unpack
 
