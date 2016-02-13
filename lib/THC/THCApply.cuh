@@ -14,6 +14,29 @@
 // Threads per block for our apply kernel
 #define THC_APPLY_THREADS_PER_BLOCK 32 * 16
 
+#ifndef COMMA
+#define COMMA ,
+#endif
+
+#define THC_APPLY_EXPAND(left, varname, right) \
+  switch( varname ) { \
+    case -2: \
+      left -2 right; \
+      break; \
+    case 1: \
+      left 1 right; \
+      break; \
+    case 2: \
+      left 2 right; \
+      break; \
+    case 3: \
+      left 3 right; \
+      break; \
+    default: \
+      left -1 right; \
+      break; \
+  }
+
 // Called when we are copying into an overlapping index `dst`, but
 // we don't care which writer wins. Hacky but it works.
 THC_API void THCudaTensor_copyIgnoringOverlaps(THCState* state,
@@ -116,6 +139,28 @@ inline bool getApplyGrid(THCState* state, long totalElements, dim3& grid) {
   return true;
 }
 
+// Apply 1 ============
+
+template <typename Op, typename IndexType, int A>
+static void THCudaTensor_pointwiseApply1_launch(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  IndexType totalElements,
+                                  const Op& op) {
+  THCudaTensor_pointwiseApply1<Op, IndexType, A>
+    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(
+    aInfo, totalElements, op);
+}
+
+template <typename Op, typename IndexType>
+static void THCudaTensor_pointwiseApply1_expanda(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  IndexType totalElements, const Op& op, int a) {
+  THC_APPLY_EXPAND(
+    THCudaTensor_pointwiseApply1_launch<Op COMMA IndexType COMMA,
+    a,
+    >(grid, block, state, aInfo, totalElements, op); )
+}
+
 template <typename Op>
 bool THCudaTensor_pointwiseApply1(THCState* state,
                                   THCudaTensor* a,
@@ -164,32 +209,6 @@ bool THCudaTensor_pointwiseApply1(THCState* state,
   // (or vice versa), the contiguous tensor can be collapsed to one
   // dimension, and the loop to translate the linear index to the array
   // index can be similarly collapsed. That is what this unrolling is for.
-#define HANDLE_CASE(TYPE, A)                                   \
-  THCudaTensor_pointwiseApply1<Op, TYPE, A>                    \
-    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(    \
-      aInfo, (TYPE) totalElements, op);
-
-#define HANDLE_A_CASE(TYPE, A)                      \
-  {                                                 \
-    if (aInfo.isContiguous()) {                     \
-      HANDLE_CASE(TYPE, -2);                        \
-    } else {                                        \
-      switch (A) {                                  \
-        case 1:                                     \
-          HANDLE_CASE(TYPE, 1);                     \
-          break;                                    \
-        case 2:                                     \
-          HANDLE_CASE(TYPE, 2);                     \
-          break;                                    \
-        case 3:                                     \
-          HANDLE_CASE(TYPE, 3);                     \
-          break;                                    \
-        default:                                    \
-          HANDLE_CASE(TYPE, -1);                    \
-          break;                                    \
-      }                                             \
-    }                                               \
-  }
 
   // Can we use 32-bit integer math in the kernel (the linear ID for the copy
   // and the resulting non-linear offset is all computable using 32-bit math?)
@@ -198,8 +217,10 @@ bool THCudaTensor_pointwiseApply1(THCState* state,
   if (THC_canUse32BitIndexMath(state, a)) {
     TensorInfo<unsigned int> aInfo(state, a);
     aInfo.collapseDims();
-
-    HANDLE_A_CASE(unsigned int, aInfo.dims);
+    int a = aInfo.dims;
+    if(aInfo.isContiguous()) a = -2;
+    THCudaTensor_pointwiseApply1_expanda(
+      grid, block, state, aInfo, (unsigned int)totalElements, op, a);
   } else {
     TensorInfo<unsigned long> aInfo(state, a);
     aInfo.collapseDims();
@@ -217,8 +238,6 @@ bool THCudaTensor_pointwiseApply1(THCState* state,
           aInfo, (unsigned long) totalElements, op);
     }
   }
-#undef HANDLE_CASE
-#undef HANDLE_A_CASE
 
   if (oldA) {
     // Ignore overlaps when copying back; if we use THCudaTensor_copy
@@ -230,6 +249,41 @@ bool THCudaTensor_pointwiseApply1(THCState* state,
   }
 
   return true;
+}
+
+// Apply 2 ============
+
+template <typename Op, typename IndexType, int A, int B>
+static void THCudaTensor_pointwiseApply2_launch(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  IndexType totalElements,
+                                  const Op& op) {
+  THCudaTensor_pointwiseApply2<Op, IndexType, A, B>
+    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(
+    aInfo, bInfo, totalElements, op);
+}
+
+template <typename Op, typename IndexType, int A>
+static void THCudaTensor_pointwiseApply2_expandb(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  IndexType totalElements, const Op& op, int b) {
+  THC_APPLY_EXPAND(
+    THCudaTensor_pointwiseApply2_launch<Op COMMA IndexType COMMA A COMMA,
+    b,
+    >(grid, block, state, aInfo, bInfo, totalElements, op); )
+}
+
+template <typename Op, typename IndexType>
+static void THCudaTensor_pointwiseApply2_expanda(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  IndexType totalElements, const Op& op, int a, int b) {
+  THC_APPLY_EXPAND(
+    THCudaTensor_pointwiseApply2_expandb<Op COMMA IndexType COMMA,
+    a,
+    >(grid, block, state, aInfo, bInfo, totalElements, op, b); )
 }
 
 template <typename Op>
@@ -293,54 +347,6 @@ bool THCudaTensor_pointwiseApply2(THCState* state,
   // (or vice versa), the contiguous tensor can be collapsed to one
   // dimension, and the loop to translate the linear index to the array
   // index can be similarly collapsed. That is what this unrolling is for.
-#define HANDLE_CASE(TYPE, A, B)                                \
-  THCudaTensor_pointwiseApply2<Op, TYPE, A, B>                 \
-    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(    \
-      aInfo, bInfo, (TYPE) totalElements, op);
-
-#define HANDLE_B_CASE(TYPE, A, B)                   \
-  {                                                 \
-    if (bInfo.isContiguous()) {                     \
-      HANDLE_CASE(TYPE, A, -2);                     \
-    } else {                                        \
-      switch (B) {                                  \
-        case 1:                                     \
-          HANDLE_CASE(TYPE, A, 1);                  \
-          break;                                    \
-        case 2:                                     \
-          HANDLE_CASE(TYPE, A, 2);                  \
-          break;                                    \
-        case 3:                                     \
-          HANDLE_CASE(TYPE, A, 3);                  \
-          break;                                    \
-        default:                                    \
-          HANDLE_CASE(TYPE, A, -1);                 \
-          break;                                    \
-      }                                             \
-    }                                               \
-  }
-
-#define HANDLE_A_CASE(TYPE, A, B)                   \
-  {                                                 \
-    if (aInfo.isContiguous()) {                     \
-      HANDLE_B_CASE(TYPE, -2, B);                   \
-    } else {                                        \
-      switch (A) {                                  \
-        case 1:                                     \
-          HANDLE_B_CASE(TYPE, 1, B);                \
-          break;                                    \
-        case 2:                                     \
-          HANDLE_B_CASE(TYPE, 2, B);                \
-          break;                                    \
-        case 3:                                     \
-          HANDLE_B_CASE(TYPE, 3, B);                \
-          break;                                    \
-        default:                                    \
-          HANDLE_B_CASE(TYPE, -1, B);               \
-          break;                                    \
-      }                                             \
-    }                                               \
-  }
 
   if (THC_canUse32BitIndexMath(state, a) &&
       THC_canUse32BitIndexMath(state, b)) {
@@ -350,7 +356,14 @@ bool THCudaTensor_pointwiseApply2(THCState* state,
     TensorInfo<unsigned int> bInfo(state, b);
     bInfo.collapseDims();
 
-    HANDLE_A_CASE(unsigned int, aInfo.dims, bInfo.dims);
+    int a = aInfo.dims;
+    int b = bInfo.dims;
+
+    if(aInfo.isContiguous()) a = -2;
+    if(bInfo.isContiguous()) b = -2;
+
+    THCudaTensor_pointwiseApply2_expanda(
+      grid, block, state, aInfo, bInfo, (unsigned int)totalElements, op, a, b);
   } else {
     TensorInfo<unsigned long> aInfo(state, a);
     aInfo.collapseDims();
@@ -371,9 +384,6 @@ bool THCudaTensor_pointwiseApply2(THCState* state,
           aInfo, bInfo, (unsigned long) totalElements, op);
     }
   }
-#undef HANDLE_CASE
-#undef HANDLE_B_CASE
-#undef HANDLE_A_CASE
 
   if (oldA) {
     // Ignore overlaps when copying back; if we use THCudaTensor_copy
@@ -394,6 +404,56 @@ bool THCudaTensor_pointwiseApply2(THCState* state,
   }
 
   return true;
+}
+
+// Apply 3 ============
+
+template <typename Op, typename IndexType, int A, int B, int C>
+static void THCudaTensor_pointwiseApply3_launch(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  TensorInfo<IndexType> cInfo,
+                                  IndexType totalElements,
+                                  const Op& op) {
+  THCudaTensor_pointwiseApply3<Op, IndexType, A, B, C>
+    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(
+    aInfo, bInfo, cInfo, totalElements, op);
+}
+
+template <typename Op, typename IndexType, int A, int B>
+static void THCudaTensor_pointwiseApply3_expandc(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  TensorInfo<IndexType> cInfo,
+                                  IndexType totalElements, const Op& op, int c) {
+  THC_APPLY_EXPAND(
+    THCudaTensor_pointwiseApply3_launch<Op COMMA IndexType COMMA A COMMA B COMMA,
+    c,
+    >(grid, block, state, aInfo, bInfo, cInfo, totalElements, op); )
+}
+
+template <typename Op, typename IndexType, int A>
+static void THCudaTensor_pointwiseApply3_expandb(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  TensorInfo<IndexType> cInfo,
+                                  IndexType totalElements, const Op& op, int b, int c) {
+  THC_APPLY_EXPAND(
+    THCudaTensor_pointwiseApply3_expandc<Op COMMA IndexType COMMA A COMMA,
+    b,
+    >(grid, block, state, aInfo, bInfo, cInfo, totalElements, op, c); )
+}
+
+template <typename Op, typename IndexType>
+static void THCudaTensor_pointwiseApply3_expanda(const dim3 grid, const dim3 block, THCState *state,
+                                  TensorInfo<IndexType> aInfo,
+                                  TensorInfo<IndexType> bInfo,
+                                  TensorInfo<IndexType> cInfo,
+                                  IndexType totalElements, const Op& op, int a, int b, int c) {
+  THC_APPLY_EXPAND(
+    THCudaTensor_pointwiseApply3_expandb<Op COMMA IndexType COMMA,
+    a,
+    >(grid, block, state, aInfo, bInfo, cInfo, totalElements, op, b, c); )
 }
 
 template <typename Op>
@@ -461,77 +521,6 @@ bool THCudaTensor_pointwiseApply3(THCState* state,
     c = THCudaTensor_newContiguous(state, c);
   }
 
-#define HANDLE_CASE(TYPE, A, B, C)                                      \
-  THCudaTensor_pointwiseApply3<Op, TYPE, A, B, C>                       \
-    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(             \
-      aInfo, bInfo, cInfo, (TYPE) totalElements, op);
-
-#define HANDLE_C_CASE(TYPE, A, B, C)             \
-  {                                              \
-    if (cInfo.isContiguous()) {                  \
-      HANDLE_CASE(TYPE, A, B, -2);               \
-    } else {                                     \
-      switch (C) {                               \
-        case 1:                                  \
-          HANDLE_CASE(TYPE, A, B, 1);            \
-          break;                                 \
-        case 2:                                  \
-          HANDLE_CASE(TYPE, A, B, 2);            \
-          break;                                 \
-        case 3:                                  \
-          HANDLE_CASE(TYPE, A, B, 3);            \
-          break;                                 \
-        default:                                 \
-          HANDLE_CASE(TYPE, A, B, -1);           \
-          break;                                 \
-      }                                          \
-    }                                            \
-  }
-
-#define HANDLE_B_CASE(TYPE, A, B, C)                 \
-  {                                                  \
-    if (bInfo.isContiguous()) {                      \
-      HANDLE_C_CASE(TYPE, A, -2, C);                 \
-    } else {                                         \
-      switch (B) {                                   \
-        case 1:                                      \
-          HANDLE_C_CASE(TYPE, A, 1, C);              \
-          break;                                     \
-        case 2:                                      \
-          HANDLE_C_CASE(TYPE, A, 2, C);              \
-          break;                                     \
-        case 3:                                      \
-          HANDLE_C_CASE(TYPE, A, 3, C);              \
-          break;                                     \
-        default:                                     \
-          HANDLE_C_CASE(TYPE, A, -1, C);             \
-          break;                                     \
-      }                                              \
-    }                                                \
-  }
-
-#define HANDLE_A_CASE(TYPE, A, B, C)                 \
-  {                                                  \
-    if (aInfo.isContiguous()) {                      \
-      HANDLE_B_CASE(TYPE, -2, B, C);                 \
-    } else {                                         \
-      switch (A) {                                   \
-        case 1:                                      \
-          HANDLE_B_CASE(TYPE, 1, B, C);              \
-          break;                                     \
-        case 2:                                      \
-          HANDLE_B_CASE(TYPE, 2, B, C);              \
-          break;                                     \
-        case 3:                                      \
-          HANDLE_B_CASE(TYPE, 3, B, C);              \
-          break;                                     \
-        default:                                     \
-          HANDLE_B_CASE(TYPE, -1, B, C);             \
-          break;                                     \
-      }                                              \
-    }                                                \
-  }
-
   if (THC_canUse32BitIndexMath(state, a) &&
       THC_canUse32BitIndexMath(state, b) &&
       THC_canUse32BitIndexMath(state, c)) {
@@ -544,7 +533,16 @@ bool THCudaTensor_pointwiseApply3(THCState* state,
     TensorInfo<unsigned int> cInfo(state, c);
     cInfo.collapseDims();
 
-    HANDLE_A_CASE(unsigned int, aInfo.dims, bInfo.dims, cInfo.dims);
+    int a = aInfo.dims;
+    int b = bInfo.dims;
+    int c = cInfo.dims;
+
+    if(aInfo.isContiguous()) a = -2;
+    if(bInfo.isContiguous()) b = -2;
+    if(cInfo.isContiguous()) c = -2;
+
+    THCudaTensor_pointwiseApply3_expanda(
+      grid, block, state, aInfo, bInfo, cInfo, (unsigned int)totalElements, op, a, b, c);
   } else {
     TensorInfo<unsigned long> aInfo(state, a);
     aInfo.collapseDims();
@@ -568,10 +566,6 @@ bool THCudaTensor_pointwiseApply3(THCState* state,
           aInfo, bInfo, cInfo, (unsigned long) totalElements, op);
     }
   }
-#undef HANDLE_CASE
-#undef HANDLE_C_CASE
-#undef HANDLE_B_CASE
-#undef HANDLE_A_CASE
 
   if (oldA) {
     // Ignore overlaps when copying back; if we use THCudaTensor_copy
@@ -603,6 +597,7 @@ bool THCudaTensor_pointwiseApply3(THCState* state,
   return true;
 }
 
+#undef THC_APPLY_EXPAND
 #undef THC_APPLY_THREADS_PER_BLOCK
 
 #endif // THC_APPLY_INC
