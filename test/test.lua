@@ -1230,6 +1230,39 @@ function test.renorm()
    checkMultiDevice(x, 'renorm', 4, 2, maxnorm)
 end
 
+function test.indexCopy()
+   for tries = 1, 5 do
+      local t = createTestTensor(1000000)
+      local selectdim = chooseInt(1, t:nDimension())
+      local indices = torch.randperm(t:size(selectdim)):long()
+
+      compareFloatAndCudaTensorArgs(
+          t, 'indexCopy', selectdim, indices, t:clone())
+   end
+end
+
+function test.indexAdd()
+   for tries = 1, 5 do
+      local t = createTestTensor(1000000)
+      local selectdim = chooseInt(1, t:nDimension())
+      local indices = torch.randperm(t:size(selectdim)):long()
+
+      compareFloatAndCudaTensorArgs(
+          t, 'indexAdd', selectdim, indices, t:clone())
+   end
+end
+
+function test.indexFill()
+   for tries = 1, 5 do
+      local t = createTestTensor(1000000)
+      local selectdim = chooseInt(1, t:nDimension())
+      local numIndices = chooseInt(1, t:size(selectdim))
+      local indices = torch.randperm(numIndices):long()
+
+      compareFloatAndCuda(t, 'indexFill', selectdim, indices, 1)
+   end
+end
+
 function test.indexSelect()
    for tries = 1, 5 do
       local t = createTestTensor(1000000)
@@ -2092,7 +2125,7 @@ function test.cudaTypeCopy()
          -- this is equivalent to t = torch.XTensor():copy(t)
          t = torch[tensorSubtype](3,4):copy(t)
       end
-      
+
       -- check the type
       tester:assert(t:type() == tensorType, t:type() .. ' ~= ' .. tensorType)
 
@@ -2104,7 +2137,7 @@ function test.cudaTypeCopy()
       -- check data
       tester:assertTensorEq(t:double(), t0, 0)
 
-      
+
       -- check indexing
       -- FIXME: doesn't work yet
       -- tester:assert(ct[{1,1}] == 1)
@@ -2148,7 +2181,7 @@ function test.cudaStorageTypeCopy()
 
       -- this is equivalent to t = torch.XStorage():copy(t)
       t = torch[storageSubtype](12):copy(t)
-      
+
       -- check the type
       tester:assert(torch.type(t) == storageType, torch.type(t) .. ' ~= ' .. storageType)
 
