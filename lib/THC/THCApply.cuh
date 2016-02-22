@@ -197,6 +197,14 @@ bool THCudaTensor_pointwiseApply1(THCState* state,
   // additional overhead.
   if (THC_canUse32BitIndexMath(state, a)) {
     TensorInfo<unsigned int> aInfo(state, a);
+
+    // if the final dimension is not the one with stride 1, swap with the one that is,
+    // if such a dimension exists
+    int smallestStrideDim = aInfo.getSmallestStrideDim();
+    if(smallestStrideDim != -1 &&
+        smallestStrideDim != aInfo.dims - 1) {
+      aInfo.transpose(smallestStrideDim, aInfo.dims - 1);
+    }
     aInfo.collapseDims();
 
     HANDLE_A_CASE(unsigned int, aInfo.dims);

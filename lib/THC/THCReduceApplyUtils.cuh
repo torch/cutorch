@@ -16,21 +16,12 @@
 #define CUTORCH_DIM_WARNING "tensor too large or too many (>" \
   CUTORCH_STR(MAX_CUTORCH_DIMS) ") dimensions"
 
+
+// Class definition ==========================================================
+
 // Enum that indicates whether tensor arguments are read/write or
 // read-only
 enum TensorArgType { ReadWrite, ReadOnly };
-
-// Copy operator for the pointwise apply kernel
-template <typename T>
-struct CopyOp {
-  __device__ __forceinline__ void operator()(T* dst, T* src) {
-#if __CUDA_ARCH__ >= 350
-    *dst = __ldg(src);
-#else
-    *dst = *src;
-#endif
-  }
-};
 
 // CUDA kernel argument that defines tensor layout
 template <typename IndexType>
@@ -49,6 +40,10 @@ struct TensorInfo {
   // since the collapsed dimensions are <= the input dimensions.
   int collapseDims(int excludeDim = -1);
 
+  void transpose(int a, int b);
+
+  int getSmallestStrideDim();
+
   // Contiguous tensors of more than one dimension are collapsed down
   // to one tensor
   __host__ __device__ inline bool isContiguous() const {
@@ -61,6 +56,63 @@ struct TensorInfo {
   int dims;
 };
 
+// transversal methods, GPU + CPU, both ok ====================================
+
+// Translate a linear index for the apply to a float* offset;
+// specialized on `Dims` to reduce nvcc compilation time
+template <typename IndexType, int Dims>
+struct IndexToOffset {
+  static __host__ __device__ IndexType get(
+    IndexType linearId,
+    const TensorInfo<IndexType>& info) {
+    IndexType offset = 0;
+
+    // Use static dims
+    for (int i = Dims - 1; i >= 0; --i) {
+      IndexType curDimIndex = linearId % info.sizes[i];
+      IndexType curDimOffset = curDimIndex * info.strides[i];
+      offset += curDimOffset;
+
+      if (i > 0) {
+        linearId /= info.sizes[i];
+      }
+    }
+
+    return offset;
+  }
+};
+
+template <typename IndexType>
+struct IndexToOffset<IndexType, -2> {
+  static __forceinline__ __host__ __device__ IndexType
+    get(IndexType linearId, const TensorInfo<IndexType>& info) {
+    return linearId;
+  }
+};
+
+template <typename IndexType>
+struct IndexToOffset<IndexType, -1> {
+  static __forceinline__ __host__ __device__ IndexType
+    get(IndexType linearId, const TensorInfo<IndexType>& info) {
+    IndexType offset = 0;
+
+    // Use dynamic dims
+    for (int i = info.dims - 1; i >= 0; --i) {
+      IndexType curDimIndex = linearId % info.sizes[i];
+      IndexType curDimOffset = curDimIndex * info.strides[i];
+      offset += curDimOffset;
+
+      linearId /= info.sizes[i];
+    }
+
+    return offset;
+  }
+};
+
+// CPU methods ===============================================================
+// runs on the CPU, usually prior to sending to GPU
+
+// constructor
 template <typename IndexType>
 TensorInfo<IndexType>::TensorInfo(THCState* state,
                                   THCudaTensor* t,
@@ -81,6 +133,44 @@ TensorInfo<IndexType>::TensorInfo(THCState* state,
   }
 }
 
+// transpose
+template <typename IndexType>
+void
+TensorInfo<IndexType>::transpose(int a, int b) {
+  assert(a >= 0 && b >= 0 && a < dims && b < dims);
+  int oldStride = strides[a];
+  int oldSize = sizes[a];
+  strides[a] = strides[b];
+  sizes[a] = sizes[b];
+  strides[b] = oldStride;
+  sizes[b] = oldSize;
+}
+
+// getSmallestStrideDim
+// returns the dimension that has the numerically smallest non-zero stride,
+// or else returns -1
+template <typename IndexType>
+int
+TensorInfo<IndexType>::getSmallestStrideDim() {
+  long smallestStride = -1;
+  int smallestStrideDim = -1;
+  if(strides[dims - 1] != 1) {
+    for(int d = 0; d < dims; d++) {
+      if(strides[d] == 0) {
+        continue;
+      }
+      long absStride = abs(strides[d]);
+      if(smallestStrideDim == -1 ||
+          absStride < smallestStride) {
+        smallestStrideDim = d;
+        smallestStride = absStride;
+      }
+    }
+  }
+  return smallestStrideDim;
+}
+
+// collapseDims
 template <typename IndexType>
 int
 TensorInfo<IndexType>::collapseDims(int excludeDim) {
@@ -233,54 +323,17 @@ TensorInfo<IndexType>::collapseDims(int excludeDim) {
   return returnDim;
 }
 
-// Translate a linear index for the apply to a float* offset;
-// specialized on `Dims` to reduce nvcc compilation time
-template <typename IndexType, int Dims>
-struct IndexToOffset {
-  static __host__ __device__ IndexType get(
-    IndexType linearId,
-    const TensorInfo<IndexType>& info) {
-    IndexType offset = 0;
+// GPU device methods ========================================================
 
-    // Use static dims
-    for (int i = Dims - 1; i >= 0; --i) {
-      IndexType curDimIndex = linearId % info.sizes[i];
-      IndexType curDimOffset = curDimIndex * info.strides[i];
-      offset += curDimOffset;
-
-      if (i > 0) {
-        linearId /= info.sizes[i];
-      }
-    }
-
-    return offset;
-  }
-};
-
-template <typename IndexType>
-struct IndexToOffset<IndexType, -2> {
-  static __forceinline__ __host__ __device__ IndexType
-    get(IndexType linearId, const TensorInfo<IndexType>& info) {
-    return linearId;
-  }
-};
-
-template <typename IndexType>
-struct IndexToOffset<IndexType, -1> {
-  static __forceinline__ __host__ __device__ IndexType
-    get(IndexType linearId, const TensorInfo<IndexType>& info) {
-    IndexType offset = 0;
-
-    // Use dynamic dims
-    for (int i = info.dims - 1; i >= 0; --i) {
-      IndexType curDimIndex = linearId % info.sizes[i];
-      IndexType curDimOffset = curDimIndex * info.strides[i];
-      offset += curDimOffset;
-
-      linearId /= info.sizes[i];
-    }
-
-    return offset;
+// Copy operator for the pointwise apply kernel
+template <typename T>
+struct CopyOp {
+  __device__ __forceinline__ void operator()(T* dst, T* src) {
+#if __CUDA_ARCH__ >= 350
+    *dst = __ldg(src);
+#else
+    *dst = *src;
+#endif
   }
 };
 
@@ -343,6 +396,8 @@ __device__ T reduceBlock(T* smem,
 
   return r;
 }
+
+// Declarations ==============================================================
 
 // Make sure the given tensor doesn't have too many dimensions
 void THCCheckTensorDims(THCState* state, THCudaTensor* tensor, int arg);

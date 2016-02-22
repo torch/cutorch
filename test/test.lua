@@ -998,6 +998,28 @@ for _,name in ipairs({"log", "log1p", "exp",
 
 end
 
+function test.transposeInvariant()
+  -- since apply1 modifies the transpose to optimize memory access
+  -- patterns, we should check this doesnt break anything
+  -- so, we create a tensor, clone it, and do eg tanh both
+  -- transposed, and non-transposed, and check results are identical
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local a = torch.CudaTensor(sz1, sz2):uniform()
+   local a2 = a:clone()
+
+   a:tanh()
+
+   a2 = a2:t()
+   a2:tanh()
+   a2 = a2:t()
+
+   tester:assert(isEqual(
+      (a - a2):abs():max(),
+      0),
+      "Divergent results between transpose and non-transpose")
+end
+
 function test.atan2(fn)
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
