@@ -593,6 +593,7 @@ do
          {name="addmm",   dim1=2, dim2=2, dim3=2},
          {name="addr",    dim1=2, dim2=1, dim3=1},
          {name="baddbmm", dim1=3, dim2=3, dim3=3},
+         {name="addbmm",  dim1=2, dim2=3, dim3=3},
                      }
    ) do
 
