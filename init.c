@@ -851,6 +851,14 @@ static int cutorch_setHeapTracking(lua_State *L)
   return 0;
 }
 
+static int cutorch_shutdown(lua_State *L)
+{
+  THCState **state = (THCState **) lua_topointer(L, 1);
+  THCudaShutdown(*state);
+  free(*state);
+  return 0;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"synchronizeAll", cutorch_synchronizeAll},
@@ -933,6 +941,30 @@ int luaopen_libcutorch(lua_State *L)
   /* Store state in cutorch table. */
   lua_pushlightuserdata(L, state);
   lua_setfield(L, -2, "_state");
+
+  /* when cutorch goes out of scope, we need to make sure THCState is properly
+     shut down (so that memory doesn not leak. Since _state is a lightuserdata
+     we cannot associate an __gc method with it. Hence, create a userdata, and
+     associate a metatable with it, which has an __gc method which properly
+     calls THCudaShutdown.
+  */
+  /* create a new userdata type which is a pointer to a pointer */
+  THCState **thc_pointer = (THCState**)lua_newuserdata(L, sizeof(void*));
+  /* set the state pointer */
+  *thc_pointer = state;
+  /* create a table that will be used as the metatable */
+  lua_newtable(L);
+  /* push the gc function onto the stack */
+  lua_pushcfunction(L, &cutorch_shutdown);
+  /* set the __gc field in the table to the function (function is popped) */
+  lua_setfield(L, -2, "__gc");
+  /* now the table is on the top of the stack, and the userdata below it,
+     setmetatable on the userdata with the table. table is popped */
+  lua_setmetatable(L, -2);
+  /* now the userdata is on top, with the cutorch table below it,
+     set the field cutorch.__stategc to this userdata.
+     userdata is popped, leaving cutorch table on top of the stack */
+  lua_setfield(L, -2, "_stategc");
 
   return 1;
 }
