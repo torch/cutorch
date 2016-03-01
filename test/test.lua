@@ -1643,7 +1643,7 @@ function test.inverse()
    local a = torch.randn(5, 5)
    local i1 = torch.inverse(a)
    local i2 = torch.inverse(a:cuda())
-   tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
+   tester:assertle((i2 - i1:cuda()):abs():max(), 1e-4, "wrong inverse answer")
 end
 
 if cutorch.magma then
