@@ -1487,6 +1487,35 @@ function test.mm()
    end
 end
 
+function test.addbmm()
+    local sizes = {
+        {16, 3, 1, 4},
+        {1, 12, 1, 7},
+        {24, 23, 22, 21},
+        {1, 1, 1, 1},
+        {1, 1, 7, 4},
+        {12, 1, 12, 1},
+        {10, 10, 10, 10},
+    }
+    local old_tt = test_tolerance
+    test_tolerance = 1e-3
+    local multiCheck = false
+    for _, size in pairs(sizes) do
+        local b, n, k, m = unpack(size)
+        local cs = torch.randn(n, m)
+        local as = torch.randn(b, n, k)
+        local bs = torch.randn(b, k, m)
+        local beta = torch.randn(1)[1]
+        local alpha = torch.randn(1)[1]
+        compareFloatAndCudaTensorArgs(cs, 'addbmm', beta, cs, alpha, as, bs)
+        if not multiCheck then -- just check multidevice once
+            checkMultiDevice(cs, 'addbmm', as, bs)
+            multiCheck = true
+        end
+    end
+    test_tolerance = old_tt
+end
+
 function test.baddbmm()
    local sizes = {
       {16, 3, 1, 4},
