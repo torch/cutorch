@@ -675,6 +675,23 @@ function test.add()
    checkMultiDevice(x, 'add', y, v, z)
 end
 
+function test.csub()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local z = torch.FloatTensor():rand(sz1, sz2)
+   local v = torch.uniform()
+   compareFloatAndCudaTensorArgs(x, 'csub', z)
+   compareFloatAndCudaTensorArgs(x, 'csub', z, v)
+   compareFloatAndCudaTensorArgs(x, 'csub', y, z)
+   compareFloatAndCudaTensorArgs(x, 'csub', y, v, z)
+   checkMultiDevice(x, 'csub', z)
+   checkMultiDevice(x, 'csub', z, v)
+   checkMultiDevice(x, 'csub', y, z)
+   checkMultiDevice(x, 'csub', y, v, z)
+end
+
 function test.cmul()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
