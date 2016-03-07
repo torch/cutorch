@@ -27,7 +27,7 @@ static int torch_Tensor_(size)(lua_State *L)
 
 static int torch_Tensor_(elementSize)(lua_State *L)
 {
-  lua_pushnumber(L, THStorage_(elementSize)(cutorch_getstate(L)));
+  lua_pushnumber(L, THCStorage_(elementSize)(cutorch_getstate(L)));
   return 1;
 }
 
@@ -140,7 +140,7 @@ static int torch_Tensor_(new)(lua_State *L)
           THCTensor_(free)(state, tensor);
           luaL_error(L, "invalid element (not a number)");
         }
-        THCStorage_(set)(state, THCTensor_(storage)(state, tensor), si++, (real)lua_tonumber(L, -1));
+        THCStorage_(set)(state, THCTensor_(storage)(state, tensor), si++, (hostreal)lua_tonumber(L, -1));
         lua_pop(L, 1);
       }
 

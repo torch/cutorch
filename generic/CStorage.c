@@ -4,21 +4,39 @@
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
+#ifndef THC_REAL_IS_HALF
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
-    real *fdata = (real*)THAlloc(sizeof(real)*size);                 \
-    TH_CONCAT_3(THFile_read,Real,Raw)(file, fdata, size);                             \
+    real *fdata = (real*)THAlloc(sizeof(real)*size);                    \
+    TH_CONCAT_3(THFile_read,Real,Raw)(file, fdata, size);               \
     THCudaCheck(cudaMemcpy(data, fdata, size * sizeof(real), cudaMemcpyHostToDevice)); \
     THFree(fdata);                                                      \
   }
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
-    real *fdata = (real*)THAlloc(sizeof(real)*size);                 \
+    real *fdata = (real*)THAlloc(sizeof(real)*size);                    \
     THCudaCheck(cudaMemcpy(fdata, data, size * sizeof(real), cudaMemcpyDeviceToHost)); \
-    TH_CONCAT_3(THFile_write,Real,Raw)(file, fdata, size);                            \
+    TH_CONCAT_3(THFile_write,Real,Raw)(file, fdata, size);              \
     THFree(fdata);                                                      \
   }
+#else
+#define THFile_readRealRaw(file, data, size)                            \
+  {                                                                     \
+    real *fdata = (real*)THAlloc(sizeof(real)*size);                    \
+    THFile_readCharRaw(file, (char *)fdata, sizeof(real) * size);       \
+    THCudaCheck(cudaMemcpy(data, fdata, size * sizeof(real), cudaMemcpyHostToDevice)); \
+    THFree(fdata);                                                      \
+  }
+
+#define THFile_writeRealRaw(file, data, size)                           \
+  {                                                                     \
+    real *fdata = (real*)THAlloc(sizeof(real)*size);                    \
+    THCudaCheck(cudaMemcpy(fdata, data, size * sizeof(real), cudaMemcpyDeviceToHost)); \
+    THFile_writeCharRaw(file, (char *)fdata, size * sizeof(real));      \
+    THFree(fdata);                                                      \
+  }
+#endif
 
 #define TH_GENERIC_FILE "generic/Storage.c"
 #include "generic/Storage.c"
@@ -48,6 +66,10 @@ static int cutorch_Storage_(copy)(lua_State *L)
     THCStorage_(copyCudaFloat)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleStorage")) )
     THCStorage_(copyCudaDouble)(state, storage, src);
+#if CUDA_VERSION >= 7050
+  else if( (src = luaT_toudata(L, 2, "torch.CudaHalfStorage")) )
+    THCStorage_(copyCudaHalf)(state, storage, src);
+#endif
 
   else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
     THCStorage_(copyByte)(state, storage, src);
@@ -70,6 +92,7 @@ static int cutorch_Storage_(copy)(lua_State *L)
   return 1;
 }
 
+#ifndef THC_REAL_IS_HALF
 static int TH_CONCAT_3(cutorch_,Real,Storage_copy)(lua_State *L)
 {
   THStorage *storage = luaT_checkudata(L, 1, TH_CONCAT_STRING_3(torch.,Real,Storage));
@@ -104,12 +127,17 @@ static int TH_CONCAT_3(cutorch_,Real,Storage_copy)(lua_State *L)
     THStorage_(copyCudaInt)(cutorch_getstate(L), storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleStorage")) )
     THStorage_(copyCudaDouble)(cutorch_getstate(L), storage, src);
+#if CUDA_VERSION >= 7050
+  else if( (src = luaT_toudata(L, 2, "torch.CudaHalfStorage")) )
+    THStorage_(copyCudaHalf)(cutorch_getstate(L), storage, src);
+#endif
   else
     luaL_typerror(L, 2, "torch.*Storage");
 
   lua_settop(L, 1);
   return 1;
 }
+#endif
 
 void cutorch_Storage_(init)(lua_State* L)
 {
@@ -118,10 +146,12 @@ void cutorch_Storage_(init)(lua_State* L)
 
   // torch_Storage macro is defined in Storage.c produce the CudaTensor types
   // so I have to construct the normal torch types by hand
+#ifndef THC_REAL_IS_HALF
   luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Storage));
   lua_pushcfunction(L, TH_CONCAT_3(cutorch_,Real,Storage_copy));
   lua_setfield(L, -2, "copy");
   lua_pop(L, 1);
+#endif
 
   luaT_pushmetatable(L, torch_Storage);
   lua_pushcfunction(L, cutorch_Storage_(copy));

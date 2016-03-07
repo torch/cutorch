@@ -39,6 +39,9 @@ local TensorTypes = {
    cudaLong   = 'torch.CudaLongTensor'
 }
 
+if cutorch.hasHalf then
+    TensorTypes['cudaHalf'] = 'torch.CudaHalfTensor'
+end
 
 local function Tensor__converter(type)
     return function(self)
@@ -81,4 +84,14 @@ for ValueType, CudaTensorType in pairs(CudaTensorTypes) do
     return host_tensor:totable()
   end
   rawset(torch.getmetatable(CudaTensorType), 'totable', Tensor__totable)
+end
+
+if cutorch.hasHalf then
+   do
+      local function Tensor__totable(self)
+         local host_tensor = self:float()
+         return self:float():totable()
+      end
+      rawset(torch.getmetatable('torch.CudaHalfTensor'), 'totable', Tensor__totable)
+   end
 end
