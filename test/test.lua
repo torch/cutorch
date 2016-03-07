@@ -2594,7 +2594,7 @@ function test.catArray()
       local y = torch.CudaTensor(17, minsize, minsize):uniform():transpose(1, dim)
       local z = torch.CudaTensor(19, minsize, minsize):uniform():transpose(1, dim)
 
-      local mx = torch.CudaTensor.cat({x, y, z}, dim)
+      local mx = torch.cat({x, y, z}, dim)
       tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
       tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
       tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
