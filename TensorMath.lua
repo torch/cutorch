@@ -709,9 +709,10 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "cos", "acos", "cosh",
                       "sin", "asin", "sinh",
                       "tan", "atan", "tanh",
-                      "sqrt", "sigmoid", "cinv",
-                      "ceil", "floor", "neg",
-                      "abs", "sign", "round"}) do
+                      "sqrt", "rsqrt", "sigmoid",
+                      "cinv", "ceil", "floor",
+                      "neg", "abs", "sign",
+                      "round", "trunc", "frac"}) do
 
    wrap(name,
         cname(name),
@@ -723,10 +724,17 @@ end
 wrap("atan2",
      cname("atan2"),
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
-        {name=Tensor, method={default=1}},
-        {name=Tensor}}
+      {name=Tensor, method={default=1}},
+      {name=Tensor}}
 )
 
+wrap("lerp",
+     cname("lerp"),
+     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+      {name=Tensor, method={default=1}},
+      {name=Tensor},
+      {name=real}}
+)
 
 wrap("pow",
      cname("pow"),

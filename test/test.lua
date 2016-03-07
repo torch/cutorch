@@ -1007,15 +1007,24 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "sin", "asin", "sinh",
                       "tan", "atan", "tanh",
                       "sqrt", "neg", "sigmoid",
-                      "ceil", "floor", "cinv",
-                      "abs", "sign"}) do
+                      "ceil", "floor", "frac",
+                      "trunc", "cinv", "abs",
+                      "sign"}) do
 
    test[name .. "1"] = testUnary1(name)
    test[name .. "2"] = testUnary2(name)
 
 end
 
-function test.atan2(fn)
+function test.rsqrt()
+   local old_tolerance = test_tolerance
+   test_tolerance = 1E-1  -- max observed error with 500x500 tensors in 10000 runs was 0.01157
+   testUnary1('rsqrt')
+   testUnary2('rsqrt')
+   test_tolerance = old_tolerance
+end
+
+function test.atan2()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -1023,6 +1032,17 @@ function test.atan2(fn)
    local z = torch.FloatTensor()
    compareFloatAndCudaTensorArgs(z, 'atan2', x, y)
    checkMultiDevice(z, 'atan2', x, y)
+end
+
+function test.lerp()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   local w = math.random()
+   local z = torch.FloatTensor()
+   compareFloatAndCudaTensorArgs(z, 'lerp', x, y, w)
+   checkMultiDevice(z, 'lerp', x, y, w)
 end
 
 function test.pow1()
