@@ -4,7 +4,7 @@ if not cutorch then
    runtests = true
 end
 
-local test = torch.TestSuite()
+local test = {}
 local minsize = 100
 local maxsize = 500
 local minvalue = 2
@@ -2989,12 +2989,14 @@ local function setUp()
   cutorch.setDevice(1)
 end
 
+local test_ = torch.TestSuite()
 for k,v in pairs(test) do
-  test[k] = function()
+  test_[k] = function()
     setUp()
     v()
   end
 end
+test = test_
 
 local function initSeed(seed)
    seed = seed or os.time()
