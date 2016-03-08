@@ -4,7 +4,7 @@ if not cutorch then
    runtests = true
 end
 
-local test = {}
+local test = torch.TestSuite()
 local minsize = 100
 local maxsize = 500
 local minvalue = 2
