@@ -693,6 +693,13 @@ for _,name in ipairs({"cmin", "cmax"}) do
          {name=real}})
 end
 
+wrap("cross",
+cname("cross"),
+    {{name=Tensor, default=true, returned=true},
+     {name=Tensor},
+     {name=Tensor},
+     {name="index", default=0}})
+
 wrap("tril",
      cname("tril"),
      {{name=Tensor, default=true, returned=true},
