@@ -1792,6 +1792,25 @@ if cutorch.magma then
       tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potrf answer")
    end
 
+   function test.potrs()
+      local A = torch.Tensor({
+        {1.2705,  0.9971,  0.4948,  0.1389,  0.2381},
+        {0.9971,  0.9966,  0.6752,  0.0686,  0.1196},
+        {0.4948,  0.6752,  1.1434,  0.0314,  0.0582},
+        {0.1389,  0.0686,  0.0314,  0.0270,  0.0526},
+        {0.2381,  0.1196,  0.0582,  0.0526,  0.3957}})
+      local B = torch.Tensor({
+        {0.6219,  0.3439,  0.0431},
+        {0.5642,  0.1756,  0.0153},
+        {0.2334,  0.8594,  0.4103},
+        {0.7556,  0.1966,  0.9637},
+        {0.1420,  0.7185,  0.7476}})
+      local chol = torch.potrf(A)
+      local solve1 = torch.potrs(B, chol)
+      local solve2 = torch.potrs(B:cuda(), chol:cuda())
+      tester:assertle((solve2 - solve1:cuda()):abs():max(), 1e-4, "wrong potrs answer")
+   end
+
    function test.qr()
       local A = torch.Tensor{
          { 0.9023,  1.5967,  0.3388, -0.0746, -0.5717},
