@@ -2547,7 +2547,7 @@ function test.scatterFill()
 end
 
 function test.sort()
-   for tries = 1, 10 do
+   for tries = 1, 5 do
       -- max size 2^24 for indexing using float32
       local t = createTestTensor(2 ^ 24)
       local selectdim = chooseInt(1, t:nDimension())
@@ -2555,6 +2555,27 @@ function test.sort()
 
       compareFloatAndCuda(t, 'sort', selectdim, dir)
    end
+
+   -- Test a large tensors whose total size exceeds 2^24,
+   -- but whose sorting dimension is less than 2^24
+   -- Since the sorting mechanism is not guaranteed to be the
+   -- same between GPU and CPU, we have to be careful when comparing
+   -- the indices
+   local t_cpu = torch.FloatTensor(5000, 5000):uniform()
+   local t_gpu = t_cpu:cuda()
+
+   local v_cpu, i_cpu = torch.sort(t_cpu, 2)
+   local v_gpu, i_gpu = torch.sort(t_gpu, 2)
+
+   -- Values should match exactly, regardless of sorting method
+   tester:assert(isEqual(v_cpu, v_gpu), 'value mismatch')
+
+   -- Indices can differ since the sorting method can differ (stable vs. not),
+   -- but values should be equivalent after gather
+   local gather_cpu = t_cpu:gather(2, i_cpu)
+   local gather_gpu = t_gpu:gather(2, i_gpu)
+
+   tester:assert(isEqual(gather_cpu, gather_gpu), 'indices mismatch')
 end
 
 function test.topk()
