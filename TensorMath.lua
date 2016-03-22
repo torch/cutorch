@@ -907,6 +907,16 @@ wrap("potrf",
      {{name=Tensor, default=true, returned=true, invisible=true},
       {name=Tensor}})
 
+wrap("potrs",
+     cname("potrs"),
+     {{name=Tensor, returned=true},
+      {name=Tensor},
+      {name=Tensor}},
+     cname("potrs"),
+     {{name=Tensor, default=true, returned=true, invisible=true},
+      {name=Tensor},
+      {name=Tensor}})
+
 wrap("qr",
      cname("qr"),
      {{name=Tensor, returned=true},
