@@ -247,7 +247,8 @@ static int cutorch_reserveStreams(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   int numStreams = (int) luaL_checknumber(L, 1);
-  THCState_reserveStreams(state, numStreams);
+  int nonBlocking = lua_toboolean(L, 2);
+  THCState_reserveStreams(state, numStreams, nonBlocking);
 
   return 0;
 }
@@ -647,6 +648,24 @@ static int cutorch_setPeerToPeerAccess(lua_State *L)
   return 0;
 }
 
+static int cutorch_getKernelPeerToPeerAccess(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  lua_pushboolean(L, THCState_getKernelPeerToPeerAccessEnabled(state));
+
+  return 1;
+}
+
+static int cutorch_setKernelPeerToPeerAccess(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+
+  int val = lua_toboolean(L, -1);
+  THCState_setKernelPeerToPeerAccessEnabled(state, val);
+
+  return 0;
+}
+
 static int cutorch_getMemoryUsage(lua_State *L) {
   size_t freeBytes = 0;
   size_t totalBytes = 0;
@@ -881,6 +900,8 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getDeviceCount", cutorch_getDeviceCount},
   {"getPeerToPeerAccess", cutorch_getPeerToPeerAccess},
   {"setPeerToPeerAccess", cutorch_setPeerToPeerAccess},
+  {"setKernelPeerToPeerAccess", cutorch_setKernelPeerToPeerAccess},
+  {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"getMemoryUsage", cutorch_getMemoryUsage},
   {"setDevice", cutorch_setDevice},

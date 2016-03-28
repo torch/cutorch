@@ -3023,6 +3023,49 @@ function test.cudaHostTensor()
   tester:asserteq(w:nElement(), 0, 'Expected an empty tensor')
 end
 
+function test.kernelP2PAccess()
+   -- We can only test direct kernel p2p access if we have multiple devices
+   -- and p2p enabled
+   if cutorch.getDeviceCount() < 2 then
+      return
+   end
+
+   if cutorch.getPeerToPeerAccess(1, 2) then
+      -- We should be on device 1 anyways, but just make sure
+      cutorch.setDevice(1)
+      local a = torch.CudaTensor(8):zero()
+      local b = nil
+      cutorch.withDevice(2, function() b = torch.CudaTensor(8):fill(1) end)
+
+      local expected = false
+
+      -- a is on device 1, b is on device 2, so this is a kernel p2p access
+      local function tryAdd()
+         local ok, err = pcall(function() a:add(b) end)
+         tester:assert(ok == expected)
+      end
+
+      -- By default, direct kernel p2p access should be an error
+      cutorch.setKernelPeerToPeerAccess(false)
+      cutorch.withDevice(1, tryAdd)
+      tester:asserteq(a:sum(), 0)
+
+      -- Now enable and try again
+      cutorch.setKernelPeerToPeerAccess(true)
+      expected = true
+      cutorch.withDevice(1, tryAdd)
+      tester:asserteq(a:sum(), 8)
+
+      a:zero()
+
+      -- Turn it back off and check again
+      cutorch.setKernelPeerToPeerAccess(false)
+      expected = false
+      cutorch.withDevice(1, tryAdd)
+      tester:asserteq(a:sum(), 0)
+   end
+end
+
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
 -- It would be nice to fix torch.Tester() eventually.
 local function setUp()
