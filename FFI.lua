@@ -44,6 +44,9 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
       {'long','Long'},
       {'double','Double'},
   }
+  if cutorch.hasHalf then
+      table.insert(CudaTypes, {'half','Half'})
+  end
 
    for _, typedata in ipairs(CudaTypes) do
       local real, Real = unpack(typedata)
@@ -76,6 +79,14 @@ typedef struct THCTensor
 
       ctype_def = ctype_def:gsub('real',real):gsub('THCStorage','THCuda'..Real..'Storage'):gsub('THCTensor','THCuda'..Real..'Tensor')
       cdefs = cdefs .. ctype_def
+   end
+   if cutorch.hasHalf then
+      ffi.cdef([[
+typedef struct {
+    unsigned short x;
+} __half;
+typedef __half half;
+      ]])
    end
    ffi.cdef(cdefs)
 

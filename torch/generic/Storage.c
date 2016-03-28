@@ -26,7 +26,7 @@ static int torch_Storage_(new)(lua_State *L)
         THCStorage_(free)(state, storage);
         luaL_error(L, "element at index %d is not a number", i);
       }
-      THCStorage_(set)(state, storage, i-1, (real)lua_tonumber(L, -1));
+      THCStorage_(set)(state, storage, i-1, (hostreal)lua_tonumber(L, -1));
       lua_pop(L, 1);
     }
   }
@@ -118,14 +118,14 @@ static int torch_Storage_(fill)(lua_State *L)
 {
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   double value = luaL_checknumber(L, 2);
-  THCStorage_(fill)(cutorch_getstate(L), storage, (real)value);
+  THCStorage_(fill)(cutorch_getstate(L), storage, (hostreal)value);
   lua_settop(L, 1);
   return 1;
 }
 
 static int torch_Storage_(elementSize)(lua_State *L)
 {
-  lua_pushnumber(L, THStorage_(elementSize)(cutorch_getstate(L)));
+  lua_pushnumber(L, THCStorage_(elementSize)(cutorch_getstate(L)));
   return 1;
 }
 
@@ -143,7 +143,7 @@ static int torch_Storage_(__newindex__)(lua_State *L)
     THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
     double number = luaL_checknumber(L, 3);
-    THCStorage_(set)(cutorch_getstate(L), storage, index, (real)number);
+    THCStorage_(set)(cutorch_getstate(L), storage, index, (hostreal)number);
     lua_pushboolean(L, 1);
   }
   else
@@ -173,12 +173,18 @@ static int torch_Storage_(totable)(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  THStorage *host_storage;
   long i;
 
   /* Copy storage from device to host. */
-  host_storage = THStorage_(newWithSize)(THCStorage_(size)(state, storage));
+#ifndef THC_REAL_IS_HALF
+  THStorage *host_storage =
+      THStorage_(newWithSize)(THCStorage_(size)(state, storage));
   THStorage_(copyCuda)(state, host_storage, storage);
+#else
+  THFloatStorage *host_storage =
+      THFloatStorage_newWithSize(THCStorage_(size)(state, storage));
+  THFloatStorage_copyCudaHalf(state, host_storage, storage);
+#endif
 
   lua_newtable(L);
   for(i = 0; i < storage->size; i++)
@@ -186,7 +192,11 @@ static int torch_Storage_(totable)(lua_State *L)
     lua_pushnumber(L, (lua_Number)host_storage->data[i]);
     lua_rawseti(L, -2, i+1);
   }
+#ifndef THC_REAL_IS_HALF
   THStorage_(free)(host_storage);
+#else
+  THFloatStorage_free(host_storage);
+#endif
   return 1;
 }
 

@@ -2192,6 +2192,9 @@ function test.cudaTypeCopy()
       {'cudaLong',  'CudaLongTensor'},
       {'cudaDouble','CudaDoubleTensor'},
    }
+   if cutorch.hasHalf then
+      table.insert(types, {'cudaHalf', 'CudaHalfTensor'})
+   end
 
    local N = 100
    local t0 = torch.range(1,12):reshape(3,4)
@@ -2253,6 +2256,9 @@ function test.cudaStorageTypeCopy()
       {'cudaLong',  'CudaLongStorage'},
       {'cudaDouble','CudaDoubleStorage'},
    }
+   if cutorch.hasHalf then
+      table.insert(types, {'cudaHalf', 'CudaStorage'})
+   end
 
    local N = 100
    local t0 = torch.range(1,12):reshape(3,4):storage()

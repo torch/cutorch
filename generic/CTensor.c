@@ -28,6 +28,10 @@ static int cutorch_Tensor_(copy)(lua_State *L)
     THCTensor_(copyCudaLong)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THCTensor_(copyCudaDouble)(state, tensor, src);
+#if CUDA_VERSION >= 7050
+  else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
+    THCTensor_(copyCudaHalf)(state, tensor, src);
+#endif
 
   else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
     THCTensor_(copyByte)(state, tensor, src);
@@ -50,6 +54,7 @@ static int cutorch_Tensor_(copy)(lua_State *L)
   return 1;
 }
 
+#ifndef THC_REAL_IS_HALF
 static int cutorch_Tensor_(copyAsyncCPU)(lua_State *L)
 {
 #define STRINGIFY_TENSOR(x) TH_CONCAT_STRING_3(torch.,x,Tensor)
@@ -67,8 +72,10 @@ static int cutorch_Tensor_(copyAsyncCPU)(lua_State *L)
   return 1;
 #undef STRINGIFY_TENSOR
 }
+#endif
 
 
+#ifndef THC_REAL_IS_HALF
 static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
 {
   THTensor *tensor = luaT_checkudata(L, 1, TH_CONCAT_STRING_3(torch.,Real,Tensor));
@@ -103,13 +110,19 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
     THTensor_(copyCudaFloat)(cutorch_getstate(L), tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THTensor_(copyCudaDouble)(cutorch_getstate(L), tensor, src);
+#if CUDA_VERSION >= 7050
+  else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
+    THTensor_(copyCudaHalf)(cutorch_getstate(L), tensor, src);
+#endif
   else
     luaL_typerror(L, 2, "torch.*Tensor");
 
   lua_settop(L, 1);
   return 1;
 }
+#endif
 
+#ifndef THC_REAL_IS_HALF
 static int TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda)(lua_State *L)
 {
 #define STRINGIFY_TENSOR(x) TH_CONCAT_STRING_3(torch.,x,Tensor)
@@ -124,6 +137,7 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda)(lua_State *L)
   return 1;
 #undef STRINGIFY_TENSOR
 }
+#endif
 
 
 
@@ -232,15 +246,9 @@ void cutorch_Tensor_(init)(lua_State* L)
   lua_pop(L, 1);
 #endif
 
-  // torch_Storage macro is defined in Storage.c produce the CudaTensor types
-  // so I have to construct the normal torch types by hand
+#ifndef THC_REAL_IS_HALF
   luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
   lua_pushcfunction(L, TH_CONCAT_3(cutorch_,Real,Tensor_copy));
-  lua_setfield(L, -2, "copy");
-  lua_pop(L, 1);
-
-  luaT_pushmetatable(L, torch_Tensor);
-  lua_pushcfunction(L, cutorch_Tensor_(copy));
   lua_setfield(L, -2, "copy");
   lua_pop(L, 1);
 
@@ -253,6 +261,12 @@ void cutorch_Tensor_(init)(lua_State* L)
   luaT_pushmetatable(L, torch_Tensor);
   lua_pushcfunction(L, cutorch_Tensor_(copyAsyncCPU));
   lua_setfield(L, -2, "copyAsync");
+  lua_pop(L, 1);
+#endif
+
+  luaT_pushmetatable(L, torch_Tensor);
+  lua_pushcfunction(L, cutorch_Tensor_(copy));
+  lua_setfield(L, -2, "copy");
   lua_pop(L, 1);
 
   luaT_pushmetatable(L, torch_Tensor);

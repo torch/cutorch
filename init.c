@@ -10,6 +10,9 @@ extern void cutorch_CudaIntStorage_init(lua_State* L);
 extern void cutorch_CudaLongStorage_init(lua_State* L);
 extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaDoubleStorage_init(lua_State* L);
+#if CUDA_VERSION >= 7050
+extern void cutorch_CudaHalfStorage_init(lua_State* L);
+#endif
 
 extern void cutorch_CudaByteTensor_init(lua_State* L);
 extern void cutorch_CudaCharTensor_init(lua_State* L);
@@ -18,6 +21,9 @@ extern void cutorch_CudaIntTensor_init(lua_State* L);
 extern void cutorch_CudaLongTensor_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaDoubleTensor_init(lua_State* L);
+#if CUDA_VERSION >= 7050
+extern void cutorch_CudaHalfTensor_init(lua_State* L);
+#endif
 
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
@@ -946,6 +952,9 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongStorage_init(L);
   cutorch_CudaStorage_init(L);
   cutorch_CudaDoubleStorage_init(L);
+#if CUDA_VERSION >= 7050
+  cutorch_CudaHalfStorage_init(L);
+#endif
 
   cutorch_CudaByteTensor_init(L);
   cutorch_CudaCharTensor_init(L);
@@ -954,6 +963,9 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongTensor_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaDoubleTensor_init(L);
+#if CUDA_VERSION >= 7050
+  cutorch_CudaHalfTensor_init(L);
+#endif
 
   cutorch_CudaTensorMath_init(L);
   cutorch_CudaTensorOperator_init(L);
@@ -962,6 +974,13 @@ int luaopen_libcutorch(lua_State *L)
   /* Store state in cutorch table. */
   lua_pushlightuserdata(L, state);
   lua_setfield(L, -2, "_state");
+
+#if CUDA_VERSION >= 7050
+  lua_pushboolean(L, 1);
+#else
+  lua_pushboolean(L, 0);
+#endif
+  lua_setfield(L, -2, "hasHalf");
 
   /* when cutorch goes out of scope, we need to make sure THCState is properly
      shut down (so that memory doesn not leak. Since _state is a lightuserdata
