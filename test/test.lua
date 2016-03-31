@@ -1311,6 +1311,30 @@ function test.indexSelect()
    end
 end
 
+function test.cross()
+   -- Test finding the first non-zero dimension
+   local x = torch.FloatTensor():randn(4,3,2,3)
+   local y = torch.FloatTensor():randn(4,3,2,3)
+   compareFloatAndCudaTensorArgs(x, 'cross', y)
+   checkMultiDevice(x, 'cross', y)
+
+   for tries = 1, 5 do
+      local nelems = 10000000
+      local ndims = chooseInt(1, 10)
+      local crossdim = chooseInt(1, ndims)
+      sizes = {}
+      for i = 1, ndims do 
+         sizes[i] = chooseInt(1, math.min(20, math.sqrt(nelems)))
+         nelems = nelems / sizes[i]
+      end
+      sizes[crossdim] = 3
+      local x = torch.FloatTensor():randn(unpack(sizes))
+      local y = torch.FloatTensor():randn(unpack(sizes))
+      compareFloatAndCudaTensorArgs(x, 'cross', y, crossdim)
+      checkMultiDevice(x, 'cross', y, crossdim)
+   end
+end
+
 function test.addmv()
    --[[ Size ]]--
    local sizes = {
