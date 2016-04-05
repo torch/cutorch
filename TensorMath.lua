@@ -144,6 +144,7 @@ wrap.types.CudaTensorArray = {
              table.insert(txt, string.format('do'))
              table.insert(txt, string.format('{'))
              table.insert(txt, string.format('  arg%d_size++;', arg.i))
+             table.insert(txt, string.format('  lua_checkstack(L, 1);'))
              table.insert(txt, string.format('  lua_rawgeti(L, %d, arg%d_size);', idx, arg.i))
              table.insert(txt, string.format('}'))
              table.insert(txt, string.format('while (!lua_isnil(L, -1));'))
