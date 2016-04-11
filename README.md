@@ -19,6 +19,7 @@ This new tensor type behaves exactly like a `torch.FloatTensor`, but has a coupl
 - `idx = cutorch.getDevice()` : Returns the currently set GPU device index.
 - `count = cutorch.getDeviceCount()` : Gets the number of available GPUs.
 - `freeMemory, totalMemory = cutorch.getMemoryUsage(devID)` : Gets the total and free memory in bytes for the given device ID.
+-  setShowAllocations([true|false])  : if true, prints a message each time CUDA allocation occurs
 - `cutorch.seed([devID])` - Sets and returns a random seed for the current or specified device.
 - `cutorch.seedAll()` - Sets and returns a random seed for all available GPU devices.
 - `cutorch.initialSeed([devID])` - Returns the seed for the current or specified device
