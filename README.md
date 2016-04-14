@@ -6,11 +6,25 @@ Cutorch provides a CUDA backend for torch7.
 Cutorch provides the following:
 
 - a new tensor type: `torch.CudaTensor` that acts like `torch.FloatTensor`, but all it's operations are on the GPU. Most of the tensor operations are supported by cutorch. There are a few missing ones, which are being implemented. The missing list can be found here: https://github.com/torch/cutorch/issues/70
+- several other GPU tensor types, with limited functionality. Currently limited to copying/conversion, and several indexing and shaping operations.
 - `cutorch.*` - Functions to set/get GPU, get device properties, memory usage, set/get low-level streams, set/get random number generator's seed, synchronization etc. They are described in more detail below.
 
 ### torch.CudaTensor
 This new tensor type behaves exactly like a `torch.FloatTensor`, but has a couple of extra functions of note:
 - `t:getDevice()` - Given a CudaTensor `t`, you can call :getDevice on it to find out the GPU ID on which the tensor memory is allocated.
+
+### Other CUDA tensor types
+Most other (besides float) CPU torch tensor types now have a cutorch equivalent, with similar names:
+
+- `torch.CudaDoubleTensor`
+- `torch.CudaByteTensor`
+- `torch.CudaCharTensor`
+- `torch.CudaIntTensor`
+- `torch.CudaShortTensor`
+- `torch.CudaLongTensor`
+- and `torch.CudaHalfTensor` when supported as indicated by `cutorch.hasHalf`; these are half-precision (16-bit) floats.
+
+**Note:** these are currently limited to copying/conversion, and several indexing and shaping operations (e.g. `narrow`, `select`, `unfold`, `transpose`).
 
 ###`cutorch.*` API
 - `cutorch.synchronize()` : All of the CUDA API is asynchronous (barring a few functions), which means that you can queue up operations. To wait for the operations to finish, you can issue `cutorch.synchronize()` in your code, when the code waits for all GPU operations on the current GPU to finish. WARNING: synchronizes the CPU host with respect to the current device (as per `cutorch.getDevice()`) only.
@@ -27,8 +41,8 @@ This new tensor type behaves exactly like a `torch.FloatTensor`, but has a coupl
 - `cutorch.getRNGState([device])` - returns the current RNG state in the form of a byte tensor, for the current or specified device.
 - `cutorch.setRNGState(state [, device])` - Sets the RNG state from a previously saved state, on the current or specified device.
 - `cutorch.getState()` - Returns the global state of the cutorch package. This state is not for users, it stores the raw RNG states, cublas handles and other thread and device-specific stuff.
-
 - `cutorch.withDevice(devID, f)` - This is a convenience for multi-GPU code, that takes in a device ID as well as a function f. It switches cutorch to the new device, executes the function f, and switches back cutorch to the original device.
+- `cutorch.createCudaHostTensor([...])` - Allocates a `torch.FloatTensor` of [host-pinned memory](https://devblogs.nvidia.com/parallelforall/how-optimize-data-transfers-cuda-cc/), where dimensions can be given as an argument list of sizes or a `torch.LongStorage`.
 
 #### Low-level streams functions (dont use this as a user, easy to shoot yourself in the foot):
 - `cutorch.reserveStreams(n [, nonblocking])`: creates n user streams for use on every device. NOTE: stream index `s` on device 1 is a different cudaStream_t than stream `s` on device 2. Takes an optional non-blocking flag; by default, this is assumed to be false. If true, then the stream is created with cudaStreamNonBlocking.
@@ -69,7 +83,7 @@ local dest = src:clone()
 
 OR
 
-```
+```lua
 local dest
 cutorch.withDevice(2, function() dest = src:clone() end)
 ```
