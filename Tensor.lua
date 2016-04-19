@@ -56,13 +56,15 @@ for _, SrcType in pairs(TensorTypes) do
 end
 
 for _, CudaTensorType in pairs(TensorTypes) do
-    rawset(torch.getmetatable(CudaTensorType), 'type', Tensor__type)
-    rawset(torch.getmetatable(CudaTensorType), 'typeAs', Tensor__typeAs)
+    local metatable = torch.getmetatable(CudaTensorType)
+    rawset(metatable, 'type', Tensor__type)
+    rawset(metatable, 'typeAs', Tensor__typeAs)
+    rawset(metatable, 'view', torch['view'])
 end
 
 do
     local metatable = torch.getmetatable('torch.CudaTensor')
-    for _,func in pairs{'expand', 'expandAs', 'view', 'viewAs', 'repeatTensor',
+    for _,func in pairs{'expand', 'expandAs', 'viewAs', 'repeatTensor',
                         'permute', 'split', 'chunk'} do
         rawset(metatable, func, torch[func])
     end
