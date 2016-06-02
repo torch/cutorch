@@ -22,7 +22,7 @@ void THCStorage_(resize)(THCState *state, THCStorage *self, long size)
   if(size == 0)
   {
     if(self->flag & TH_STORAGE_FREEMEM) {
-      THCudaCheck(THCudaFree(state, self->data));
+      THMemoryCheck(THCudaFree(state, self->data));
       THCHeapUpdate(state, -self->size * sizeof(real));
     }
     self->data = NULL;
@@ -33,11 +33,11 @@ void THCStorage_(resize)(THCState *state, THCStorage *self, long size)
     real *data = NULL;
     // update heap *before* attempting malloc, to free space for the malloc
     THCHeapUpdate(state, size * sizeof(real));
-    cudaError_t err = THCudaMalloc(state, (void**)(&data), size * sizeof(real));
-    if(err != cudaSuccess) {
+    memoryStatus_t err = THCudaMalloc(state, (void**)(&data), size * sizeof(real));
+    if(err != 0) {
       THCHeapUpdate(state, -size * sizeof(real));
     }
-    THCudaCheck(err);
+    THMemoryCheck(err);
 
     if (self->data) {
       THCudaCheck(cudaMemcpyAsync(data,
@@ -45,7 +45,7 @@ void THCStorage_(resize)(THCState *state, THCStorage *self, long size)
                                   THMin(self->size, size) * sizeof(real),
                                   cudaMemcpyDeviceToDevice,
                                   THCState_getCurrentStream(state)));
-      THCudaCheck(THCudaFree(state, self->data));
+      THMemoryCheck(THCudaFree(state, self->data));
       THCHeapUpdate(state, -self->size * sizeof(real));
     }
 

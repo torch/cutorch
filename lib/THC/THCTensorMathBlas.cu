@@ -383,9 +383,9 @@ void THCudaTensor_baddbmm(THCState *state, THCudaTensor *result, float beta, THC
   // Copy pointers to device.
   const float **d_matrices1, **d_matrices2;
   float **d_result_matrices;
-  THCudaCheck(THCudaMalloc(state, (void**)&d_matrices1, matrices_size));
-  THCudaCheck(THCudaMalloc(state, (void**)&d_matrices2, matrices_size));
-  THCudaCheck(THCudaMalloc(state, (void**)&d_result_matrices, matrices_size));
+  THMemoryCheck(THCudaMalloc(state, (void**)&d_matrices1, matrices_size));
+  THMemoryCheck(THCudaMalloc(state, (void**)&d_matrices2, matrices_size));
+  THMemoryCheck(THCudaMalloc(state, (void**)&d_result_matrices, matrices_size));
 
   THCudaCheck(cudaMemcpyAsync(d_matrices1, matrices1, matrices_size,
                               cudaMemcpyHostToDevice, THCState_getCurrentStream(state)));

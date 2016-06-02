@@ -5,11 +5,15 @@
 #include "THAllocator.h"
 #undef log1p
 
+#cmakedefine USE_MAGMA
+#cmakedefine USE_CNMEM
+
 #include "cuda.h"
 #include "cuda_runtime.h"
 #include "cublas_v2.h"
-
-#cmakedefine USE_MAGMA
+#ifdef USE_CNMEM
+#include "cnmem.h"
+#endif
 
 #ifdef __cplusplus
 # define THC_EXTERNC extern "C"
@@ -37,6 +41,12 @@
 #endif
 
 struct THCRNGState;  /* Random number generator state. */
+
+#ifdef USE_CNMEM
+typedef cnmemStatus_t memoryStatus_t;
+#else
+typedef cudaError_t memoryStatus_t;
+#endif
 
 typedef struct _THCCudaResourcesPerDevice {
   cudaStream_t* streams;
@@ -145,12 +155,21 @@ THC_API size_t THCState_getDeviceScratchSpaceSize(THCState* state, int device);
 
 #define THCudaCheck(err)  __THCudaCheck(err, __FILE__, __LINE__)
 #define THCublasCheck(err)  __THCublasCheck(err,  __FILE__, __LINE__)
+#ifdef USE_CNMEM
+#define THMemoryCheck(err)  __THCnmemCheck(err,  __FILE__, __LINE__)
+#define THCnmemCheck(err)  __THCnmemCheck(err,  __FILE__, __LINE__)
+#else
+#define THMemoryCheck(err)  __THCudaCheck(err, __FILE__, __LINE__)
+#endif
 
 THC_API void __THCudaCheck(cudaError_t err, const char *file, const int line);
 THC_API void __THCublasCheck(cublasStatus_t status, const char *file, const int line);
+#ifdef USE_CNMEM
+THC_API void __THCnmemCheck(cnmemStatus_t status, const char *file, const int line);
+#endif
 
-THC_API cudaError_t THCudaMalloc(THCState *state, void **ptr, size_t size);
-THC_API cudaError_t THCudaFree(THCState *state, void *ptr);
+THC_API memoryStatus_t THCudaMalloc(THCState *state, void **ptr, size_t size);
+THC_API memoryStatus_t THCudaFree(THCState *state, void *ptr);
 THC_API void THCSetGCHandler(THCState *state,
                              void (*torchGCHandlerFunction)(void *data),
                              void *data );

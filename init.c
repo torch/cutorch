@@ -693,10 +693,18 @@ static int cutorch_getMemoryUsage(lua_State *L) {
 
   int device = luaL_optint(L, 1, -10);
   if (device == -10) { /* no argument passed, current device mem usage */
+#ifdef USE_CNMEM
+    THCnmemCheck(cnmemMemGetInfo(&freeBytes, &totalBytes, NULL));
+#else
     THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+#endif
   } else { /* argument was given, particular device's memory usage */
     THCudaCheck(cudaSetDevice(device-1)); /* zero indexed */
+#ifdef USE_CNMEM
+    THCnmemCheck(cnmemMemGetInfo(&freeBytes, &totalBytes, NULL));
+#else
     THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+#endif
     THCudaCheck(cudaSetDevice(curDevice));
   }
   lua_pushnumber(L, freeBytes);
