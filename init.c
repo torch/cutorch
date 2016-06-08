@@ -2,6 +2,7 @@
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
+#include "THCHalf.h" // for CUDA_HALF_TENSOR
 
 extern void cutorch_CudaByteStorage_init(lua_State* L);
 extern void cutorch_CudaCharStorage_init(lua_State* L);
@@ -10,7 +11,7 @@ extern void cutorch_CudaIntStorage_init(lua_State* L);
 extern void cutorch_CudaLongStorage_init(lua_State* L);
 extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaDoubleStorage_init(lua_State* L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
 extern void cutorch_CudaHalfStorage_init(lua_State* L);
 #endif
 
@@ -21,12 +22,19 @@ extern void cutorch_CudaIntTensor_init(lua_State* L);
 extern void cutorch_CudaLongTensor_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaDoubleTensor_init(lua_State* L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
 extern void cutorch_CudaHalfTensor_init(lua_State* L);
 #endif
 
-extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
+
+extern void cutorch_CudaByteTensorMath_init(lua_State* L);
+extern void cutorch_CudaCharTensorMath_init(lua_State* L);
+extern void cutorch_CudaShortTensorMath_init(lua_State* L);
+extern void cutorch_CudaIntTensorMath_init(lua_State* L);
+extern void cutorch_CudaLongTensorMath_init(lua_State* L);
+extern void cutorch_CudaTensorMath_init(lua_State* L);
+extern void cutorch_CudaDoubleTensorMath_init(lua_State* L);
 
 /*
    Iteration utilities for lists of streams and lists of gpus with streams
@@ -387,6 +395,7 @@ static int cutorch_setDefaultStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   THCState_setStreamForCurrentDevice(state, 0);
+
 
   return 0;
 }
@@ -952,7 +961,7 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongStorage_init(L);
   cutorch_CudaStorage_init(L);
   cutorch_CudaDoubleStorage_init(L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfStorage_init(L);
 #endif
 
@@ -963,19 +972,27 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongTensor_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaDoubleTensor_init(L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensor_init(L);
 #endif
 
-  cutorch_CudaTensorMath_init(L);
   cutorch_CudaTensorOperator_init(L);
+
+  cutorch_CudaByteTensorMath_init(L);
+  cutorch_CudaCharTensorMath_init(L);
+  cutorch_CudaShortTensorMath_init(L);
+  cutorch_CudaIntTensorMath_init(L);
+  cutorch_CudaLongTensorMath_init(L);
+  cutorch_CudaTensorMath_init(L);
+  cutorch_CudaDoubleTensorMath_init(L);
+
   cutorch_Event_init(L);
 
   /* Store state in cutorch table. */
   lua_pushlightuserdata(L, state);
   lua_setfield(L, -2, "_state");
 
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   lua_pushboolean(L, 1);
 #else
   lua_pushboolean(L, 0);
