@@ -26,7 +26,12 @@ static int torch_Storage_(new)(lua_State *L)
         THCStorage_(free)(state, storage);
         luaL_error(L, "element at index %d is not a number", i);
       }
-      THCStorage_(set)(state, storage, i-1, (hostreal)lua_tonumber(L, -1));
+#ifdef THC_REAL_IS_HALF
+      half v = THC_float2half((float) lua_tonumber(L, -1));
+      THCStorage_(set)(state, storage, i-1, v);
+#else
+      THCStorage_(set)(state, storage, i-1, (real)lua_tonumber(L, -1));
+#endif
       lua_pop(L, 1);
     }
   }
@@ -117,8 +122,12 @@ static int torch_Storage_(copy)(lua_State *L)
 static int torch_Storage_(fill)(lua_State *L)
 {
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  double value = luaL_checknumber(L, 2);
-  THCStorage_(fill)(cutorch_getstate(L), storage, (hostreal)value);
+#ifdef THC_REAL_IS_HALF
+  half value = THC_float2half((float) luaL_checknumber(L, 2));
+#else
+  real value = (real) luaL_checknumber(L, 2);
+#endif
+  THCStorage_(fill)(cutorch_getstate(L), storage, value);
   lua_settop(L, 1);
   return 1;
 }
@@ -143,7 +152,13 @@ static int torch_Storage_(__newindex__)(lua_State *L)
     THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
     double number = luaL_checknumber(L, 3);
-    THCStorage_(set)(cutorch_getstate(L), storage, index, (hostreal)number);
+
+#ifdef THC_REAL_IS_HALF
+    half value = THC_float2half((float) number);
+#else
+    real value = (real) number;
+#endif
+    THCStorage_(set)(cutorch_getstate(L), storage, index, value);
     lua_pushboolean(L, 1);
   }
   else
@@ -158,7 +173,15 @@ static int torch_Storage_(__index__)(lua_State *L)
   {
     THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
-    lua_pushnumber(L, THCStorage_(get)(cutorch_getstate(L), storage, index));
+    real v = THCStorage_(get)(cutorch_getstate(L), storage, index);
+
+#ifdef THC_REAL_IS_HALF
+    double value = THC_half2float(v);
+#else
+    double value = (double) v;
+#endif
+
+    lua_pushnumber(L, value);
     lua_pushboolean(L, 1);
     return 2;
   }

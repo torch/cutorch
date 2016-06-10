@@ -2,6 +2,8 @@
 #define THC_GENERIC_FILE "generic/CTensor.c"
 #else
 
+#include "THCHalf.h"
+
 /* everything is as the generic Storage.c, except few things (see below) */
 
 #define TH_GENERIC_FILE "generic/Tensor.c"
@@ -28,7 +30,7 @@ static int cutorch_Tensor_(copy)(lua_State *L)
     THCTensor_(copyCudaLong)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THCTensor_(copyCudaDouble)(state, tensor, src);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THCTensor_(copyCudaHalf)(state, tensor, src);
 #endif
@@ -110,7 +112,7 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
     THTensor_(copyCudaFloat)(cutorch_getstate(L), tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THTensor_(copyCudaDouble)(cutorch_getstate(L), tensor, src);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THTensor_(copyCudaHalf)(cutorch_getstate(L), tensor, src);
 #endif

@@ -2,6 +2,8 @@
 #define TH_GENERIC_FILE "generic/Tensor.c"
 #else
 
+#include "THCHalf.h"
+
 static void torch_Tensor_(c_readTensorStorageSizeStride)(lua_State *L, int index, int allowNone, int allowTensor, int allowStorage, int allowStride,
                                                          THCStorage **storage_, long *storageOffset_, THLongStorage **size_, THLongStorage **stride_);
 
@@ -140,7 +142,14 @@ static int torch_Tensor_(new)(lua_State *L)
           THCTensor_(free)(state, tensor);
           luaL_error(L, "invalid element (not a number)");
         }
-        THCStorage_(set)(state, THCTensor_(storage)(state, tensor), si++, (hostreal)lua_tonumber(L, -1));
+
+#ifdef THC_REAL_IS_HALF
+        half value = THC_float2half((float) lua_tonumber(L, -1));
+#else
+        real value = (real) lua_tonumber(L, -1);
+#endif
+
+        THCStorage_(set)(state, THCTensor_(storage)(state, tensor), si++, value);
         lua_pop(L, 1);
       }
 
@@ -379,7 +388,15 @@ static int torch_Tensor_(select)(lua_State *L)
   else
   {
     THArgCheck(tensor->nDimension == 1, 1, "empty Tensor");
-    lua_pushnumber(L, THCTensor_(get1d)(state, tensor, sliceIndex));
+    real v = THCTensor_(get1d)(state, tensor, sliceIndex);
+
+#ifdef THC_REAL_IS_HALF
+    double value = THC_half2float(v);
+#else
+    double value = (double) v;
+#endif
+
+    lua_pushnumber(L, value);
   }
 
   return 1;
@@ -633,9 +650,6 @@ static int torch_Tensor_(copy)(lua_State *L)
   return 1;
 }
 
-
-
-#ifdef THC_REAL_IS_FLOAT
 static int torch_Tensor_(__newindex__)(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
@@ -652,7 +666,12 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
     if (index < 0) index = tensor->size[0] + index + 1;
 
     if (lua_isnumber(L,3)) {
+#ifdef THC_REAL_IS_HALF
+      half value = THC_float2half(luaL_checknumber(L, 3));
+#else
       real value = (real)luaL_checknumber(L,3);
+#endif
+
       if (tensor->nDimension == 1) {
         luaL_argcheck(L, index >= 0 && index < tensor->size[0], 2, "out of range");
         THCStorage_(set)(state, tensor->storage, tensor->storageOffset+index*tensor->stride[0], value);
@@ -710,7 +729,13 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
   else if((idx = luaT_toudata(L, 2, "torch.LongStorage")))
   {
     long index = THCTensor_(storageOffset)(state, tensor);
+
+#ifdef THC_REAL_IS_HALF
+    real value = THC_float2half((float) luaL_checknumber(L,3));
+#else
     real value = (real)luaL_checknumber(L,3);
+#endif
+
     int dim;
 
     luaL_argcheck(L, idx->size == tensor->nDimension, 2, "invalid size");
@@ -745,7 +770,12 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
         if (z < 0) z = tensor->size[cdim] + z + 1;
         luaL_argcheck(L, (z >= 0) && (z < tensor->size[cdim]), 2, "index out of bound");
         if(tensor->nDimension == 1) {
-          real value = (real)luaL_checknumber(L,3);
+
+#ifdef THC_REAL_IS_HALF
+          real value = THC_float2half((float) luaL_checknumber(L,3));
+#else
+          real value = (real) luaL_checknumber(L,3);
+#endif
           done = 1;
           THCStorage_(set)(state, tensor->storage, tensor->storageOffset+z*tensor->stride[0], value);
         } else {
@@ -786,7 +816,14 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
       /* doing a copy */
       void *src;
       if (lua_isnumber(L,3)) {
-        THCTensor_(fill)(state, tensor, lua_tonumber(L,3));
+
+#ifdef THC_REAL_IS_HALF
+        real value = THC_float2half((float) lua_tonumber(L, 3));
+#else
+        real value = (real) lua_tonumber(L, 3);
+#endif
+
+        THCTensor_(fill)(state, tensor, value);
       } else if( (src = luaT_toudata(L, 3, torch_Tensor)) ) {
         THCTensor_(copy)(state, tensor, src);
       } else if( (src = luaT_toudata(L, 3, "torch.ByteTensor")) ) {
@@ -810,6 +847,9 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
     THCTensor_(free)(state, tensor);
     lua_pushboolean(L, 1);
   }
+  // FIXME: pending generic implementation of
+  // maskedFillByte/maskedCopyByte/maskedFill/maskedCopy
+#ifdef THC_REAL_IS_FLOAT
   else if((mask = luaT_toudata(L, 2, "torch.ByteTensor")))
   {
     THCTensor *vals;
@@ -844,8 +884,11 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
       luaL_error(L,"number or tensor expected");
     }
   }
+#endif // THC_REAL_IS_FLOAT
   else
+  {
     lua_pushboolean(L, 0);
+  }
 
   return 1;
 }
@@ -868,7 +911,17 @@ static int torch_Tensor_(__index__)(lua_State *L)
 
     if(tensor->nDimension == 1)
     {
-      lua_pushnumber(L, THCStorage_(get)(state, tensor->storage, tensor->storageOffset+index*tensor->stride[0]));
+      real v =
+        THCStorage_(get)(state, tensor->storage,
+                         tensor->storageOffset+index*tensor->stride[0]);
+
+#ifdef THC_REAL_IS_HALF
+      double value = THC_half2float(v);
+#else
+      double value = (double) v;
+#endif
+
+      lua_pushnumber(L, value);
     }
     else
     {
@@ -893,7 +946,17 @@ static int torch_Tensor_(__index__)(lua_State *L)
       luaL_argcheck(L, (z >= 0) && (z < tensor->size[dim]), 2, "index out of bound");
       index += z*tensor->stride[dim];
     }
-    lua_pushnumber(L, (double)THCStorage_(get)(state, THCTensor_(storage)(state, tensor), index));
+
+    real v =
+      THCStorage_(get)(state, THCTensor_(storage)(state, tensor), index);
+
+#ifdef THC_REAL_IS_HALF
+    double value = (double) THC_half2float(v);
+#else
+    double value = (double) v;
+#endif
+
+    lua_pushnumber(L, value);
     lua_pushboolean(L, 1);
     return 2;
   }
@@ -919,7 +982,17 @@ static int torch_Tensor_(__index__)(lua_State *L)
         luaL_argcheck(L, (z >= 0) && (z < tensor->size[cdim]), 2, "index out of bound");
         if(tensor->nDimension == 1) {
           done = 1;
-          lua_pushnumber(L, THCStorage_(get)(state, tensor->storage, tensor->storageOffset+z*tensor->stride[0]));
+
+          real v =
+            THCStorage_(get)(state, tensor->storage,
+                             tensor->storageOffset+z*tensor->stride[0]);
+#ifdef THC_REAL_IS_HALF
+          double value = (double) THC_half2float(v);
+#else
+          double value = (double) v;
+#endif
+
+          lua_pushnumber(L, value);
         } else {
           THCTensor_(select)(state, tensor, NULL, cdim, z);
         }
@@ -962,6 +1035,8 @@ static int torch_Tensor_(__index__)(lua_State *L)
     lua_pushboolean(L, 1);
     return 2;
   }
+  // FIXME: pending generic implementation of maskedSelectByte/maskedSelect
+#ifdef THC_REAL_IS_FLOAT
   else if((mask = luaT_toudata(L, 2, "torch.ByteTensor")))
   {
     THCTensor *vals = THCTensor_(new)(state);
@@ -978,13 +1053,13 @@ static int torch_Tensor_(__index__)(lua_State *L)
     lua_pushboolean(L, 1);
     return 2;
   }
+#endif // THC_REAL_IS_FLOAT
   else
   {
     lua_pushboolean(L, 0);
     return 1;
   }
 }
-#endif
 
 static int torch_Tensor_(retain)(lua_State *L)
 {
@@ -1213,10 +1288,8 @@ static const struct luaL_Reg torch_Tensor_(_) [] = {
   {"copy", torch_Tensor_(copy)},
   {"read", torch_Tensor_(read)},
   {"write", torch_Tensor_(write)},
-#ifdef THC_REAL_IS_FLOAT
   {"__index__", torch_Tensor_(__index__)},
   {"__newindex__", torch_Tensor_(__newindex__)},
-#endif
   {NULL, NULL}
 };
 
