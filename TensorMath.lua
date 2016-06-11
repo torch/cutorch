@@ -29,12 +29,14 @@ local unpack = unpack or table.unpack
 
 -- specific to CUDA
 local typenames = {'CudaByteTensor',
-                   'CudaCharTensor',
-                   'CudaShortTensor',
-                   'CudaIntTensor',
-                   'CudaLongTensor',
-                   'CudaTensor',
-                   'CudaDoubleTensor'}
+               'CudaCharTensor',
+               'CudaShortTensor',
+               'CudaIntTensor',
+               'CudaLongTensor',
+               'CudaTensor',
+               'CudaDoubleTensor',
+               'CudaHalfTensor'
+}
 
 for _, typename in ipairs(typenames) do
 -- cut and paste from wrap/types.lua
@@ -190,6 +192,81 @@ wrap.types[typename .. 'Array'] = {
 }
 end
 
+local function interpretdefaultvalue(arg)
+    local default = arg.default
+    if type(default) == 'boolean' then
+        if default then
+            return '1'
+        else
+            return '0'
+        end
+    elseif type(default) == 'number' then
+        return tostring(default)
+    elseif type(default) == 'string' then
+        return default
+    elseif type(default) == 'function' then
+        default = default(arg)
+        assert(type(default) == 'string', 'a default function must return a string')
+        return default
+    elseif type(default) == 'nil' then
+        return nil
+    else
+        error('unknown default type value')
+    end
+end
+
+wrap.types.half = {
+
+    helpname = function(arg)
+        return "half"
+    end,
+
+    declare = function(arg)
+        -- if it is a number we initialize here
+        local default = tonumber(interpretdefaultvalue(arg)) or 0
+        return string.format("half arg%d = THC_float2half((float) %d);", arg.i, tonumber(default))
+    end,
+
+    check = function(arg, idx)
+        return string.format("lua_isnumber(L, %d)", idx)
+    end,
+
+    read = function(arg, idx)
+        return string.format("arg%d = THC_float2half((float) lua_tonumber(L, %d));", arg.i, idx)
+    end,
+
+    init = function(arg)
+        -- otherwise do it here
+        if arg.default then
+            local default = interpretdefaultvalue(arg)
+            if not tonumber(default) then
+                return string.format("arg%d = THC_float2half((float) %s);", arg.i, default)
+            end
+        end
+    end,
+
+    carg = function(arg)
+        return string.format('arg%d', arg.i)
+    end,
+
+    creturn = function(arg)
+        return string.format('arg%d', arg.i)
+    end,
+
+    precall = function(arg)
+        if arg.returned then
+            return string.format('lua_pushnumber(L, (lua_Number) THC_half2float(arg%d));', arg.i)
+        end
+    end,
+
+    postcall = function(arg)
+        if arg.creturned then
+            return string.format('lua_pushnumber(L, (lua_Number) THC_half2float(arg%d));', arg.i)
+        end
+    end
+
+}
+
 wrap.types.LongArg = {
 
    vararg = true,
@@ -338,19 +415,26 @@ end
 --
 
 local handledTypenames = {'CudaByteTensor',
-                          'CudaCharTensor',
-                          'CudaShortTensor',
-                          'CudaIntTensor',
-                          'CudaLongTensor',
-                          'CudaDoubleTensor'}
+                      'CudaCharTensor',
+                      'CudaShortTensor',
+                      'CudaIntTensor',
+                      'CudaLongTensor',
+                      'CudaDoubleTensor',
+                      'CudaHalfTensor',
+}
 local handledTypereals = {'unsigned char',
-                          'char',
-                          'short',
-                          'int',
-                          'long',
-                          'double'}
+                      'char',
+                      'short',
+                      'int',
+                      'long',
+                      'double',
+                      'half'
+}
 
 for k, Tensor in pairs(handledTypenames) do
+    if Tensor == 'CudaHalfTensor' then
+        interface:print("#ifdef CUDA_HALF_TENSOR")
+    end
     local real = handledTypereals[k]
 
     function interface.luaname2wrapname(self, name)
@@ -461,6 +545,10 @@ void cutorch_%sMath_init(lua_State *L)
   lua_pop(L, 1);
 }
 ]], Tensor, Tensor, Tensor, Tensor))
+
+    if Tensor == 'CudaHalfTensor' then
+        interface:print("#endif")
+    end
 end
 
 
