@@ -26,7 +26,16 @@ extern void cutorch_CudaDoubleTensor_init(lua_State* L);
 extern void cutorch_CudaHalfTensor_init(lua_State* L);
 #endif
 
+extern void cutorch_CudaByteTensorOperator_init(lua_State* L);
+extern void cutorch_CudaCharTensorOperator_init(lua_State* L);
+extern void cutorch_CudaShortTensorOperator_init(lua_State* L);
+extern void cutorch_CudaIntTensorOperator_init(lua_State* L);
+extern void cutorch_CudaLongTensorOperator_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
+extern void cutorch_CudaDoubleTensorOperator_init(lua_State* L);
+#ifdef CUDA_HALF_TENSOR
+extern void cutorch_CudaHalfTensorOperator_init(lua_State* L);
+#endif
 
 extern void cutorch_CudaByteTensorMath_init(lua_State* L);
 extern void cutorch_CudaCharTensorMath_init(lua_State* L);
@@ -980,7 +989,16 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaHalfTensor_init(L);
 #endif
 
+  cutorch_CudaByteTensorOperator_init(L);
+  cutorch_CudaCharTensorOperator_init(L);
+  cutorch_CudaShortTensorOperator_init(L);
+  cutorch_CudaIntTensorOperator_init(L);
+  cutorch_CudaLongTensorOperator_init(L);
   cutorch_CudaTensorOperator_init(L);
+  cutorch_CudaDoubleTensorOperator_init(L);
+#ifdef CUDA_HALF_TENSOR
+  cutorch_CudaHalfTensorOperator_init(L);
+#endif
 
   cutorch_CudaByteTensorMath_init(L);
   cutorch_CudaCharTensorMath_init(L);
