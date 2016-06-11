@@ -531,7 +531,7 @@ static int torch_Tensor_(indexFill)(lua_State *L)
   return 1;
 }
 
-#endif
+#endif // THC_REAL_IS_FLOAT
 
 static int torch_Tensor_(transpose)(lua_State *L)
 {
@@ -655,10 +655,8 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
   THCState *state = cutorch_getstate(L);
   THCTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   THLongStorage *idx = NULL;
-#ifdef THC_REAL_IS_FLOAT
   THByteTensor *mask;
-  THCudaTensor *maskCuda;
-#endif
+  THCudaByteTensor *maskCuda;
 
   if(lua_isnumber(L, 2))
   {
@@ -849,16 +847,18 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
     THCTensor_(free)(state, tensor);
     lua_pushboolean(L, 1);
   }
-  // FIXME: pending generic implementation of
-  // maskedFillByte/maskedCopyByte/maskedFill/maskedCopy
-#ifdef THC_REAL_IS_FLOAT
   else if((mask = luaT_toudata(L, 2, "torch.ByteTensor")))
   {
     THCTensor *vals;
     if (lua_isnumber(L, 3))
     {
-      THCTensor_(maskedFillByte)(state, tensor, mask,
-                                (real)(luaL_checknumber(L,3)));
+#ifdef THC_REAL_IS_HALF
+      real value = THC_float2half((float) luaL_checknumber(L, 3));
+#else
+      real value = (real) luaL_checknumber(L, 3);
+#endif
+
+      THCTensor_(maskedFillByte)(state, tensor, mask, value);
     }
     else if((vals = luaT_toudata(L, 3, torch_Tensor)))
     {
@@ -869,13 +869,18 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
       luaL_error(L,"number or tensor expected");
     }
   }
-  else if((maskCuda = luaT_toudata(L, 2, "torch.CudaTensor")))
+  else if((maskCuda = luaT_toudata(L, 2, "torch.CudaByteTensor")))
   {
     THCTensor *vals;
     if (lua_isnumber(L, 3))
     {
-      THCTensor_(maskedFill)(state, tensor, maskCuda,
-                            (real)(luaL_checknumber(L,3)));
+#ifdef THC_REAL_IS_HALF
+      real value = THC_float2half((float) luaL_checknumber(L, 3));
+#else
+      real value = (real) luaL_checknumber(L, 3);
+#endif
+
+      THCTensor_(maskedFill)(state, tensor, maskCuda, value);
     }
     else if((vals = luaT_toudata(L, 3, torch_Tensor)))
     {
@@ -886,7 +891,6 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
       luaL_error(L,"number or tensor expected");
     }
   }
-#endif // THC_REAL_IS_FLOAT
   else
   {
     lua_pushboolean(L, 0);
@@ -900,10 +904,8 @@ static int torch_Tensor_(__index__)(lua_State *L)
   THCState *state = cutorch_getstate(L);
   THCTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   THLongStorage *idx = NULL;
-#ifdef THC_REAL_IS_FLOAT
   THByteTensor *mask;
-  THCudaTensor *maskCuda;
-#endif
+  THCudaByteTensor *maskCuda;
 
   if(lua_isnumber(L, 2))
   {
@@ -1039,8 +1041,6 @@ static int torch_Tensor_(__index__)(lua_State *L)
     lua_pushboolean(L, 1);
     return 2;
   }
-  // FIXME: pending generic implementation of maskedSelectByte/maskedSelect
-#ifdef THC_REAL_IS_FLOAT
   else if((mask = luaT_toudata(L, 2, "torch.ByteTensor")))
   {
     THCTensor *vals = THCTensor_(new)(state);
@@ -1049,7 +1049,7 @@ static int torch_Tensor_(__index__)(lua_State *L)
     lua_pushboolean(L, 1);
     return 2;
   }
-  else if((maskCuda = luaT_toudata(L, 2, "torch.CudaTensor")))
+  else if((maskCuda = luaT_toudata(L, 2, "torch.CudaByteTensor")))
   {
     THCTensor *vals = THCTensor_(new)(state);
     THCTensor_(maskedSelect)(state, vals, tensor, maskCuda);
@@ -1057,7 +1057,6 @@ static int torch_Tensor_(__index__)(lua_State *L)
     lua_pushboolean(L, 1);
     return 2;
   }
-#endif // THC_REAL_IS_FLOAT
   else
   {
     lua_pushboolean(L, 0);
