@@ -35,6 +35,10 @@ extern void cutorch_CudaIntTensorMath_init(lua_State* L);
 extern void cutorch_CudaLongTensorMath_init(lua_State* L);
 extern void cutorch_CudaTensorMath_init(lua_State* L);
 extern void cutorch_CudaDoubleTensorMath_init(lua_State* L);
+#ifdef CUDA_HALF_TENSOR
+extern void cutorch_CudaHalfTensorMath_init(lua_State* L);
+#endif
+
 
 /*
    Iteration utilities for lists of streams and lists of gpus with streams
@@ -985,6 +989,9 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongTensorMath_init(L);
   cutorch_CudaTensorMath_init(L);
   cutorch_CudaDoubleTensorMath_init(L);
+#ifdef CUDA_HALF_TENSOR
+  cutorch_CudaHalfTensorMath_init(L);
+#endif
 
   cutorch_Event_init(L);
 
