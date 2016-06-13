@@ -655,8 +655,10 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
   THCState *state = cutorch_getstate(L);
   THCTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   THLongStorage *idx = NULL;
+#ifdef THC_REAL_IS_FLOAT
   THByteTensor *mask;
   THCudaTensor *maskCuda;
+#endif
 
   if(lua_isnumber(L, 2))
   {
@@ -898,8 +900,10 @@ static int torch_Tensor_(__index__)(lua_State *L)
   THCState *state = cutorch_getstate(L);
   THCTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
   THLongStorage *idx = NULL;
+#ifdef THC_REAL_IS_FLOAT
   THByteTensor *mask;
   THCudaTensor *maskCuda;
+#endif
 
   if(lua_isnumber(L, 2))
   {
