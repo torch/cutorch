@@ -1011,7 +1011,7 @@ wrap("multinomial",
 wrap("clamp",
      cname("clamp"),
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
-      {name=Tensor, default=1},
+      {name=Tensor, method={default=1}},
       {name=real},
       {name=real}})
 
