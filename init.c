@@ -1006,6 +1006,12 @@ int luaopen_libcutorch(lua_State *L)
 #endif
   lua_setfield(L, -2, "hasHalf");
 
+  /* store gpu driver version in field */
+  int driverVersion;
+  THCudaCheck(cudaDriverGetVersion(&driverVersion));
+  lua_pushinteger(L, driverVersion);
+  lua_setfield(L, -2, "driverVersion");  
+
   /* when cutorch goes out of scope, we need to make sure THCState is properly
      shut down (so that memory doesn not leak. Since _state is a lightuserdata
      we cannot associate an __gc method with it. Hence, create a userdata, and
