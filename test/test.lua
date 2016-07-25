@@ -979,6 +979,44 @@ function test.std()
    checkMultiDevice(x, 'std', 1)
 end
 
+function test.diag()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local k = chooseInt(-minsize, minsize)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'diag')
+   compareFloatAndCudaTensorArgs(x, 'diag', k)
+   checkMultiDevice(x, 'diag')
+   checkMultiDevice(x, 'diag', k)
+
+   local y = torch.FloatTensor():rand(sz1)
+   compareFloatAndCudaTensorArgs(y, 'diag')
+   compareFloatAndCudaTensorArgs(y, 'diag', k)
+   checkMultiDevice(y, 'diag')
+   checkMultiDevice(y, 'diag', k)
+
+   -- test non-contiguous cases
+   local x1 = createTestTensorWithSizes(true, true, {sz1, sz2});
+   compareFloatAndCudaTensorArgs(x1, 'diag')
+   compareFloatAndCudaTensorArgs(x1, 'diag', k)
+   checkMultiDevice(x1, 'diag')
+   checkMultiDevice(x1, 'diag', k)
+
+   local y1 = createTestTensorWithSizes(true, true, {sz1});
+   compareFloatAndCudaTensorArgs(y1, 'diag')
+   compareFloatAndCudaTensorArgs(y1, 'diag', k)
+   checkMultiDevice(y1, 'diag')
+   checkMultiDevice(y1, 'diag', k)
+end
+
+function test.trace()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCuda(x, 'trace')
+   checkMultiDevice(x, 'trace')
+end
+
 -- Test element-wise unary operators with both one and two arguments.
 local function testUnary1(fn)
    local function test()
