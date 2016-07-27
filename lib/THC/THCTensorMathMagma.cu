@@ -391,9 +391,9 @@ void THCudaTensor_getri(THCState *state, THCudaTensor *ra_, THCudaTensor *a)
   // Copy pointers to device.
   float **d_matrices1, **d_matrices2;
   const float **d_matrices1_const;
-  THCudaCheck(THCudaMalloc(state, (void**)&d_matrices1, matrices_size));
-  THCudaCheck(THCudaMalloc(state, (void**)&d_matrices1_const, matrices_size));
-  THCudaCheck(THCudaMalloc(state, (void**)&d_matrices2, matrices_size));
+  THMemoryCheck(THCudaMalloc(state, (void**)&d_matrices1, matrices_size));
+  THMemoryCheck(THCudaMalloc(state, (void**)&d_matrices1_const, matrices_size));
+  THMemoryCheck(THCudaMalloc(state, (void**)&d_matrices2, matrices_size));
 
   THCudaCheck(cudaMemcpyAsync(d_matrices1, matrices1, matrices_size,
                               cudaMemcpyHostToDevice, THCState_getCurrentStream(state)));
@@ -403,10 +403,10 @@ void THCudaTensor_getri(THCState *state, THCudaTensor *ra_, THCudaTensor *a)
                               cudaMemcpyHostToDevice, THCState_getCurrentStream(state)));
   int info;
   int *info_gpu;
-  THCudaCheck(THCudaMalloc(state, (void**)&info_gpu, sizeof(int)));
+  THMemoryCheck(THCudaMalloc(state, (void**)&info_gpu, sizeof(int)));
 
   int *ipiv_gpu;
-  THCudaCheck(THCudaMalloc(state, (void**)&ipiv_gpu, n * sizeof(int)));
+  THMemoryCheck(THCudaMalloc(state, (void**)&ipiv_gpu, n * sizeof(int)));
 
   // Run LU
   THCudaBlas_getrf(state, n, d_matrices1, n, ipiv_gpu, info_gpu, 1);
@@ -425,8 +425,8 @@ void THCudaTensor_getri(THCState *state, THCudaTensor *ra_, THCudaTensor *a)
   else if (info < 0)
     THError("CUBLAS getri : Argument %d : illegal value", -info);
 
-  THCudaCheck(THCudaFree(state, ipiv_gpu));
-  THCudaCheck(THCudaFree(state, info_gpu));
+  THMemoryCheck(THCudaFree(state, ipiv_gpu));
+  THMemoryCheck(THCudaFree(state, info_gpu));
   THCudaTensor_freeCopyTo(state, output, input);
 #endif
 

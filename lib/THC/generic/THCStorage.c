@@ -51,12 +51,12 @@ THCStorage* THCStorage_(newWithSize)(THCState *state, long size)
 
     // update heap *before* attempting malloc, to free space for the malloc
     THCHeapUpdate(state, size * sizeof(real));
-    cudaError_t err =
+    memoryStatus_t err =
       THCudaMalloc(state, (void**)&(storage->data), size * sizeof(real));
-    if(err != cudaSuccess){
+    if(err != 0){
       THCHeapUpdate(state, -size * sizeof(real));
     }
-    THCudaCheck(err);
+    THMemoryCheck(err);
 
     storage->size = size;
     storage->refcount = 1;
@@ -144,7 +144,7 @@ void THCStorage_(free)(THCState *state, THCStorage *self)
   {
     if(self->flag & TH_STORAGE_FREEMEM) {
       THCHeapUpdate(state, -self->size * sizeof(real));
-      THCudaCheck(THCudaFree(state, self->data));
+      THMemoryCheck(THCudaFree(state, self->data));
     }
     THFree(self);
   }
