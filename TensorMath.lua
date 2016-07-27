@@ -950,6 +950,17 @@ wrap("triu",
       {name=Tensor},
       {name="int", default=0}})
 
+wrap("diag",
+     cname("diag"),
+     {{name=Tensor, default=true, returned=true},
+      {name=Tensor},
+      {name="int", default=0}})
+
+wrap("trace",
+     cname("trace"),
+     {{name=Tensor},
+      {name=real, creturned=true}})
+
 for _,name in ipairs({"log", "log1p", "exp",
                       "cos", "acos", "cosh",
                       "sin", "asin", "sinh",
