@@ -91,7 +91,7 @@ cutorch.withDevice(2, function() dest = src:clone() end)
 
 ## API changes and Versioning
 
-Version 1.0 can be installed via: `luarocks install cutorch 1.0`
+Version 1.0 can be installed via: `luarocks install cutorch 1.0-0`
 Compared to version 1.0, these are the following API changes:
 
 | operators | 1.0 | master |

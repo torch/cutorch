@@ -1,5 +1,5 @@
 package = "cutorch"
-version = "1.0"
+version = "1.0-0"
 
 source = {
    url = "git://github.com/torch/cutorch.git",
