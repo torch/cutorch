@@ -3,7 +3,7 @@ version = "1.0-0"
 
 source = {
    url = "git://github.com/torch/cutorch.git",
-   tag = "1.0"
+   tag = "1.0-0"
 }
 
 description = {
