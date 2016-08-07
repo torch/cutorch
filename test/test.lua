@@ -181,7 +181,6 @@ local function checkMultiDevice(x, fn, ...)
       cutorch.setDevice(cutorch.getDevice() == 1 and 2 or 1)
       local ok, err = pcall(function(...) x[fn](x, ...) end, ...)
       tester:assert(not ok, "Multi-device checks failed for: " .. tostring(fn))
-      -- tester:assert(err:find("checkGPU"), "Multi-device check error message wrong for " .. tostring(fn) .. ". error: " .. tostring(err))
    end
 end
 
@@ -735,7 +734,10 @@ function test.zero()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'zero')
+   for k, typename in ipairs(typenames) do
+      x = x:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'zero')
+   end
    checkMultiDevice(x, 'zero')
 end
 
@@ -744,7 +746,10 @@ function test.fill()
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
-   compareFloatAndCudaTensorArgs(x, 'fill', v)
+   for k, typename in ipairs(typenames) do
+      x = x:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'fill', v)
+   end
    checkMultiDevice(x, 'fill', v)
 end
 
@@ -752,7 +757,10 @@ function test.reshape()
    local sz1 = chooseInt(minsize, maxsize)*2
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'reshape', sz1/2, sz2*2)
+   for k, typename in ipairs(typenames) do
+      x = x:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'reshape', sz1/2, sz2*2)
+   end
    checkMultiDevice(x, 'reshape', sz1/2, sz2*2)
 end
 
@@ -784,10 +792,13 @@ function test.add()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
-   compareFloatAndCudaTensorArgs(x, 'add', z)
-   compareFloatAndCudaTensorArgs(x, 'add', z, v)
-   compareFloatAndCudaTensorArgs(x, 'add', y, z)
-   compareFloatAndCudaTensorArgs(x, 'add', y, v, z)
+   for k, typename in ipairs(typenames) do
+      x, y, z = x:type(typename), y:type(typename), z:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', z)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', z, v)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', y, v, z)
+   end   
    checkMultiDevice(x, 'add', z)
    checkMultiDevice(x, 'add', z, v)
    checkMultiDevice(x, 'add', y, z)
@@ -801,10 +812,13 @@ function test.csub()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
-   compareFloatAndCudaTensorArgs(x, 'csub', z)
-   compareFloatAndCudaTensorArgs(x, 'csub', z, v)
-   compareFloatAndCudaTensorArgs(x, 'csub', y, z)
-   compareFloatAndCudaTensorArgs(x, 'csub', y, v, z)
+   for k, typename in ipairs(typenames) do
+      x, y, z = x:type(typename), y:type(typename), z:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', z)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', z, v)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', y, v, z)
+   end   
    checkMultiDevice(x, 'csub', z)
    checkMultiDevice(x, 'csub', z, v)
    checkMultiDevice(x, 'csub', y, z)
@@ -816,7 +830,10 @@ function test.cmul()
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'cmul', y)
+   for k, typename in ipairs(typenames) do
+      x, y = x:type(typename), y:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'cmul', y)
+   end
    checkMultiDevice(x, 'cmul', y)
 end
 
@@ -825,7 +842,10 @@ function test.cpow()
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'cpow', y)
+   for k, typename in ipairs(typenames) do
+      x, y = x:type(typename), y:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'cpow', y)
+   end
    checkMultiDevice(x, 'cpow', y)
 end
 
