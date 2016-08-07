@@ -10,10 +10,48 @@ local maxsize = 500
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
-local times = {}
 local test_tolerance = 1e-5
 local unpack = unpack or table.unpack
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
+
+local typenames = {
+   'torch.ByteTensor',
+   'torch.CharTensor',
+   'torch.ShortTensor',
+   'torch.IntTensor',
+   'torch.LongTensor',
+   'torch.FloatTensor',
+   'torch.DoubleTensor'
+}
+
+local t2gpu = {
+   ['torch.ByteTensor'] = 'torch.CudaByteTensor',
+   ['torch.CharTensor'] = 'torch.CudaCharTensor',
+   ['torch.ShortTensor'] = 'torch.CudaShortTensor',
+   ['torch.IntTensor'] = 'torch.CudaIntTensor',
+   ['torch.LongTensor'] = 'torch.CudaLongTensor',
+   ['torch.FloatTensor'] = 'torch.CudaTensor',
+   ['torch.DoubleTensor'] = 'torch.CudaDoubleTensor',
+   
+   ['torch.ByteStorage'] = 'torch.CudaByteStorage',
+   ['torch.CharStorage'] = 'torch.CudaCharStorage',
+   ['torch.ShortStorage'] = 'torch.CudaShortStorage',
+   ['torch.IntStorage'] = 'torch.CudaIntStorage',
+   ['torch.LongStorage'] = 'torch.CudaLongStorage',
+   ['torch.FloatStorage'] = 'torch.CudaStorage',
+   ['torch.DoubleStorage'] = 'torch.CudaDoubleStorage',  
+}
+
+local t2cpu = {}
+for k,v in pairs(t2gpu) do
+   t2cpu[v] = k
+end
+
+local function checkHalf()
+   if cutorch.hasHalf then
+      table.insert(typenames, 'CudaHalfTensor')
+   end
+end
 
 -- Picks an integer between a and b, inclusive of endpoints
 local function chooseInt(a, b)
@@ -168,43 +206,30 @@ local function compareFloatAndCuda(x, fn, ...)
    local x_cpu = x:float()
    local x_cuda = cloneExactlyToGPU(x_cpu)
 
-   local res1_cpu, res2_cpu, res3_cpu, res4_cpu
-   local res1_cuda, res2_cuda, res3_cuda, res4_cuda
+   local rcpu = {}
+   local rcuda = {}
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
-         string.format("Missing function CudaTensor.%s", fn))
-      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, ...)
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, ...)
+		      string.format("Missing function CudaTensor.%s", fn))
+      rcpu[1], rcpu[2], rcpu[3], rcpu[4] = x_cpu[fn](x_cpu, ...)
+      rcuda[1], rcuda[2], rcuda[3], rcuda[4] = x_cuda[fn](x_cuda, ...)
    elseif type(fn) == 'function' then
-      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, ...)
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = fn(x_cuda, ...)
+      rcpu[1], rcpu[2], rcpu[3], rcpu[4] = fn(x_cpu, ...)
+      rcuda[1], rcuda[2], rcuda[3], rcuda[4] = fn(x_cuda, ...)
    else
       error("Incorrect function type")
    end
+   local errstr = string.format("Divergent results between CPU and CUDA" ..
+				" for function '%s' (return value 1)", tostring(fn))
    local tolerance = test_tolerance
-   if not isEqual(res1_cpu, res1_cuda, tolerance) then
-      print(args)
-      tester:assert(false,
-                    string.format("Divergent results between CPU and CUDA" ..
-                                  " for function '%s' (return value 1)", tostring(fn)))
-   end
-   if not isEqual(res2_cpu, res2_cuda, tolerance) then
-      print(args)
-      tester:assert(false,
-                    string.format("Divergent results between CPU and CUDA" ..
-                                  " for function '%s' (return value 2)", tostring(fn)))
-   end
-   if not isEqual(res3_cpu, res3_cuda, tolerance) then
-      print(args)
-      tester:assert(false,
-                    string.format("Divergent results between CPU and CUDA" ..
-                                  " for function '%s' (return value 3)", tostring(fn)))
-   end
-   if not isEqual(res4_cpu, res4_cuda, tolerance) then
-      print(args)
-      tester:assert(false,
-                    string.format("Divergent results between CPU and CUDA" ..
-                                  " for function '%s' (return value 4)", tostring(fn)))
+   tester:assert(#rcpu == #rcuda,
+		 string.format("number of return arguments for CPU and CUDA "
+			       .. "are different for function '%s'", tostring(fn)))
+   for k, _ in ipairs(rcpu) do
+      if not isEqual(rcpu[k], rcuda[k], tolerance) then
+	 print(args)
+	 tester:assert(false, errstr)
+      end
    end
 end
 
@@ -212,13 +237,15 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
    local x_cpu = x:float()
    local x_cuda = cloneExactlyToGPU(x_cpu)
 
-   local res1_cpu, res2_cpu, res3_cpu, res4_cpu
-   local res1_cuda, res2_cuda, res3_cuda, res4_cuda
+   local rcpu = {}
+   local rcuda = {}
+
    -- Transformation of args
    local tranform_args = function(t, type)
       for k,v in pairs(t) do
          local v_type = torch.Tensor.type(v)
-         if v_type == 'torch.FloatTensor' or v_type == 'torch.CudaTensor' or v_type == 'torch.DoubleTensor' then
+         if v_type == 'torch.FloatTensor' or v_type == 'torch.CudaTensor'
+	 or v_type == 'torch.DoubleTensor' then
             t[k] = v:type(type).new(v:size(), v:stride())
             if v:storage() then t[k]:storage():copy(v:storage()) end
          end
@@ -230,23 +257,115 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
          string.format("Missing function CudaTensor.%s", fn))
-      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, unpack(cuda_args))
+      rcpu[1], rcpu[2], rcpu[3], rcpu[4]  = x_cpu[fn](x_cpu, unpack(cpu_args))
+      rcuda[1], rcuda[2], rcuda[3], rcuda[4] = x_cuda[fn](x_cuda, unpack(cuda_args))
    elseif type(fn) == 'function' then
-      res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, unpack(cpu_args))
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = fn(x_cuda, unpack(cuda_args))
+      rcpu[1], rcpu[2], rcpu[3], rcpu[4] = fn(x_cpu, unpack(cpu_args))
+      rcuda[1], rcuda[2], rcuda[3], rcuda[4] = fn(x_cuda, unpack(cuda_args))
    else
       error("Incorrect function type")
    end
+   local errstr = string.format("Divergent results between CPU and CUDA" ..
+				" for function '%s' (return value 1)", tostring(fn))
    local tolerance = test_tolerance
-   tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
-   tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
-   tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
-   tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+   tester:assert(#rcpu == #rcuda,
+		 string.format("number of return arguments for CPU and CUDA "
+			       .. "are different for function '%s'", tostring(fn)))
+   for k, _ in ipairs(rcpu) do
+      if not isEqual(rcpu[k], rcuda[k], tolerance) then
+	 print(args)
+	 tester:assert(false, errstr)
+      end
+   end
+end
+
+-- converts a tensor to it's exact GPU type
+local function GPU(t)
+   if torch.isTensor(t) or torch.isStorage(t) then
+      return torch[t2gpu[torch.type(t)]:match('torch.(%a+)')] or t
+   elseif torch.type(t) == 'string' then
+      return torch[t2gpu[t]:match('torch.(%a+)')]
+   end
+   error('not tensor or storage')
+end
+
+-- converts a tensor to it's exact CPU type
+local function CPU(t)
+   if torch.isTensor(t) or torch.isStorage(t) then
+      return torch[t2cpu[torch.type(t)]:match('torch.(%a+)')] or t
+   elseif torch.type(t) == 'string' then
+      return torch[t2cpu[t]:match('torch.(%a+)')]      
+   end
+   error('not tensor or storage')
+end
+
+-- exactly clone a tensor (same size / storage) to it's equivalent GPU type
+-- if baseType is given, conver to the baseType's GPU type instead
+local function cloneExactlyToGPUType(t, baseType)
+   local type = baseType and baseType or t
+   -- keep the size/stride of original tensor, handling tensors that
+   -- potentially have holes as well
+   local tGPU = nil   
+   if t:storage() then
+      local sGPU = GPU(type).new(1):storage().new(t:storage():size()):copy(t:storage())
+      tGPU = GPU(type)(sGPU, t:storageOffset(), t:size(), t:stride())
+   else
+      tGPU = GPU(type)()
+   end
+
+   return tGPU
+end
+
+-- baseType = the tensor type to test
+-- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
+--             false: convert then to baseType when doing CUDA
+-- x = first argument tensor
+-- fn = function name (as string), or the function)
+-- ... = the rest of arguments to fn
+local function compareCPUAndCUDATypeTensorArgs(baseType, indexMode, x, fn, ...)
+   local x_cpu = x:type(baseType)
+   local x_cuda = cloneExactlyToGPUType(x_cpu)
+
+   local rcpu = {}
+   local rcuda = {}
+   -- Transformation of args
+   local tranform_args = function(t, type)
+      for k,v in pairs(t) do
+	 if torch.isTensor(v) or torch.isStorage(v) then
+	    if indexMode then
+	       t[k] = cloneExactlyToGPUType(v, baseType)
+	    else
+	       t[k] = cloneExactlyToGPUType(v, x_cpu)
+	    end
+         end
+      end
+      return t
+   end
+   local cpu_args = {...}
+   local cuda_args = tranform_args({...})
+   if type(fn) == 'string' then
+      tester:assertne(x_cuda[fn], nil,
+		      string.format("Missing function %s.%s", torch.type(x_cuda), fn))
+      rcpu[1], rcpu[2], rcpu[3], rcpu[4]  = x_cpu[fn](x_cpu, unpack(cpu_args))
+      rcuda[1], rcuda[2], rcuda[3], rcuda[4] = x_cuda[fn](x_cuda, unpack(cuda_args))
+   elseif type(fn) == 'function' then
+      rcpu[1], rcpu[2], rcpu[3], rcpu[4] = fn(x_cpu, unpack(cpu_args))
+      rcuda[1], rcuda[2], rcuda[3], rcuda[4] = fn(x_cuda, unpack(cuda_args))
+   else
+      error("Incorrect function type")
+   end
+   
+   local tolerance = test_tolerance
+   local errstr = string.format("Divergent results between CPU and CUDA"
+				.. " for function '%s.%s in indexMode = %s'",
+				torch.type(x_cuda), fn, tostring(indexMode))
+
+   tester:assert(#rcpu == #rcuda,
+		 string.format("number of return arguments for CPU and CUDA "
+			       .. "are different for function '%s'", tostring(fn)))
+   for k, _ in ipairs(rcpu) do
+      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance), errstr)
+   end
 end
 
 function test.squeeze()
@@ -2596,9 +2715,10 @@ function test.gather()
    local idx = torch.LongTensor():resize(unpack(idx_size))
    fillIdx(idx, dim, src:size(dim), elems_per_row, m, n, o)
 
-   local actual = torch.gather(src:cuda(), dim, idx:cuda())
-   local expected = torch.gather(src, dim, idx)
-   tester:assertTensorEq(actual:float(), expected, 0, "Wrong values for gather")
+   for k, typename in ipairs(typenames) do
+      compareCPUAndCUDATypeTensorArgs(typename, true, src, 'gather', dim, idx)
+      compareCPUAndCUDATypeTensorArgs(typename, false, src, 'gather', dim, idx)
+   end
 end
 
 function test.scatter()
@@ -2611,10 +2731,13 @@ function test.scatter()
    local idx = torch.LongTensor():resize(unpack(idx_size))
    fillIdx(idx, dim, ({m, n, o})[dim], elems_per_row, m, n, o)
    local src = torch.FloatTensor():resize(unpack(idx_size)):normal()
-
-   local actual = torch.CudaTensor(m, n, o):zero():scatter(dim, idx:cuda(), src:cuda())
-   local expected = torch.FloatTensor(m, n, o):zero():scatter(dim, idx, src)
-   tester:assertTensorEq(actual:float(), expected, 0, "Wrong values for scatter")
+   local res = torch.FloatTensor(m, n, o):zero()
+   
+   for k, typename in ipairs(typenames) do
+      res, src = res:type(typename), src:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, true, res, 'scatter', dim, idx, src)
+      compareCPUAndCUDATypeTensorArgs(typename, false, res, 'scatter', dim, idx, src)
+   end
 end
 
 function test.scatterFill()
@@ -2628,9 +2751,11 @@ function test.scatterFill()
    local idx = torch.LongTensor():resize(unpack(idx_size))
    fillIdx(idx, dim, ({m, n, o})[dim], elems_per_row, m, n, o)
 
-   local actual = torch.CudaTensor(m, n, o):zero():scatter(dim, idx:cuda(), val)
-   local expected = torch.FloatTensor(m, n, o):zero():scatter(dim, idx, val)
-   tester:assertTensorEq(actual:float(), expected, 0, "Wrong values for scatter")
+   local res = torch.FloatTensor(m, n, o):zero()
+   for k, typename in ipairs(typenames) do
+      compareCPUAndCUDATypeTensorArgs(typename, true, res, 'scatter', dim, idx, val)
+      compareCPUAndCUDATypeTensorArgs(typename, false, res, 'scatter', dim, idx, val)
+   end
 end
 
 function test.sort()
@@ -3160,13 +3285,10 @@ end
 
 function cutorch.test(tests, seed)
    initSeed(seed)
+   checkHalf()
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)
-   -- print ''
-   -- for module,tm in pairs(times) do
-   -- print(module .. ': \t average speedup is ' .. (tm.cpu / (tm.gpu or 1e6)))
-   -- end
 end
 
 if runtests then
