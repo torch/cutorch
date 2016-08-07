@@ -356,14 +356,17 @@ local function compareCPUAndCUDATypeTensorArgs(baseType, indexMode, x, fn, ...)
    
    local tolerance = test_tolerance
    local errstr = string.format("Divergent results between CPU and CUDA"
-				.. " for function '%s.%s in indexMode = %s'",
-				torch.type(x_cuda), fn, tostring(indexMode))
+				.. " for function '%s.%s", torch.type(x_cuda), fn)
+   if indexMode ~= nil then
+      errstr = errstr .. " in indexMode = " .. tostring(indexMode)
+   end
+   errstr = errstr .. " for return value # %d"
 
    tester:assert(#rcpu == #rcuda,
 		 string.format("number of return arguments for CPU and CUDA "
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
-      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance), errstr)
+      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance), string.format(errstr, k))
    end
 end
 
@@ -736,7 +739,7 @@ function test.zero()
    local x = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
       x = x:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'zero')
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'zero')
    end
    checkMultiDevice(x, 'zero')
 end
@@ -748,7 +751,7 @@ function test.fill()
    local v = torch.uniform()
    for k, typename in ipairs(typenames) do
       x = x:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'fill', v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'fill', v)
    end
    checkMultiDevice(x, 'fill', v)
 end
@@ -759,7 +762,7 @@ function test.reshape()
    local x = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
       x = x:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'reshape', sz1/2, sz2*2)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'reshape', sz1/2, sz2*2)
    end
    checkMultiDevice(x, 'reshape', sz1/2, sz2*2)
 end
@@ -794,10 +797,10 @@ function test.add()
    local v = torch.uniform()
    for k, typename in ipairs(typenames) do
       x, y, z = x:type(typename), y:type(typename), z:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', z)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', z, v)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', y, z)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'add', y, v, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', z, v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', y, v, z)
    end   
    checkMultiDevice(x, 'add', z)
    checkMultiDevice(x, 'add', z, v)
@@ -814,10 +817,10 @@ function test.csub()
    local v = torch.uniform()
    for k, typename in ipairs(typenames) do
       x, y, z = x:type(typename), y:type(typename), z:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', z)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', z, v)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', y, z)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'csub', y, v, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', z, v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', y, v, z)
    end   
    checkMultiDevice(x, 'csub', z)
    checkMultiDevice(x, 'csub', z, v)
@@ -832,7 +835,7 @@ function test.cmul()
    local y = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
       x, y = x:type(typename), y:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'cmul', y)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cmul', y)
    end
    checkMultiDevice(x, 'cmul', y)
 end
@@ -844,7 +847,7 @@ function test.cpow()
    local y = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
       x, y = x:type(typename), y:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, true, x, 'cpow', y)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cpow', y)
    end
    checkMultiDevice(x, 'cpow', y)
 end
@@ -943,9 +946,21 @@ function test.max()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
-   compareFloatAndCuda(x, 'max')
-   compareFloatAndCuda(x, 'max', 1)
-   compareFloatAndCuda(x, 'max', 2)
+   for k, typename in ipairs(typenames) do
+      local x_
+      if typename == 'torch.ByteTensor' or typename == 'torch.CharTensor'
+      or typename == 'torch.ShortTensor' then
+	 -- limit the range of max, so that there's no same indices
+	 local sz1 = chooseInt(1, 10)
+	 local sz2 = chooseInt(1, 10)
+	 x_ = torch.randperm(sz1 * sz2):view(sz1, sz2)
+      else
+	 x_ = x:type(typename)
+      end
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'max')
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'max', 1)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'max', 2)
+   end   
    checkMultiDevice(x, 'max')
    checkMultiDevice(x, 'max', 1)
 end
@@ -954,9 +969,21 @@ function test.min()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
-   compareFloatAndCuda(x, 'min')
-   compareFloatAndCuda(x, 'min', 1)
-   compareFloatAndCuda(x, 'min', 2)
+   for k, typename in ipairs(typenames) do
+      local x_
+      if typename == 'torch.ByteTensor' or typename == 'torch.CharTensor'
+      or typename == 'torch.ShortTensor' then
+	 -- limit the range of min, so that there's no same indices
+	 local sz1 = chooseInt(1, 10)
+	 local sz2 = chooseInt(1, 10)
+	 x_ = torch.randperm(sz1 * sz2):view(sz1, sz2)
+      else
+	 x_ = x:type(typename)
+      end
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'min')
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'min', 1)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'min', 2)
+   end   
    checkMultiDevice(x, 'min')
    checkMultiDevice(x, 'min', 1)
 end
