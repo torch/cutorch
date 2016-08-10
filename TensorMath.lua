@@ -1063,20 +1063,20 @@ wrap("scatter",
 wrap("sort",
      cname("sort"),
      {{name=Tensor, default=true, returned=true},
-        {name=Tensor, default=true, returned=true, noreadadd=true},
-        {name=Tensor},
-        {name="index", default=lastdim(3)},
-        {name="boolean", default=0}})
+      {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+      {name=Tensor},
+      {name="index", default=lastdim(3)},
+      {name="boolean", default=0}})
 
 wrap("topk",
      cname("topk"),
      {{name=Tensor, default=true, returned=true},
-        {name=Tensor, default=true, returned=true, noreadadd=true},
-        {name=Tensor},
-        {name="long", default=1},
-        {name="index", default=lastdim(3)},
-        {name="boolean", default=0},
-        {name="boolean", default=0}})
+       {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+       {name=Tensor},
+       {name="long", default=1},
+       {name="index", default=lastdim(3)},
+       {name="boolean", default=0},
+       {name="boolean", default=0}})
 
 do
    local Tensor = Tensor
