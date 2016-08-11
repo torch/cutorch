@@ -2886,12 +2886,17 @@ end
 
 function test.sort()
    for tries = 1, 5 do
-      -- max size 2^24 for indexing using float32
-      local t = createTestTensor(2 ^ 24)
+      local t = createTestTensor(2 ^ 20)
       local selectdim = chooseInt(1, t:nDimension())
       local dir = chooseInt(1, 2) == 1
 
-      compareFloatAndCuda(t, 'sort', selectdim, dir)
+      for k, typename in ipairs(typenames) do
+          if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor'
+          and typename ~= 'torch.ShortTensor' then
+              local t = t:type(typename)
+              compareCPUAndCUDATypeTensorArgs(typename, nil, t, 'sort', selectdim, dir)
+          end
+      end
    end
 
    -- Test a large tensors whose total size exceeds 2^24,
@@ -2912,6 +2917,23 @@ function test.sort()
    -- but values should be equivalent after gather
    local gather_cpu = t_cpu:gather(2, i_cpu)
    local gather_gpu = t_gpu:gather(2, i_gpu)
+
+   tester:assert(isEqual(gather_cpu, gather_gpu), 'indices mismatch')
+
+   -- Test a large tensors whose total size exceeds 2^24
+   local t_cpu = torch.FloatTensor(2^25):uniform()
+   local t_gpu = t_cpu:cuda()
+
+   local v_cpu, i_cpu = torch.sort(t_cpu, 1)
+   local v_gpu, i_gpu = torch.sort(t_gpu, 1)
+
+   -- Values should match exactly, regardless of sorting method
+   tester:assert(isEqual(v_cpu, v_gpu), 'value mismatch')
+
+   -- Indices can differ since the sorting method can differ (stable vs. not),
+   -- but values should be equivalent after gather
+   local gather_cpu = t_cpu:gather(1, i_cpu)
+   local gather_gpu = t_gpu:gather(1, i_gpu)
 
    tester:assert(isEqual(gather_cpu, gather_gpu), 'indices mismatch')
 end

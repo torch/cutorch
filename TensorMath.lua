@@ -715,6 +715,16 @@ for k, Tensor_ in pairs(handledTypenames) do
 	    {name=real}}
     )
 
+    wrap("sort",
+         cname("sort"),
+         {{name=Tensor, default=true, returned=true},
+             {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+             {name=Tensor},
+             {name="index", default=lastdim(3)},
+             {name="boolean", default=0}}
+    )
+
+
     -- BLAS functions
     if real == 'float' or real == 'double' or real == 'half' then
        wrap("mv",
