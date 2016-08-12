@@ -15,13 +15,13 @@ local unpack = unpack or table.unpack
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
 local typenames = {
-   'torch.ByteTensor',
-   'torch.CharTensor',
-   'torch.ShortTensor',
-   'torch.IntTensor',
-   'torch.LongTensor',
-   'torch.FloatTensor',
-   'torch.DoubleTensor'
+    'torch.CudaByteTensor',
+    'torch.CudaCharTensor',
+    'torch.CudaShortTensor',
+    'torch.CudaIntTensor',
+    'torch.CudaLongTensor',
+    'torch.CudaTensor',
+    'torch.CudaDoubleTensor'
 }
 
 local t2gpu = {
@@ -49,7 +49,8 @@ end
 
 local function checkHalf()
    if cutorch.hasHalf then
-       -- table.insert(typenames, 'CudaHalfTensor')
+       table.insert(typenames, 'torch.CudaHalfTensor')
+       t2cpu['torch.CudaHalfTensor'] = 'torch.FloatTensor'
    end
 end
 
@@ -321,7 +322,9 @@ end
 -- x = first argument tensor
 -- fn = function name (as string), or the function)
 -- ... = the rest of arguments to fn
-local function compareCPUAndCUDATypeTensorArgs(baseType, indexMode, x, fn, ...)
+local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
+   local baseType = t2cpu[cudaType]
+   assert(baseType, 'Cannot find baseType for ' .. cudaType)
    local x_cpu = x:type(baseType)
    local x_cuda = cloneExactlyToGPUType(x_cpu)
 
@@ -738,8 +741,8 @@ function test.zero()
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
-      x = x:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'zero')
+       local x = x:type(t2cpu[typename])
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'zero')
    end
    checkMultiDevice(x, 'zero')
 end
@@ -750,7 +753,7 @@ function test.fill()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
    for k, typename in ipairs(typenames) do
-      x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'fill', v)
    end
    checkMultiDevice(x, 'fill', v)
@@ -761,7 +764,7 @@ function test.reshape()
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
-      x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'reshape', sz1/2, sz2*2)
    end
    checkMultiDevice(x, 'reshape', sz1/2, sz2*2)
@@ -796,7 +799,8 @@ function test.add()
    local z = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
    for k, typename in ipairs(typenames) do
-      x, y, z = x:type(typename), y:type(typename), z:type(typename)
+      local ctype = t2cpu[typename]
+      local x, y, z = x:type(ctype), y:type(ctype), z:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', z)
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', z, v)
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'add', y, z)
@@ -816,7 +820,8 @@ function test.csub()
    local z = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
    for k, typename in ipairs(typenames) do
-      x, y, z = x:type(typename), y:type(typename), z:type(typename)
+      local ctype = t2cpu[typename]
+      local x, y, z = x:type(ctype), y:type(ctype), z:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', z)
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', z, v)
       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'csub', y, z)
@@ -834,8 +839,9 @@ function test.cmul()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
-      x, y = x:type(typename), y:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cmul', y)
+       local ctype = t2cpu[typename]
+       local x, y = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cmul', y)
    end
    checkMultiDevice(x, 'cmul', y)
 end
@@ -846,8 +852,9 @@ function test.cpow()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    for k, typename in ipairs(typenames) do
-      x, y = x:type(typename), y:type(typename)
-      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cpow', y)
+       local ctype = t2cpu[typename]
+       local x, y = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cpow', y)
    end
    checkMultiDevice(x, 'cpow', y)
 end
@@ -948,14 +955,14 @@ function test.max()
    local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
    for k, typename in ipairs(typenames) do
       local x_
-      if typename == 'torch.ByteTensor' or typename == 'torch.CharTensor'
-      or typename == 'torch.ShortTensor' then
+      if typename == 'torch.CudaByteTensor' or typename == 'torch.CudaCharTensor'
+      or typename == 'torch.CudaShortTensor' then
 	 -- limit the range of max, so that there's no same indices
 	 local sz1 = chooseInt(1, 10)
 	 local sz2 = chooseInt(1, 10)
 	 x_ = torch.randperm(sz1 * sz2):view(sz1, sz2)
       else
-	 x_ = x:type(typename)
+         x_ = x:type(t2cpu[typename])
       end
       compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'max')
       compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'max', 1)
@@ -971,14 +978,14 @@ function test.min()
    local x = torch.randperm(sz1 * sz2):view(sz1, sz2):float()
    for k, typename in ipairs(typenames) do
       local x_
-      if typename == 'torch.ByteTensor' or typename == 'torch.CharTensor'
-      or typename == 'torch.ShortTensor' then
+      if typename == 'torch.CudaByteTensor' or typename == 'torch.CudaCharTensor'
+      or typename == 'torch.CudaShortTensor' then
 	 -- limit the range of min, so that there's no same indices
 	 local sz1 = chooseInt(1, 10)
 	 local sz2 = chooseInt(1, 10)
 	 x_ = torch.randperm(sz1 * sz2):view(sz1, sz2)
       else
-	 x_ = x:type(typename)
+         x_ = x:type(t2cpu[typename])
       end
       compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'min')
       compareCPUAndCUDATypeTensorArgs(typename, nil, x_, 'min', 1)
@@ -1316,10 +1323,10 @@ function test.index()
    local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
    for k, typename in ipairs(typenames) do
-      local x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'index',
                                       index, longIndex)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'index',
                                           index, longIndex)
       end
@@ -1328,10 +1335,10 @@ function test.index()
    index = 2
    longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    for k, typename in ipairs(typenames) do
-      local x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'index',
                                       index, longIndex)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'index',
                                           index, longIndex)
       end
@@ -1341,10 +1348,10 @@ function test.index()
    index = 1
    longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    for k, typename in ipairs(typenames) do
-      local x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'index',
                                       index, longIndex)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'index',
                                           index, longIndex)
       end
@@ -1354,10 +1361,10 @@ function test.index()
    index = 3
    longIndex = torch.randperm(sz3):long()
    for k, typename in ipairs(typenames) do
-      local x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'index',
                                       index, longIndex)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'index',
                                           index, longIndex)
       end
@@ -1381,10 +1388,11 @@ function test.indexCopy()
    local index = 1
    local src = torch.FloatTensor(2, sz2):uniform()
    for k, typename in ipairs(typenames) do
-      local x, src = x:type(typename), src:type(typename)
+      local ctype = t2cpu[typename]
+      local x, src = x:type(ctype), src:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexCopy',
                                       index, longIndex, src)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'indexCopy',
                                           index, longIndex, src)
       end
@@ -1395,10 +1403,11 @@ function test.indexCopy()
    longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    src = torch.FloatTensor(sz1, 2):uniform():cuda()
    for k, typename in ipairs(typenames) do
-      local x, src = x:type(typename), src:type(typename)
+      local ctype = t2cpu[typename]
+      local x, src = x:type(ctype), src:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexCopy',
                                       index, longIndex, src)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'indexCopy',
                                           index, longIndex, src)
       end
@@ -1410,10 +1419,11 @@ function test.indexCopy()
    longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    src = torch.FloatTensor(2):uniform()
    for k, typename in ipairs(typenames) do
-      local x, src = x:type(typename), src:type(typename)
+      local ctype = t2cpu[typename]
+      local x, src = x:type(ctype), src:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexCopy',
                                       index, longIndex, src)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'indexCopy',
                                           index, longIndex, src)
       end
@@ -1470,10 +1480,10 @@ function test.indexFill()
    local index = 1
    local val = torch.randn(1)[1]
    for k, typename in ipairs(typenames) do
-       local x = x:type(typename)
+       local x = x:type(t2cpu[typename])
        compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
                                        index, longIndex, val)
-       if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
            compareCPUAndCUDATypeTensorArgs(typename, false, x, 'indexFill',
                                            index, longIndex, val)
        end
@@ -1482,10 +1492,10 @@ function test.indexFill()
    longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    val = torch.randn(1)[1]
    for k, typename in ipairs(typenames) do
-      local x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
                                       index, longIndex, val)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'indexFill',
                                           index, longIndex, val)
       end
@@ -1496,10 +1506,10 @@ function test.indexFill()
    longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    val = torch.randn(1)[1]
    for k, typename in ipairs(typenames) do
-      local x = x:type(typename)
+      local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
                                       index, longIndex, val)
-      if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor' then
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
           compareCPUAndCUDATypeTensorArgs(typename, false, x, 'indexFill',
                                           index, longIndex, val)
       end
@@ -2842,6 +2852,8 @@ function test.gather()
    fillIdx(idx, dim, src:size(dim), elems_per_row, m, n, o)
 
    for k, typename in ipairs(typenames) do
+      local ctype = t2cpu[typename]
+      local src = src:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, true, src, 'gather', dim, idx)
       compareCPUAndCUDATypeTensorArgs(typename, false, src, 'gather', dim, idx)
    end
@@ -2860,7 +2872,8 @@ function test.scatter()
    local res = torch.FloatTensor(m, n, o):zero()
 
    for k, typename in ipairs(typenames) do
-      res, src = res:type(typename), src:type(typename)
+      local ctype = t2cpu[typename]
+      local res, src = res:type(ctype), src:type(ctype)
       compareCPUAndCUDATypeTensorArgs(typename, true, res, 'scatter', dim, idx, src)
       compareCPUAndCUDATypeTensorArgs(typename, false, res, 'scatter', dim, idx, src)
    end
@@ -2879,6 +2892,7 @@ function test.scatterFill()
 
    local res = torch.FloatTensor(m, n, o):zero()
    for k, typename in ipairs(typenames) do
+      local res = res:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, res, 'scatter', dim, idx, val)
       compareCPUAndCUDATypeTensorArgs(typename, false, res, 'scatter', dim, idx, val)
    end
@@ -2891,9 +2905,11 @@ function test.sort()
       local dir = chooseInt(1, 2) == 1
 
       for k, typename in ipairs(typenames) do
-          if typename ~= 'torch.ByteTensor' and typename ~= 'torch.CharTensor'
-          and typename ~= 'torch.ShortTensor' then
-              local t = t:type(typename)
+          if typename ~= 'torch.CudaByteTensor'
+              and typename ~= 'torch.CudaCharTensor'
+          and typename ~= 'torch.CudaShortTensor' then
+              local ctype = t2cpu[typename]
+              local t = t:type(ctype)
               compareCPUAndCUDATypeTensorArgs(typename, nil, t, 'sort', selectdim, dir)
           end
       end
