@@ -97,13 +97,11 @@ Compared to version 1.0, these are the following API changes:
 | operators | 1.0 | master |
 |---|---|---|
 | `lt`, `le`, `gt`, `ge`, `eq`, `ne` return type | torch.CudaTensor | torch.CudaByteTensor |
-| `min`,`max` (2-nd output) | torch.CudaTensor | torch.CudaLongTensor |
-| `maskedFill`, `maskedCopy` (mask input) | torch.CudaTensor | torch.CudaByteTensor |
+| `min`,`max` (2nd return value)                 | torch.CudaTensor | torch.CudaLongTensor |
+| `maskedFill`, `maskedCopy` (mask input)        | torch.CudaTensor | torch.CudaByteTensor |
+| `topk`, `sort` (2nd return value)              | torch.CudaTensor | torch.CudaLongTensor |
 
 ## Inconsistencies with CPU API
 
 | operators | CPU | CUDA |
 |---|---|---|
-| `topk`, `sort` (2-nd output) | torch.LongTensor | torch.CudaTensor |
-| `index`, `indexAdd`, `indexFill`, `indexCopy` input | torch.LongTensor | torch.CudaTensor (or torch.LongTensor) |
-| `scatter`, `gather` | torch.LongTensor | torch.CudaTensor |
