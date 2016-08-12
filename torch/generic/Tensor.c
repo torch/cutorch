@@ -423,7 +423,7 @@ static int torch_Tensor_(indexSelect)(lua_State *L)
     dim = luaL_checkint(L, 3) - 1;
     index = luaT_toudata(L, 4, "torch.CudaLongTensor");
     longIndex = luaT_toudata(L, 4, "torch.LongTensor");
-    realIndex = luaT_toudata(L, 3, torch_Tensor);
+    realIndex = luaT_toudata(L, 4, torch_Tensor);
     if (!index && !longIndex && !realIndex) luaT_typerror(L, 3, "CudaLongTensor | LongTensor | Tensor");
     tensor = luaT_checkudata(L,1,torch_Tensor);
   }
