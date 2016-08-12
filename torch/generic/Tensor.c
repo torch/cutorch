@@ -731,6 +731,7 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
   THLongStorage *idx = NULL;
   THByteTensor *mask;
   THCudaByteTensor *maskCuda;
+  THCTensor *maskCudaReal;
 
   if(lua_isnumber(L, 2))
   {
@@ -964,6 +965,37 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
     {
       luaL_error(L,"number or tensor expected");
     }
+
+  }
+  else if((maskCudaReal = luaT_toudata(L, 2, torch_Tensor)))
+  {
+    maskCuda = THCudaByteTensor_new(state);
+    THLongStorage *maskCudaSize = THCTensor_(newSizeOf)(state, maskCudaReal);
+    THCudaByteTensor_resize(state, maskCuda, maskCudaSize, NULL);
+    THLongStorage_free(maskCudaSize);
+    TH_CONCAT_2(THCudaByteTensor_copyCuda, Real)(state, maskCuda, maskCudaReal);
+
+    THCTensor *vals;
+    if (lua_isnumber(L, 3))
+    {
+#ifdef THC_REAL_IS_HALF
+      real value = THC_float2half((float) luaL_checknumber(L, 3));
+#else
+      real value = (real) luaL_checknumber(L, 3);
+#endif
+
+      THCTensor_(maskedFill)(state, tensor, maskCuda, value);
+    }
+    else if((vals = luaT_toudata(L, 3, torch_Tensor)))
+    {
+      THCTensor_(maskedCopy)(state, tensor, maskCuda, vals);
+    }
+    else
+    {
+      luaL_error(L,"number or tensor expected");
+    }
+
+    THCudaByteTensor_free(state, maskCuda);
   }
   else
   {
@@ -980,6 +1012,7 @@ static int torch_Tensor_(__index__)(lua_State *L)
   THLongStorage *idx = NULL;
   THByteTensor *mask;
   THCudaByteTensor *maskCuda;
+  THCTensor *maskCudaReal;
 
   if(lua_isnumber(L, 2))
   {
@@ -1129,6 +1162,24 @@ static int torch_Tensor_(__index__)(lua_State *L)
     THCTensor_(maskedSelect)(state, vals, tensor, maskCuda);
     luaT_pushudata(L, vals, torch_Tensor);
     lua_pushboolean(L, 1);
+
+    return 2;
+  }
+  else if((maskCudaReal = luaT_toudata(L, 2, torch_Tensor)))
+  {
+    maskCuda = THCudaByteTensor_new(state);
+    THLongStorage *maskCudaSize = THCTensor_(newSizeOf)(state, maskCudaReal);
+    THCudaByteTensor_resize(state, maskCuda, maskCudaSize, NULL);
+    THLongStorage_free(maskCudaSize);
+    TH_CONCAT_2(THCudaByteTensor_copyCuda, Real)(state, maskCuda, maskCudaReal);
+
+    THCTensor *vals = THCTensor_(new)(state);
+    THCTensor_(maskedSelect)(state, vals, tensor, maskCuda);
+    luaT_pushudata(L, vals, torch_Tensor);
+    lua_pushboolean(L, 1);
+
+    THCudaByteTensor_free(state, maskCuda);
+
     return 2;
   }
   else
