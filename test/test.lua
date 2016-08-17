@@ -2574,7 +2574,7 @@ function test.cudaStorageTypeCopy()
       {'cudaDouble','CudaDoubleStorage'},
    }
    if cutorch.hasHalf then
-      table.insert(types, {'cudaHalf', 'CudaStorage'})
+      table.insert(types, {'cudaHalf', 'CudaHalfStorage'})
    end
 
    local N = 100
