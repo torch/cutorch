@@ -724,6 +724,44 @@ for k, Tensor_ in pairs(handledTypenames) do
              {name="boolean", default=0}}
     )
 
+    wrap("squeeze",
+         cname("squeeze"),
+         {{name=Tensor, default=true, returned=true, postcall=function(arg)
+              local txt = {}
+              if arg.returned then
+                 table.insert(txt, string.format('if(arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
+                 if Tensor == 'CudaHalfTensor' then
+                    table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)THC_half2float(TH%s_get1d(cutorch_getstate(L), arg%d, 0)));', Tensor, arg.i))
+                 else
+                    table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(TH%s_get1d(cutorch_getstate(L), arg%d, 0)));', Tensor, arg.i))
+                 end
+              end
+              return table.concat(txt, '\n')
+          end},
+            {name=Tensor}},
+         cname("squeeze1d"),
+         {{name=Tensor, default=true, returned=true,
+           postcall=
+              function(arg)
+                 local txt = {}
+                 if arg.returned then
+                    table.insert(txt, string.format('if(!hasdims && arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
+                    if Tensor == 'CudaHalfTensor' then
+                       table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)THC_half2float(TH%s_get1d(cutorch_getstate(L), arg%d, 0)));}', Tensor, arg.i))
+                    else
+                       table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(TH%s_get1d(cutorch_getstate(L), arg%d, 0)));}', Tensor, arg.i))
+                    end
+                 end
+                 return table.concat(txt, '\n')
+          end},
+
+            {name=Tensor,
+             precall=
+                function(arg)
+                   return string.format('{int hasdims = arg%d->nDimension > 1;', arg.i)
+            end},
+            {name="index"}})
+
 
     -- BLAS functions
     if real == 'float' or real == 'double' or real == 'half' then
