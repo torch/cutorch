@@ -376,19 +376,28 @@ end
 function test.squeeze()
    local sz = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz, 1, sz, 1)
-   compareFloatAndCuda(x, 'squeeze')
+   for k, typename in ipairs(typenames) do
+      local x = x:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'squeeze')
+   end
 
    local y = x:cuda():squeeze()
    tester:assert(y:dim() == 2, "squeeze err")
 
    x = torch.FloatTensor():rand(sz, 1, 1, sz)
-   compareFloatAndCuda(x, 'squeeze', 2)
+   for k, typename in ipairs(typenames) do
+      local x = x:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'squeeze', 2)
+   end
 
    local y = x:cuda():squeeze(2)
    tester:assert(y:dim() == 3, "squeeze1d err")
 
-   x = torch.FloatTensor(1)
-   compareFloatAndCuda(x, 'squeeze')
+   x = torch.FloatTensor(1):normal()
+   for k, typename in ipairs(typenames) do
+      local x = x:type(typename)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'squeeze')
+   end
 end
 
 function test.expand()
