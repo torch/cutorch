@@ -762,9 +762,24 @@ for k, Tensor_ in pairs(handledTypenames) do
             end},
             {name="index"}})
 
-
-    -- BLAS functions
     if real == 'float' or real == 'double' or real == 'half' then
+       for _,name in ipairs({"log", "log1p", "exp",
+                             "cos", "acos", "cosh",
+                             "sin", "asin", "sinh",
+                             "tan", "atan", "tanh",
+                             "sqrt", "rsqrt", "sigmoid",
+                             "cinv", "ceil", "floor",
+                             "neg", "abs", "sign",
+                             "round", "trunc", "frac"}) do
+
+          wrap(name,
+               cname(name),
+               {{name=Tensor, default=true, returned=true, method={default='nil'}},
+                  {name=Tensor, method={default=1}}})
+
+       end
+
+       -- BLAS functions
        wrap("mv",
             cname("addmv"),
             {{name=Tensor, default=true, returned=true, method={default='nil'},
