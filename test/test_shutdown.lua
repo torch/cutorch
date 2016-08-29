@@ -1,6 +1,8 @@
 local Threads = require 'threads'
 require 'cutorch'
 
+print ("cutorch.hasHalf is ", cutorch.hasHalf)
+
 print('Memory usage before intialization of threads [free memory], [total memory]')
 print(cutorch.getMemoryUsage())
 threads = Threads(100, function() require 'cutorch' end)
