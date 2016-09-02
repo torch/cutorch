@@ -20,7 +20,17 @@ dependencies = {
 build = {
    type = "command",
    build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DLUALIB=$(LUALIB) -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) -j$(getconf _NPROCESSORS_ONLN) install
+
+isTegra=$(uname -a   | grep -E '(tegra|aarch)' | wc | awk '{print $1'})
+if [ "1" -eq "$isTegra"  ]
+  then
+    jopts=3
+  else
+    jopts=$(getconf _NPROCESSORS_ONLN)
+fi
+
+echo "Building on $jopts cores"
+cmake -E make_directory build && cd build && cmake .. -DLUALIB=$(LUALIB) -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) -j$(jopts) install
 ]],
 	platforms = {
       windows = {
