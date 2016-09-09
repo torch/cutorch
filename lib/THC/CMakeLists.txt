@@ -1,3 +1,6 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8 FATAL_ERROR)
+CMAKE_POLICY(VERSION 2.8)
+
 SET(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 IF(NOT Torch_FOUND)
@@ -109,22 +112,31 @@ SET(src-cuda
   THCTensorMath.cu
   THCTensorMath2.cu
   THCTensorMathBlas.cu
-  THCTensorMathCompare.cu
-  THCTensorMathCompareT.cu
   THCTensorMathMagma.cu
   THCTensorMathPairwise.cu
   THCTensorMathPointwise.cu
   THCTensorMathReduce.cu
   THCTensorMathScan.cu
-  THCTensorMasked.cu
   THCTensorIndex.cu
   THCTensorConv.cu
   THCTensorRandom.cu
   THCTensorScatterGather.cu
-  THCTensorSort.cu
   THCTensorTopK.cu
+  THCTensorSort.cu
   THCTensorTypeUtils.cu
   )
+
+# loop over all types
+foreach(THC_TYPE Byte Char Short Int Long Half Float Double)
+   # loop over files which need to be split between types (because of long compile times)
+   foreach(THC_FILE TensorSort TensorMathCompareT TensorMathPointwise TensorMathCompare TensorMathReduce TensorMasked)
+      if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/THC${THC_FILE}${THC_TYPE}.cu")
+         FILE(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/generated/THC${THC_FILE}${THC_TYPE}.cu"
+              "#include \"../THC${THC_FILE}.cuh\"\n#include \"../generic/THC${THC_FILE}.cu\"\n#include \"../THCGenerate${THC_TYPE}Type.h\"\n")
+      endif()
+      LIST(APPEND src-cuda "${CMAKE_CURRENT_SOURCE_DIR}/generated/THC${THC_FILE}${THC_TYPE}.cu")
+   endforeach()
+endforeach()
 
 MESSAGE(STATUS "got cuda version " ${CUDA_VERSION})
 
@@ -176,8 +188,17 @@ INSTALL(FILES
           THCDeviceTensorUtils.cuh
           THCDeviceTensorUtils-inl.cuh
           THCGenerateAllTypes.h
+          THCGenerateByteType.h
+          THCGenerateCharType.h
+          THCGenerateShortType.h
+          THCGenerateIntType.h
+          THCGenerateLongType.h
+          THCGenerateHalfType.h
+          THCGenerateFloatType.h
+          THCGenerateDoubleType.h
           THCHalf.h
           THCNumerics.cuh
+          THCTensorSort.cuh
           THCTensorInfo.cuh
           THCTensorTypeUtils.cuh
           DESTINATION "${THC_INSTALL_INCLUDE_SUBDIR}/THC")

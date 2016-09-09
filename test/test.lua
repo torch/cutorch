@@ -24,6 +24,11 @@ local typenames = {
     'torch.CudaDoubleTensor'
 }
 
+local float_typenames = {
+    'torch.CudaTensor',
+    'torch.CudaDoubleTensor'
+}
+
 local t2gpu = {
    ['torch.ByteTensor'] = 'torch.CudaByteTensor',
    ['torch.CharTensor'] = 'torch.CudaCharTensor',
@@ -50,6 +55,7 @@ end
 local function checkHalf()
    if cutorch.hasHalf then
        table.insert(typenames, 'torch.CudaHalfTensor')
+       table.insert(float_typenames, 'torch.CudaHalfTensor')
        t2cpu['torch.CudaHalfTensor'] = 'torch.FloatTensor'
    end
 end
@@ -1127,14 +1133,6 @@ function test.cumprod()
    checkMultiDevice(x, 'cumprod', 1)
 end
 
-function test.round()
-   local sz1 = chooseInt(minsize, maxsize)
-   local sz2 = chooseInt(minsize, maxsize)
-   local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'round')
-   checkMultiDevice(x, 'round')
-end
-
 function test.var()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
@@ -1204,8 +1202,11 @@ local function testUnary1(fn)
    local function test()
       local sz1 = chooseInt(minsize, maxsize)
       local sz2 = chooseInt(minsize, maxsize)
-      local x = torch.FloatTensor():rand(sz1, sz2)
-      compareFloatAndCudaTensorArgs(x, fn)
+      local x = torch.DoubleTensor():rand(sz1, sz2)
+      for k, typename in ipairs(float_typenames) do
+         local x = x:type(t2cpu[typename]):clone()
+         compareCPUAndCUDATypeTensorArgs(typename, nil, x, fn)
+      end
    end
    return test
 end
@@ -1214,9 +1215,13 @@ local function testUnary2(fn)
    local function test()
       local sz1 = chooseInt(minsize, maxsize)
       local sz2 = chooseInt(minsize, maxsize)
-      local x = torch.FloatTensor():rand(sz1, sz2)
-      local y = torch.FloatTensor()
-      compareFloatAndCudaTensorArgs(y, fn, x)
+      local x = torch.DoubleTensor():rand(sz1, sz2)
+      local y = torch.DoubleTensor()
+      for k, typename in ipairs(float_typenames) do
+          local x = x:type(t2cpu[typename]):clone()
+          local y = y:type(t2cpu[typename]):clone()
+         compareCPUAndCUDATypeTensorArgs(typename, nil, y, fn, x)
+      end
       checkMultiDevice(y, fn, x)
    end
    return test
@@ -1229,7 +1234,7 @@ for _,name in ipairs({"log", "log1p", "exp",
                       "sqrt", "neg", "sigmoid",
                       "ceil", "floor", "frac",
                       "trunc", "cinv", "abs",
-                      "sign"}) do
+                      "sign", "round"}) do
 
    test[name .. "1"] = testUnary1(name)
    test[name .. "2"] = testUnary2(name)
