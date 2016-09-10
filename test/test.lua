@@ -1202,7 +1202,7 @@ function test.trace()
 end
 
 -- Test element-wise unary operators with both one and two arguments.
-local function testUnary1(fnp)
+local function testUnary1(fnp, types)
    local fn = fnp[1]
    local min = fnp[2]
    local max = fnp[3]
@@ -1210,7 +1210,7 @@ local function testUnary1(fnp)
       local sz1 = chooseInt(minsize, maxsize)
       local sz2 = chooseInt(minsize, maxsize)
       local x = torch.DoubleTensor(sz1, sz2):uniform(min, max)
-      for k, typename in ipairs(float_typenames) do
+      for k, typename in ipairs(types and types or float_typenames) do
          local x = x:type(t2cpu[typename]):clone()
          compareCPUAndCUDATypeTensorArgs(typename, nil, x, fn)
       end
@@ -1218,7 +1218,7 @@ local function testUnary1(fnp)
    return test
 end
 
-local function testUnary2(fnp)
+local function testUnary2(fnp, types)
    local fn = fnp[1]
    local min = fnp[2]
    local max = fnp[3]
@@ -1227,7 +1227,7 @@ local function testUnary2(fnp)
       local sz2 = chooseInt(minsize, maxsize)
       local x = torch.DoubleTensor(sz1, sz2):uniform(min, max)
       local y = torch.DoubleTensor()
-      for k, typename in ipairs(float_typenames) do
+      for k, typename in ipairs(types and types or float_typenames) do
           local x = x:type(t2cpu[typename]):clone()
           local y = y:type(t2cpu[typename]):clone()
          compareCPUAndCUDATypeTensorArgs(typename, nil, y, fn, x)
@@ -1258,7 +1258,6 @@ for _,name in ipairs({
       {"frac", -100, 100},
       {"trunc", -100, 100},
       {"cinv", -2, 2},
-      {"abs", -100, 100},
       {"sign", -100, 100},
       {"round", -100, 100}}) do
 
@@ -1266,6 +1265,11 @@ for _,name in ipairs({
    test[name[1] .. "2"] = testUnary2(name)
 
 end
+
+test["abs1"] = testUnary1({"abs", -100, 100}, {'torch.CudaIntTensor',
+                                               'torch.CudaLongTensor'})
+test["abs2"] = testUnary2({"abs", -100, 100}, {'torch.CudaIntTensor',
+                                               'torch.CudaLongTensor'})
 
 function test.rsqrt()
    local old_tolerance = test_tolerance
