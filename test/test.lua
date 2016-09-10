@@ -5,8 +5,8 @@ if not cutorch then
 end
 
 local test = {}
-local minsize = 100
-local maxsize = 500
+local minsize = 5
+local maxsize = 10
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -370,12 +370,16 @@ local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
       errstr = errstr .. " in indexMode = " .. tostring(indexMode)
    end
    errstr = errstr .. " for return value # %d"
-
+   errstr = errstr .. ". Divergence value: %f"
    tester:assert(#rcpu == #rcuda,
 		 string.format("number of return arguments for CPU and CUDA "
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
-      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance), string.format(errstr, k))
+      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
+                    string.format(errstr, k,
+                                  torch.isTensor(rcpu[k])
+                                     and (rcpu[k]:double()
+                                             - rcuda[k]:double()):abs():max() or 0))
    end
 end
 
@@ -1198,11 +1202,14 @@ function test.trace()
 end
 
 -- Test element-wise unary operators with both one and two arguments.
-local function testUnary1(fn)
+local function testUnary1(fnp)
+   local fn = fnp[1]
+   local min = fnp[2]
+   local max = fnp[3]
    local function test()
       local sz1 = chooseInt(minsize, maxsize)
       local sz2 = chooseInt(minsize, maxsize)
-      local x = torch.DoubleTensor():rand(sz1, sz2)
+      local x = torch.DoubleTensor(sz1, sz2):uniform(min, max)
       for k, typename in ipairs(float_typenames) do
          local x = x:type(t2cpu[typename]):clone()
          compareCPUAndCUDATypeTensorArgs(typename, nil, x, fn)
@@ -1211,11 +1218,14 @@ local function testUnary1(fn)
    return test
 end
 
-local function testUnary2(fn)
+local function testUnary2(fnp)
+   local fn = fnp[1]
+   local min = fnp[2]
+   local max = fnp[3]
    local function test()
       local sz1 = chooseInt(minsize, maxsize)
       local sz2 = chooseInt(minsize, maxsize)
-      local x = torch.DoubleTensor():rand(sz1, sz2)
+      local x = torch.DoubleTensor(sz1, sz2):uniform(min, max)
       local y = torch.DoubleTensor()
       for k, typename in ipairs(float_typenames) do
           local x = x:type(t2cpu[typename]):clone()
@@ -1227,17 +1237,33 @@ local function testUnary2(fn)
    return test
 end
 
-for _,name in ipairs({"log", "log1p", "exp",
-                      "cos", "acos", "cosh",
-                      "sin", "asin", "sinh",
-                      "tan", "atan", "tanh",
-                      "sqrt", "neg", "sigmoid",
-                      "ceil", "floor", "frac",
-                      "trunc", "cinv", "abs",
-                      "sign", "round"}) do
+for _,name in ipairs({
+      {"log", 0.001, 2},
+      {"log1p", -0.9, 2},
+      {"exp", -2, 2},
+      {"cos", -2, 2},
+      {"acos", -1, 1},
+      {"cosh", -2, 2},
+      {"sin", -2, 2},
+      {"asin", -1, 1},
+      {"sinh", -2, 2},
+      {"tan", -2, 2},
+      {"atan", -2, 2},
+      {"tanh", -2, 2},
+      {"sqrt", 0, 2},
+      {"neg", -100, 100},
+      {"sigmoid", -2, 2},
+      {"ceil", -100, 100},
+      {"floor", -100, 100},
+      {"frac", -100, 100},
+      {"trunc", -100, 100},
+      {"cinv", -2, 2},
+      {"abs", -100, 100},
+      {"sign", -100, 100},
+      {"round", -100, 100}}) do
 
-   test[name .. "1"] = testUnary1(name)
-   test[name .. "2"] = testUnary2(name)
+   test[name[1] .. "1"] = testUnary1(name)
+   test[name[1] .. "2"] = testUnary2(name)
 
 end
 
