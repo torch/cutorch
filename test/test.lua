@@ -1202,14 +1202,14 @@ function test.trace()
 end
 
 -- Test element-wise unary operators with both one and two arguments.
-local function testUnary1(fnp, types)
+local function testUnary1(fnp, types, tensor)
    local fn = fnp[1]
    local min = fnp[2]
    local max = fnp[3]
    local function test()
       local sz1 = chooseInt(minsize, maxsize)
       local sz2 = chooseInt(minsize, maxsize)
-      local x = torch.DoubleTensor(sz1, sz2):uniform(min, max)
+      local x = tensor and tensor or torch.DoubleTensor(sz1, sz2):uniform(min, max)
       for k, typename in ipairs(types and types or float_typenames) do
          local x = x:type(t2cpu[typename]):clone()
          compareCPUAndCUDATypeTensorArgs(typename, nil, x, fn)
@@ -1258,7 +1258,6 @@ for _,name in ipairs({
       {"frac", -100, 100},
       {"trunc", -100, 100},
       {"cinv", -2, 2},
-      {"sign", -100, 100},
       {"round", -100, 100}}) do
 
    test[name[1] .. "1"] = testUnary1(name)
@@ -1270,6 +1269,11 @@ test["abs1"] = testUnary1({"abs", -100, 100}, {'torch.CudaIntTensor',
                                                'torch.CudaLongTensor'})
 test["abs2"] = testUnary2({"abs", -100, 100}, {'torch.CudaIntTensor',
                                                'torch.CudaLongTensor'})
+
+
+test["sign1"] = testUnary1({"sign", -100, 100}, typenames)
+test["sign2"] = testUnary2({"sign", -100, 100}, typenames)
+test["sign3"] = testUnary1({"sign", -100, 100}, typenames, torch.ByteTensor(10):fill(0))
 
 function test.rsqrt()
    local old_tolerance = test_tolerance

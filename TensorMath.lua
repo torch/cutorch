@@ -767,6 +767,11 @@ for k, Tensor_ in pairs(handledTypenames) do
          {{name=Tensor, default=true, returned=true, method={default='nil'}},
              {name=Tensor, method={default=1}}})
 
+    wrap("sign",
+         cname("sign"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+             {name=Tensor, method={default=1}}})
+
     if real == 'float' or real == 'double' or real == 'half' then
        for _,name in ipairs({"log", "log1p", "exp",
                              "cos", "acos", "cosh",
@@ -774,8 +779,7 @@ for k, Tensor_ in pairs(handledTypenames) do
                              "tan", "atan", "tanh",
                              "sqrt", "rsqrt", "sigmoid",
                              "cinv", "ceil", "floor",
-                             "neg", "sign",
-                             "round", "trunc", "frac"}) do
+                             "neg", "round", "trunc", "frac"}) do
 
           wrap(name,
                cname(name),
