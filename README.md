@@ -105,3 +105,4 @@ Compared to version 1.0, these are the following API changes:
 
 | operators | CPU | CUDA |
 |---|---|---|
+| diagnal | `:diag()` | `N/A` |
