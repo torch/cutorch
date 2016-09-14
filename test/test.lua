@@ -286,11 +286,12 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
 end
 
 -- converts a tensor to it's exact GPU type
-local function GPU(t)
+local function GPU(t, gpu2cpu_map)
+   gpu2cpu_map = gpu2cpu_map or t2gpu
    if torch.isTensor(t) or torch.isStorage(t) then
-      return torch[t2gpu[torch.type(t)]:match('torch.(%a+)')] or t
+      return torch[gpu2cpu_map[torch.type(t)]:match('torch.(%a+)')] or t
    elseif torch.type(t) == 'string' then
-      return torch[t2gpu[t]:match('torch.(%a+)')]
+      return torch[gpu2cpu_map[t]:match('torch.(%a+)')]
    end
    error('not tensor or storage')
 end
@@ -306,17 +307,17 @@ local function CPU(t)
 end
 
 -- exactly clone a tensor (same size / storage) to it's equivalent GPU type
--- if baseType is given, conver to the baseType's GPU type instead
-local function cloneExactlyToGPUType(t, baseType)
+-- if baseType is given, convert to the baseType's GPU type instead
+local function cloneExactlyToGPUType(t, baseType, gpu2cpu_map)
    local type = baseType and baseType or t
    -- keep the size/stride of original tensor, handling tensors that
    -- potentially have holes as well
    local tGPU = nil
    if t:storage() then
-      local sGPU = GPU(type).new(1):storage().new(t:storage():size()):copy(t:storage())
-      tGPU = GPU(type)(sGPU, t:storageOffset(), t:size(), t:stride())
+      local sGPU = GPU(type, gpu2cpu_map).new(1):storage().new(t:storage():size()):copy(t:storage())
+      tGPU = GPU(type, gpu2cpu_map)(sGPU, t:storageOffset(), t:size(), t:stride())
    else
-      tGPU = GPU(type)()
+      tGPU = GPU(type, gpu2cpu_map)()
    end
 
    return tGPU
@@ -326,13 +327,14 @@ end
 -- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
 --             false: convert then to baseType when doing CUDA
 -- x = first argument tensor
+-- gpu2cpu_map = map of gpu types to cpu types
 -- fn = function name (as string), or the function)
 -- ... = the rest of arguments to fn
-local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
+local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, indexMode, x, fn, ...)
    local baseType = t2cpu[cudaType]
    assert(baseType, 'Cannot find baseType for ' .. cudaType)
    local x_cpu = x:type(baseType)
-   local x_cuda = cloneExactlyToGPUType(x_cpu)
+   local x_cuda = cloneExactlyToGPUType(x_cpu, nil, gpu2cpu_map)
 
    local rcpu = {}
    local rcuda = {}
@@ -341,9 +343,9 @@ local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
       for k,v in pairs(t) do
 	 if torch.isTensor(v) or torch.isStorage(v) then
 	    if indexMode == true then
-                t[k] = cloneExactlyToGPUType(v)
+                t[k] = cloneExactlyToGPUType(v, nil, gpu2cpu_map)
 	    else
-                t[k] = cloneExactlyToGPUType(v, x_cpu)
+                t[k] = cloneExactlyToGPUType(v, x_cpu, gpu2cpu_map)
 	    end
          end
       end
@@ -369,18 +371,34 @@ local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
    if indexMode ~= nil then
       errstr = errstr .. " in indexMode = " .. tostring(indexMode)
    end
-   errstr = errstr .. " for return value # %d"
-   errstr = errstr .. ". Divergence value: %f"
+   errstrval = errstr .. " for return value # %d"
+   errstrval = errstrval .. ". Divergence value: %f"
+   errstrobj = errstr .. " for object"
+   errstrobj = errstrobj .. ". Divergence value: %f"
+   local function divval(cpu, cuda)
+      return torch.isTensor(cpu) and (cpu:double() - cuda:double()):abs():max() or 0
+   end
+
    tester:assert(#rcpu == #rcuda,
 		 string.format("number of return arguments for CPU and CUDA "
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
       tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
-                    string.format(errstr, k,
-                                  torch.isTensor(rcpu[k])
-                                     and (rcpu[k]:double()
-                                             - rcuda[k]:double()):abs():max() or 0))
+                    string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
    end
+   -- also test x in case function changed object
+   tester:assert(isEqual(x_cpu, x_cuda, tolerance),
+                 string.format(errstrobj, divval(x_cpu, x_cuda)))
+end
+
+-- baseType = the tensor type to test
+-- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
+--             false: convert then to baseType when doing CUDA
+-- x = first argument tensor
+-- fn = function name (as string), or the function)
+-- ... = the rest of arguments to fn
+local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
+   compareCPUAndCUDATypeTensorArgsWithConv(cudaType, nil, indexMode, x, fn, ...)
 end
 
 function test.squeeze()
@@ -1485,31 +1503,58 @@ function test.indexCopy()
    checkMultiDevice(x, 'indexCopy', index, longIndex, src)
 end
 
-function test.indexAdd()
+local function testIndexAdd(types, gpu2cpu_map)
    local sz1 = chooseInt(minsize, maxsize) -- dim1
    local sz2 = chooseInt(minsize, maxsize) -- dim2
    local x = torch.FloatTensor():rand(sz1, sz2) -- input
-
 
    -- Case 1: 2D tensor, indexAdd over first dimension, 2 indices
    -- choose two indices from the first dimension, i.e. [1,sz1]
    local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
    local src = torch.FloatTensor(2, sz2):uniform()
-   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+
+   for k, typename in ipairs(types) do
+      local ctype = t2cpu[typename]
+      local x, src = x:type(ctype), src:type(ctype)
+      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+                                              index, longIndex, src)
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
+          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+                                                  index, longIndex, src)
+      end
+   end
 
    -- Case 2: 2D tensor, indexAdd over second dimension, 2 indices
    index = 2
    longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
    src = torch.FloatTensor(sz1, 2):uniform():cuda()
-   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+   for k, typename in ipairs(types) do
+      local ctype = t2cpu[typename]
+      local x, src = x:type(ctype), src:type(ctype)
+      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+                                              index, longIndex, src)
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
+          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+                                                  index, longIndex, src)
+      end
+   end
 
    -- Case 3: 1D tensor, indexAdd over 1st dimension, 2 indices
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    src = torch.FloatTensor(2):uniform()
-   compareFloatAndCudaTensorArgs(x, 'indexAdd', index, longIndex, src)
+   for k, typename in ipairs(types) do
+      local ctype = t2cpu[typename]
+      local x, src = x:type(ctype), src:type(ctype)
+      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+                                              index, longIndex, src)
+      if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
+          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+                                                  index, longIndex, src)
+      end
+   end
 
    tester:assert(isEqual(
       x:cuda():indexAdd(index, longIndex:cuda(), src:cuda()),
@@ -1517,6 +1562,26 @@ function test.indexAdd()
       "Divergent results between CPU and CUDA for function 'indexAdd'")
 
    checkMultiDevice(x, 'indexAdd', index, longIndex, src)
+end
+
+function test.indexAdd()
+   testIndexAdd(typenames)
+end
+
+function test.indexAddHalf()
+   -- don't have cpu versions of half, so let's compare with float.
+   -- additional divergence due to float/half:
+   -- half_digits_precision = log10(2^11) ~ 3, reserve another
+   -- digit to be safe
+   local old_tolerance = test_tolerance
+   test_tolerance = test_tolerance + 1e-2;
+   local halfOnly = { 'torch.CudaHalfTensor' }
+   local halft2gpu2 = {
+      ['torch.FloatTensor'] = 'torch.CudaHalfTensor',
+      ['torch.LongTensor'] = 'torch.CudaLongTensor'
+   }
+   testIndexAdd(halfOnly, halft2gpu2)
+   local test_tolerance =  old_tolerance
 end
 
 function test.indexFill()

@@ -504,7 +504,6 @@ static int torch_Tensor_(indexCopy)(lua_State *L)
   return 1;
 }
 
-#ifdef THC_REAL_IS_FLOAT
 static int torch_Tensor_(indexAdd)(lua_State *L)
 {
   int narg = lua_gettop(L);
@@ -552,7 +551,6 @@ static int torch_Tensor_(indexAdd)(lua_State *L)
 
   return 1;
 }
-#endif
 
 static int torch_Tensor_(indexFill)(lua_State *L)
 {
@@ -1401,9 +1399,7 @@ static const struct luaL_Reg torch_Tensor_(_) [] = {
   {"select", torch_Tensor_(select)},
   {"index", torch_Tensor_(indexSelect)},
   {"indexCopy", torch_Tensor_(indexCopy)},
-#ifdef THC_REAL_IS_FLOAT
   {"indexAdd", torch_Tensor_(indexAdd)},
-#endif
   {"indexFill", torch_Tensor_(indexFill)},
   {"transpose", torch_Tensor_(transpose)},
   {"t", torch_Tensor_(t)},
