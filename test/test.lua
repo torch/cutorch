@@ -2488,6 +2488,8 @@ function test.get_device()
        cutorch.setDevice(i)
        tensors[i]:resize(1, 2, 3)
        tester:assert(tensors[i]:getDevice() == i, "tensor does not have the correct deviceID")
+       tester:assert(tensors[i]:getDevice() == tensors[i]:storage():getDevice(),
+          "tensor's device id doesn't match its storage's device id")
     end
     cutorch.setDevice(1) -- reset device
 end
