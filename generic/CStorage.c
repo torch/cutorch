@@ -141,6 +141,12 @@ static int TH_CONCAT_3(cutorch_,Real,Storage_copy)(lua_State *L)
 }
 #endif
 
+static int cutorch_Storage_(getDevice)(lua_State *L) {
+  THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
+  lua_pushinteger(L, THCStorage_(getDevice)(cutorch_getstate(L), storage) + 1);
+  return 1;
+}
+
 void cutorch_Storage_(init)(lua_State* L)
 {
   /* the standard stuff */
@@ -158,6 +164,11 @@ void cutorch_Storage_(init)(lua_State* L)
   luaT_pushmetatable(L, torch_Storage);
   lua_pushcfunction(L, cutorch_Storage_(copy));
   lua_setfield(L, -2, "copy");
+  lua_pop(L, 1);
+
+  luaT_pushmetatable(L, torch_Storage);
+  lua_pushcfunction(L, cutorch_Storage_(getDevice));
+  lua_setfield(L, -2, "getDevice");
   lua_pop(L, 1);
 }
 
