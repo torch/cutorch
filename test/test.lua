@@ -1573,15 +1573,17 @@ function test.indexAddHalf()
    -- additional divergence due to float/half:
    -- half_digits_precision = log10(2^11) ~ 3, reserve another
    -- digit to be safe
-   local old_tolerance = test_tolerance
-   test_tolerance = test_tolerance + 1e-2;
-   local halfOnly = { 'torch.CudaHalfTensor' }
-   local halft2gpu2 = {
-      ['torch.FloatTensor'] = 'torch.CudaHalfTensor',
-      ['torch.LongTensor'] = 'torch.CudaLongTensor'
-   }
-   testIndexAdd(halfOnly, halft2gpu2)
-   local test_tolerance =  old_tolerance
+   if cutorch.hasHalf then
+      local old_tolerance = test_tolerance
+      test_tolerance = test_tolerance + 1e-2;
+      local halfOnly = { 'torch.CudaHalfTensor' }
+      local halft2gpu2 = {
+        ['torch.FloatTensor'] = 'torch.CudaHalfTensor',
+        ['torch.LongTensor'] = 'torch.CudaLongTensor'
+      }
+      testIndexAdd(halfOnly, halft2gpu2)
+      local test_tolerance =  old_tolerance
+  end
 end
 
 function test.indexFill()
