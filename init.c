@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
+#include "THCCachingAllocator.h"
 #include "THCTensorRandom.h"
 #include "THCHalf.h" // for CUDA_HALF_TENSOR
 
@@ -955,6 +956,13 @@ int luaopen_libcutorch(lua_State *L)
   luaL_setfuncs(L, cutorch_stuff__, 0);
 
   THCState* state = (THCState*)malloc(sizeof(THCState));
+  memset(state, 0, sizeof(THCState));
+
+  char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
+  if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
+    THCCachingAllocator_init(&state->cudaDeviceAllocator);
+  }
+
   THCudaInit(state);
 
   /* Register torch.CudaHostAllocator. */
@@ -1028,7 +1036,7 @@ int luaopen_libcutorch(lua_State *L)
   int driverVersion;
   THCudaCheck(cudaDriverGetVersion(&driverVersion));
   lua_pushinteger(L, driverVersion);
-  lua_setfield(L, -2, "driverVersion");  
+  lua_setfield(L, -2, "driverVersion");
 
   /* when cutorch goes out of scope, we need to make sure THCState is properly
      shut down (so that memory doesn not leak. Since _state is a lightuserdata
