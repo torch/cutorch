@@ -27,6 +27,11 @@ Most other (besides float) CPU torch tensor types now have a cutorch equivalent,
 
 **Note:** these are currently limited to copying/conversion, and several indexing and shaping operations (e.g. `narrow`, `select`, `unfold`, `transpose`).
 
+### CUDA memory allocation
+Set the environment variable `THC_CACHING_ALLOCATOR=1` to enable the caching CUDA memory allocator.
+
+By default, cutorch calls `cudaMalloc` and `cudaFree` when CUDA tensors are allocated and freed. This is expensive because `cudaFree` synchronizes the CPU with the GPU. Setting `THC_CACHING_ALLOCATOR=1` will cause cutorch to cache and re-use CUDA allocations to avoid synchronizations.
+
 ###`cutorch.*` API
 - `cutorch.synchronize()` : All of the CUDA API is asynchronous (barring a few functions), which means that you can queue up operations. To wait for the operations to finish, you can issue `cutorch.synchronize()` in your code, when the code waits for all GPU operations on the current GPU to finish. WARNING: synchronizes the CPU host with respect to the current device (as per `cutorch.getDevice()`) only.
 - `cutorch.synchronizeAll()` : Same as `cutorch.synchronize()` except synchronizes the CPU host with all visible GPU devices in the system. Equivalent to calling `cutorch.synchronize()` once per each device.
