@@ -662,6 +662,15 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor},
             {name="index"}})
 
+    wrap("mean",
+         cname("meanall"),
+         {{name=Tensor},
+          {name=accreal, creturned=true}},
+         cname("mean"),
+         {{name=Tensor, default=true, returned=true},
+            {name=Tensor},
+            {name="index"}})
+
     wrap("maskedFill",
          cname("maskedFill"),
          {{name=Tensor, returned=true, method={default='nil'}},
@@ -1601,8 +1610,8 @@ wrap("mean",
       {name=real, creturned=true}},
      cname("mean"),
      {{name=Tensor, default=true, returned=true},
-      {name=Tensor},
-      {name="index"}})
+        {name=Tensor},
+        {name="index"}})
 
 for _,name in ipairs({"var", "std"}) do
    wrap(name,
