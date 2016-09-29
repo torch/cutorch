@@ -141,13 +141,12 @@ struct THCCachingAllocator
       return cudaSuccess;
     }
 
-    auto it = allocated_blocks.find((void*)ptr);
+    auto it = allocated_blocks.find(ptr);
     if (it == allocated_blocks.end()) {
       return cudaErrorInvalidDevicePointer;
     }
 
     Block* block = it->second;
-    //int device = block->device;
     allocated_blocks.erase(it);
 
     bool small = block->size <= kSmallAlloc;
