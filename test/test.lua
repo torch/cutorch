@@ -233,8 +233,10 @@ local function compareFloatAndCuda(x, fn, ...)
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
       if not isEqual(rcpu[k], rcuda[k], tolerance) then
-	 print(args)
-	 tester:assert(false, errstr)
+        print(string.format("cpu results: %s", tostring(rcpu[k])))
+        print(string.format("cuda results: %s", tostring(rcuda[k])))
+	      print(args)
+	      tester:assert(false, errstr)
       end
    end
 end
