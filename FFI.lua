@@ -20,14 +20,10 @@ typedef struct THCState
 {
   struct THCRNGState* rngState;
   struct cudaDeviceProp* deviceProperties;
-  cudaStream_t currentStream;
-  cublasHandle_t currentBlasHandle;
   THCCudaResourcesPerDevice* resourcesPerDevice;
   int numDevices;
   int numUserStreams;
   int numUserBlasHandles;
-  int currentPerDeviceStream;
-  int currentPerDeviceBlasHandle;
   struct THAllocator* cudaHostAllocator;
 } THCState;
 
