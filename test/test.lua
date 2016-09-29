@@ -979,9 +979,10 @@ function test.mean()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'mean')
-   compareFloatAndCuda(x, 'mean', 1)
-   compareFloatAndCuda(x, 'mean', 2)
+   for k, typename in ipairs(typenames) do
+     local x = x:type(t2cpu[typename])
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'zero')
+   end
    checkMultiDevice(x, 'mean')
    checkMultiDevice(x, 'mean', 1)
 end
