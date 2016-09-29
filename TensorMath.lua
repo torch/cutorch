@@ -797,6 +797,15 @@ for k, Tensor_ in pairs(handledTypenames) do
 
        end
 
+
+      wrap("renorm",
+           cname("renorm"),
+          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real},
+            {name="index"},
+            {name=real}})
+
        -- BLAS functions
        wrap("mv",
             cname("addmv"),

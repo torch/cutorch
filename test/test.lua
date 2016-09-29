@@ -1659,6 +1659,11 @@ function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
 
+   for _, typename in ipairs(float_typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'renorm', 2, 2, maxnorm)
+   end
+
    compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
 
    x = torch.randn(3,4,5)
