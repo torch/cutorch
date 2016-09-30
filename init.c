@@ -1032,6 +1032,10 @@ int luaopen_libcutorch(lua_State *L)
 #endif
   lua_setfield(L, -2, "hasHalf");
 
+  /* true fp16 vs pseudo-fp16 mode: this one is per device */
+  lua_pushboolean(L, THC_nativeHalfInstructions(state));
+  lua_setfield(L, -2, "hasHalfInstructions");
+
   /* store gpu driver version in field */
   int driverVersion;
   THCudaCheck(cudaDriverGetVersion(&driverVersion));
