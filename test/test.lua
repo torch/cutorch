@@ -1647,6 +1647,16 @@ function test.indexFill()
 end
 
 function test.norm()
+   for n = 0, 3 do
+     local cpu = torch.FloatTensor(chooseInt(20, 50), 2):uniform(-0.5, 0.5)
+     for _, typename in ipairs(float_typenames) do
+        local x = cpu:type(t2cpu[typename])
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'norm', n)
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'norm', n, 1)
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'norm', n, 2)
+     end
+   end
+
    for i = 1, 5 do
       for n = 0, 3 do
          local cpu = torch.FloatTensor(chooseInt(20, 50), 2):uniform(-0.5, 0.5)

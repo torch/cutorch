@@ -797,6 +797,16 @@ for k, Tensor_ in pairs(handledTypenames) do
 
        end
 
+      wrap("norm",
+           cname("normall"),
+           {{name=Tensor},
+            {name=real, default=2},
+            {name=accreal, creturned=true}},
+           cname("norm"),
+           {{name=Tensor, default=true, returned=true},
+            {name=Tensor},
+            {name=real},
+            {name="index"}})
 
       wrap("renorm",
            cname("renorm"),
