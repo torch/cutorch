@@ -344,7 +344,7 @@ static int cutorch_setStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   int stream = (int) luaL_checknumber(L, 1);
-  THCState_setStreamForCurrentDevice(state, stream);
+  THCState_setCurrentStreamIndex(state, stream);
 
   return 0;
 }
@@ -366,7 +366,7 @@ static int cutorch_setBlasHandle(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   int handle = (int) luaL_checknumber(L, 1);
-  THCState_setBlasHandleForCurrentDevice(state, handle);
+  THCState_setCurrentBlasHandleIndex(state, handle);
 
   return 0;
 }
@@ -408,8 +408,7 @@ static int cutorch_getBlasHandle(lua_State *L)
 static int cutorch_setDefaultStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
-  THCState_setStreamForCurrentDevice(state, 0);
-
+  THCState_setCurrentStreamIndex(state, 0);
 
   return 0;
 }
@@ -719,12 +718,6 @@ static int cutorch_setDevice(lua_State *L)
   THCState *state = cutorch_getstate(L);
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
-  THCRandom_setGenerator(state, device);
-
-  /* The stream is per device, so update the stream as well */
-  THCState_setStream(state, device, THCState_getCurrentStreamIndex(state));
-  THCState_setBlasHandle(state, device, THCState_getCurrentBlasHandleIndex(state));
-
   return 0;
 }
 
@@ -903,7 +896,7 @@ static int cutorch_shutdown(lua_State *L)
 {
   THCState **state = (THCState **) lua_topointer(L, 1);
   THCudaShutdown(*state);
-  free(*state);
+  THCState_free(*state);
   return 0;
 }
 
@@ -955,18 +948,17 @@ int luaopen_libcutorch(lua_State *L)
   lua_setglobal(L, "cutorch");
   luaL_setfuncs(L, cutorch_stuff__, 0);
 
-  THCState* state = (THCState*)malloc(sizeof(THCState));
-  memset(state, 0, sizeof(THCState));
+  THCState* state = THCState_alloc();
 
   char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
   if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
-    THCCachingAllocator_init(&state->cudaDeviceAllocator);
+    THCCachingAllocator_init(THCState_getDeviceAllocator(state));
   }
 
   THCudaInit(state);
 
   /* Register torch.CudaHostAllocator. */
-  luaT_pushudata(L, state->cudaHostAllocator, "torch.Allocator");
+  luaT_pushudata(L, THCState_getCudaHostAllocator(state), "torch.Allocator");
   lua_setfield(L, -2, "CudaHostAllocator");
 
 #ifdef USE_MAGMA
