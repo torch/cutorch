@@ -1175,11 +1175,16 @@ function test.std()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'std')
-   compareFloatAndCuda(x, 'std', 1, true)
-   compareFloatAndCuda(x, 'std', 1, false)
-   compareFloatAndCuda(x, 'std', 2, true)
-   compareFloatAndCuda(x, 'std', 2, false)
+
+   for _, typename in ipairs(float_typenames) do
+     local x = x:type(t2cpu[typename])
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std')
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 1, true)
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 1, false)
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 2, true)
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 2, false)
+   end
+
    checkMultiDevice(x, 'std')
    checkMultiDevice(x, 'std', 1)
 end

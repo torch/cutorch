@@ -806,6 +806,16 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name="index"},
             {name=real}})
 
+     wrap("std",
+          cname("stdall"),
+          {{name=Tensor},
+           {name=accreal, creturned=true}},
+          cname("std"),
+          {{name=Tensor, default=true, returned=true},
+           {name=Tensor},
+           {name="index"},
+           {name="boolean", default=false}})
+
        -- BLAS functions
        wrap("mv",
             cname("addmv"),
