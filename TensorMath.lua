@@ -589,6 +589,13 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor, method={default=1}},
             {name=real}})
 
+    wrap("clamp",
+         cname("clamp"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+          {name=Tensor, method={default=1}},
+          {name=real},
+          {name=real}})
+
     wrap("div",
          cname("div"),
          {{name=Tensor, default=true, returned=true, method={default='nil'}},

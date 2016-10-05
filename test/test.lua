@@ -1372,7 +1372,12 @@ function test.clamp1()
    if sz2 >= 2 then
      x[1][2] = max_val + 1
    end
-   compareFloatAndCudaTensorArgs(x, 'clamp', min_val, max_val)
+   for _, typename in ipairs(typenames) do
+      if typename ~= 'torch.CudaCharTensor' and typename ~= 'torch.CudaByteTensor' then
+        local x = x:type(t2cpu[typename])
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'clamp', min_val, max_val);
+      end
+   end
    checkMultiDevice(x, 'clamp', min_val, max_val)
 end
 
@@ -1387,8 +1392,51 @@ function test.clamp2()
      x[1][2] = max_val + 1
    end
    local y = torch.FloatTensor():resizeAs(x)
-   compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
+   for _, typename in ipairs(typenames) do
+      if typename ~= 'torch.CudaCharTensor' and typename ~= 'torch.CudaByteTensor' then
+        local x = x:type(t2cpu[typename])
+        local y = y:type(t2cpu[typename])
+        compareCPUAndCUDATypeTensorArgs(typename, nil, y, 'clamp', x, min_val, max_val);
+      end
+   end
    checkMultiDevice(y, 'clamp', x, min_val, max_val)
+end
+
+-- same as clamp1, clamp2 but only allow positive values
+function test.clamp3()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2):mul(5);
+   local min_val = 1
+   local max_val = 3
+   x[1][1] = min_val - 1
+   if sz2 >= 2 then
+     x[1][2] = max_val + 1
+   end
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'clamp', min_val, max_val);
+   end
+   checkMultiDevice(x, 'clamp', min_val, max_val)
+end
+
+function test.clamp4()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2):mul(5);
+   local min_val = 1
+   local max_val = 3
+   x[1][1] = min_val - 1
+   if sz2 >= 2 then
+     x[1][2] = max_val + 1
+   end
+   local y = torch.FloatTensor():resizeAs(x)
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      local y = y:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, y, 'clamp', x, min_val, max_val);
+   end
+   checkMultiDevice(x, 'clamp', min_val, max_val)
 end
 
 function test.index()
