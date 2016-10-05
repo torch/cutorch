@@ -1160,11 +1160,16 @@ function test.var()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'var')
-   compareFloatAndCuda(x, 'var', 1, true)
-   compareFloatAndCuda(x, 'var', 1, false)
-   compareFloatAndCuda(x, 'var', 2, true)
-   compareFloatAndCuda(x, 'var', 2, false)
+
+   for _, typename in ipairs(float_typenames) do
+     local x = x:type(t2cpu[typename])
+     compareFloatAndCuda(x, 'var')
+     compareFloatAndCuda(x, 'var', 1, true)
+     compareFloatAndCuda(x, 'var', 1, false)
+     compareFloatAndCuda(x, 'var', 2, true)
+     compareFloatAndCuda(x, 'var', 2, false)
+   end
+
    checkMultiDevice(x, 'var')
    checkMultiDevice(x, 'var', 1)
 end
