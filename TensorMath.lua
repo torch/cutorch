@@ -835,6 +835,13 @@ for k, Tensor_ in pairs(handledTypenames) do
                {name="boolean", default=false}})
       end
 
+      wrap("lerp",
+        cname("lerp"),
+        {{name=Tensor, default=true, returned=true, method={default='nil'}},
+         {name=Tensor, method={default=1}},
+         {name=Tensor},
+         {name=real}})
+
        -- BLAS functions
        wrap("mv",
             cname("addmv"),

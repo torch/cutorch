@@ -1329,7 +1329,12 @@ function test.lerp()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local w = math.random()
    local z = torch.FloatTensor()
-   compareFloatAndCudaTensorArgs(z, 'lerp', x, y, w)
+   for _, typename in ipairs(float_typenames) do
+       local x = x:type(t2cpu[typename])
+       local y = y:type(t2cpu[typename])
+       local z = z:type(t2cpu[typename])
+       compareCPUAndCUDATypeTensorArgs(typename, nil, z, 'lerp', x, y, w)
+   end
    checkMultiDevice(z, 'lerp', x, y, w)
 end
 
