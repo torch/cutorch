@@ -596,6 +596,13 @@ for k, Tensor_ in pairs(handledTypenames) do
           {name=real},
           {name=real}})
 
+    wrap("cross",
+        cname("cross"),
+        {{name=Tensor, default=true, returned=true},
+         {name=Tensor},
+         {name=Tensor},
+         {name="index", default=0}})
+
     wrap("div",
          cname("div"),
          {{name=Tensor, default=true, returned=true, method={default='nil'}},

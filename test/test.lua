@@ -1817,8 +1817,12 @@ function test.cross()
       sizes[crossdim] = 3
       local x = torch.FloatTensor():randn(unpack(sizes))
       local y = torch.FloatTensor():randn(unpack(sizes))
-      compareFloatAndCudaTensorArgs(x, 'cross', y, crossdim)
-      checkMultiDevice(x, 'cross', y, crossdim)
+      for _, typename in ipairs(typenames) do
+         local x = x:type(t2cpu[typename])
+         local y = y:type(t2cpu[typename])
+         compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cross', y, crossdim)
+         checkMultiDevice(x, 'cross', y, crossdim)
+      end
    end
 end
 
