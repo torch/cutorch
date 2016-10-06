@@ -408,8 +408,7 @@ static int cutorch_getBlasHandle(lua_State *L)
 static int cutorch_setDefaultStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
-  THCState_setCurrentStreamIndex(state, 0);
-
+  THCState_setStream(state, NULL);
   return 0;
 }
 

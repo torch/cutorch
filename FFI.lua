@@ -8,8 +8,15 @@ struct cublasContext;
 typedef struct cublasContext *cublasHandle_t;
 typedef struct CUhandle_st *cublasHandle_t;
 
+typedef struct _THCStream {
+   cudaStream_t stream;
+   int device;
+   int refcount;
+} THCStream;
+
+
 typedef struct _THCCudaResourcesPerDevice {
-  cudaStream_t* streams;
+  THCStream** streams;
   cublasHandle_t* blasHandles;
   size_t scratchSpacePerStream;
   void** devScratchSpacePerStream;
