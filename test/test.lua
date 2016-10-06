@@ -1754,6 +1754,17 @@ function test.renorm()
    checkMultiDevice(x, 'renorm', 4, 2, maxnorm)
 end
 
+function test.dist()
+   local minsize = 5
+   local maxsize = 10
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'dist', y)
+   checkMultiDevice(x, 'dist', y)
+end
+
 function test.indexCopy2()
    for tries = 1, 5 do
       local t = createTestTensor(1000000)
