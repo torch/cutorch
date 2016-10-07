@@ -233,8 +233,8 @@ local function compareFloatAndCuda(x, fn, ...)
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
       if not isEqual(rcpu[k], rcuda[k], tolerance) then
-	 print(args)
-	 tester:assert(false, errstr)
+	      print(args)
+	      tester:assert(false, errstr)
       end
    end
 end
@@ -979,9 +979,10 @@ function test.mean()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'mean')
-   compareFloatAndCuda(x, 'mean', 1)
-   compareFloatAndCuda(x, 'mean', 2)
+   for k, typename in ipairs(typenames) do
+     local x = x:type(t2cpu[typename])
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'zero')
+   end
    checkMultiDevice(x, 'mean')
    checkMultiDevice(x, 'mean', 1)
 end
@@ -1040,10 +1041,16 @@ function test.cmax()
   local c = torch.FloatTensor(sz1, sz2):zero()
   local v = torch.uniform()
 
-  compareFloatAndCudaTensorArgs(c, 'cmax', a, b)
-  compareFloatAndCudaTensorArgs(c, 'cmax', a, v)
-  compareFloatAndCudaTensorArgs(a, 'cmax', b)
-  compareFloatAndCuda(a, 'cmax', v)
+  for _, typename in ipairs(typenames) do
+      local a = a:type(t2cpu[typename])
+      local b = b:type(t2cpu[typename])
+      local c = c:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmax', a, b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmax', a, v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmax', b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmax', v)
+  end
+
   checkMultiDevice(c, 'cmax', a, b)
   checkMultiDevice(c, 'cmax', a, v)
   checkMultiDevice(a, 'cmax', b)
@@ -1058,10 +1065,16 @@ function test.cmin()
   local c = torch.FloatTensor(sz1, sz2):zero()
   local v = torch.uniform()
 
-  compareFloatAndCudaTensorArgs(c, 'cmin', a, b)
-  compareFloatAndCudaTensorArgs(c, 'cmin', a, v)
-  compareFloatAndCudaTensorArgs(a, 'cmin', b)
-  compareFloatAndCuda(a, 'cmin', v)
+  for _, typename in ipairs(typenames) do
+      local a = a:type(t2cpu[typename])
+      local b = b:type(t2cpu[typename])
+      local c = c:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmin', a, b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmin', a, v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmin', b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmin', v)
+  end
+
   checkMultiDevice(c, 'cmin', a, b)
   checkMultiDevice(c, 'cmin', a, v)
   checkMultiDevice(a, 'cmin', b)
@@ -1159,11 +1172,16 @@ function test.var()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'var')
-   compareFloatAndCuda(x, 'var', 1, true)
-   compareFloatAndCuda(x, 'var', 1, false)
-   compareFloatAndCuda(x, 'var', 2, true)
-   compareFloatAndCuda(x, 'var', 2, false)
+
+   for _, typename in ipairs(float_typenames) do
+     local x = x:type(t2cpu[typename])
+     compareFloatAndCuda(x, 'var')
+     compareFloatAndCuda(x, 'var', 1, true)
+     compareFloatAndCuda(x, 'var', 1, false)
+     compareFloatAndCuda(x, 'var', 2, true)
+     compareFloatAndCuda(x, 'var', 2, false)
+   end
+
    checkMultiDevice(x, 'var')
    checkMultiDevice(x, 'var', 1)
 end
@@ -1172,11 +1190,16 @@ function test.std()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'std')
-   compareFloatAndCuda(x, 'std', 1, true)
-   compareFloatAndCuda(x, 'std', 1, false)
-   compareFloatAndCuda(x, 'std', 2, true)
-   compareFloatAndCuda(x, 'std', 2, false)
+
+   for _, typename in ipairs(float_typenames) do
+     local x = x:type(t2cpu[typename])
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std')
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 1, true)
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 1, false)
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 2, true)
+     compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'std', 2, false)
+   end
+
    checkMultiDevice(x, 'std')
    checkMultiDevice(x, 'std', 1)
 end
@@ -1318,7 +1341,12 @@ function test.lerp()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local w = math.random()
    local z = torch.FloatTensor()
-   compareFloatAndCudaTensorArgs(z, 'lerp', x, y, w)
+   for _, typename in ipairs(float_typenames) do
+       local x = x:type(t2cpu[typename])
+       local y = y:type(t2cpu[typename])
+       local z = z:type(t2cpu[typename])
+       compareCPUAndCUDATypeTensorArgs(typename, nil, z, 'lerp', x, y, w)
+   end
    checkMultiDevice(z, 'lerp', x, y, w)
 end
 
@@ -1361,7 +1389,12 @@ function test.clamp1()
    if sz2 >= 2 then
      x[1][2] = max_val + 1
    end
-   compareFloatAndCudaTensorArgs(x, 'clamp', min_val, max_val)
+   for _, typename in ipairs(typenames) do
+      if typename ~= 'torch.CudaCharTensor' and typename ~= 'torch.CudaByteTensor' then
+        local x = x:type(t2cpu[typename])
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'clamp', min_val, max_val);
+      end
+   end
    checkMultiDevice(x, 'clamp', min_val, max_val)
 end
 
@@ -1376,8 +1409,51 @@ function test.clamp2()
      x[1][2] = max_val + 1
    end
    local y = torch.FloatTensor():resizeAs(x)
-   compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
+   for _, typename in ipairs(typenames) do
+      if typename ~= 'torch.CudaCharTensor' and typename ~= 'torch.CudaByteTensor' then
+        local x = x:type(t2cpu[typename])
+        local y = y:type(t2cpu[typename])
+        compareCPUAndCUDATypeTensorArgs(typename, nil, y, 'clamp', x, min_val, max_val);
+      end
+   end
    checkMultiDevice(y, 'clamp', x, min_val, max_val)
+end
+
+-- same as clamp1, clamp2 but only allow positive values
+function test.clamp3()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2):mul(5);
+   local min_val = 1
+   local max_val = 3
+   x[1][1] = min_val - 1
+   if sz2 >= 2 then
+     x[1][2] = max_val + 1
+   end
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'clamp', min_val, max_val);
+   end
+   checkMultiDevice(x, 'clamp', min_val, max_val)
+end
+
+function test.clamp4()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2):mul(5);
+   local min_val = 1
+   local max_val = 3
+   x[1][1] = min_val - 1
+   if sz2 >= 2 then
+     x[1][2] = max_val + 1
+   end
+   local y = torch.FloatTensor():resizeAs(x)
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      local y = y:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, y, 'clamp', x, min_val, max_val);
+   end
+   checkMultiDevice(x, 'clamp', min_val, max_val)
 end
 
 function test.index()
@@ -1639,6 +1715,16 @@ function test.indexFill()
 end
 
 function test.norm()
+   for n = 0, 3 do
+     local cpu = torch.FloatTensor(chooseInt(20, 50), 2):uniform(-0.5, 0.5)
+     for _, typename in ipairs(float_typenames) do
+        local x = cpu:type(t2cpu[typename])
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'norm', n)
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'norm', n, 1)
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'norm', n, 2)
+     end
+   end
+
    for i = 1, 5 do
       for n = 0, 3 do
          local cpu = torch.FloatTensor(chooseInt(20, 50), 2):uniform(-0.5, 0.5)
@@ -1658,6 +1744,11 @@ function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
 
+   for _, typename in ipairs(float_typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'renorm', 2, 2, maxnorm)
+   end
+
    compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
 
    x = torch.randn(3,4,5)
@@ -1673,6 +1764,17 @@ function test.renorm()
    compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
 
    checkMultiDevice(x, 'renorm', 4, 2, maxnorm)
+end
+
+function test.dist()
+   local minsize = 5
+   local maxsize = 10
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():rand(sz1, sz2)
+   local y = torch.FloatTensor():rand(sz1, sz2)
+   compareFloatAndCudaTensorArgs(x, 'dist', y)
+   checkMultiDevice(x, 'dist', y)
 end
 
 function test.indexCopy2()
@@ -1738,8 +1840,12 @@ function test.cross()
       sizes[crossdim] = 3
       local x = torch.FloatTensor():randn(unpack(sizes))
       local y = torch.FloatTensor():randn(unpack(sizes))
-      compareFloatAndCudaTensorArgs(x, 'cross', y, crossdim)
-      checkMultiDevice(x, 'cross', y, crossdim)
+      for _, typename in ipairs(typenames) do
+         local x = x:type(t2cpu[typename])
+         local y = y:type(t2cpu[typename])
+         compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cross', y, crossdim)
+         checkMultiDevice(x, 'cross', y, crossdim)
+      end
    end
 end
 

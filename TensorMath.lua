@@ -589,6 +589,20 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor, method={default=1}},
             {name=real}})
 
+    wrap("clamp",
+         cname("clamp"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+          {name=Tensor, method={default=1}},
+          {name=real},
+          {name=real}})
+
+    wrap("cross",
+        cname("cross"),
+        {{name=Tensor, default=true, returned=true},
+         {name=Tensor},
+         {name=Tensor},
+         {name="index", default=0}})
+
     wrap("div",
          cname("div"),
          {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -613,6 +627,18 @@ for k, Tensor_ in pairs(handledTypenames) do
                {name='CudaLongTensor', default=true, returned=true},
                {name=Tensor},
                {name="index"}})
+    end
+
+    for _,name in ipairs({"cmin", "cmax"}) do
+       wrap(name,
+            cname(name),
+            {{name=Tensor, default=true, returned=true},
+             {name=Tensor, method={default=1}},
+             {name=Tensor}},
+            cname(name .. "Value"),
+            {{name=Tensor, default=true, returned=true},
+             {name=Tensor, method={default=1}},
+             {name=real}})
     end
 
     if Tensor == 'CudaByteTensor' then
@@ -658,6 +684,15 @@ for k, Tensor_ in pairs(handledTypenames) do
          {{name=Tensor},
             {name=accreal, creturned=true}},
          cname("prod"),
+         {{name=Tensor, default=true, returned=true},
+            {name=Tensor},
+            {name="index"}})
+
+    wrap("mean",
+         cname("meanall"),
+         {{name=Tensor},
+          {name=accreal, creturned=true}},
+         cname("mean"),
          {{name=Tensor, default=true, returned=true},
             {name=Tensor},
             {name="index"}})
@@ -787,6 +822,44 @@ for k, Tensor_ in pairs(handledTypenames) do
                   {name=Tensor, method={default=1}}})
 
        end
+
+      wrap("norm",
+           cname("normall"),
+           {{name=Tensor},
+            {name=real, default=2},
+            {name=accreal, creturned=true}},
+           cname("norm"),
+           {{name=Tensor, default=true, returned=true},
+            {name=Tensor},
+            {name=real},
+            {name="index"}})
+
+      wrap("renorm",
+           cname("renorm"),
+          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real},
+            {name="index"},
+            {name=real}})
+
+      for _,name in ipairs({"var", "std"}) do
+         wrap(name,
+              cname(name .. "all"),
+              {{name=Tensor},
+               {name=accreal, creturned=true}},
+              cname(name),
+              {{name=Tensor, default=true, returned=true},
+               {name=Tensor},
+               {name="index"},
+               {name="boolean", default=false}})
+      end
+
+      wrap("lerp",
+        cname("lerp"),
+        {{name=Tensor, default=true, returned=true, method={default='nil'}},
+         {name=Tensor, method={default=1}},
+         {name=Tensor},
+         {name=real}})
 
        -- BLAS functions
        wrap("mv",
@@ -1601,8 +1674,8 @@ wrap("mean",
       {name=real, creturned=true}},
      cname("mean"),
      {{name=Tensor, default=true, returned=true},
-      {name=Tensor},
-      {name="index"}})
+        {name=Tensor},
+        {name="index"}})
 
 for _,name in ipairs({"var", "std"}) do
    wrap(name,

@@ -48,14 +48,6 @@ THC_API void THCudaTensor_addcdiv(THCState *state, THCudaTensor *self, THCudaTen
 THC_API void THCudaTensor_cumsum(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim);
 THC_API void THCudaTensor_cumprod(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim);
 
-THC_API void THCudaTensor_cmin(THCState *state, THCudaTensor *self, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_cmax(THCState *state, THCudaTensor *self, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_cminValue(THCState *state, THCudaTensor *self, THCudaTensor *src, float value);
-THC_API void THCudaTensor_cmaxValue(THCState *state, THCudaTensor *self, THCudaTensor *src, float value);
-
-THC_API void THCudaTensor_cross(THCState *state, THCudaTensor *self, THCudaTensor *src1, THCudaTensor *src2, int dimension);
-THC_API void THCudaTensor_clamp(THCState *state, THCudaTensor *self, THCudaTensor *src, float min_value, float max_value);
-
 // MAGMA (i.e. CUDA implementation of LAPACK functions)
 THC_API void THCudaTensor_gesv(THCState *state, THCudaTensor *rb_, THCudaTensor *ra_, THCudaTensor *b_, THCudaTensor *a_);
 THC_API void THCudaTensor_gels(THCState *state, THCudaTensor *rb_, THCudaTensor *ra_, THCudaTensor *b_, THCudaTensor *a_);
@@ -72,15 +64,6 @@ THC_API void THCudaTensor_qr(THCState *state, THCudaTensor *rq_, THCudaTensor *r
 THC_API void THCudaTensor_cat(THCState *state, THCudaTensor *result, THCudaTensor *ta, THCudaTensor *tb, int dimension);
 THC_API void THCudaTensor_catArray(THCState *state, THCudaTensor *result, THCudaTensor **inputs, int numInputs, int dimension);
 
-THC_API float THCudaTensor_meanall(THCState *state, THCudaTensor *self);
-THC_API void  THCudaTensor_mean(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim);
-THC_API float THCudaTensor_varall(THCState *state, THCudaTensor *self);
-THC_API void  THCudaTensor_var(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim, int flag);
-THC_API float THCudaTensor_stdall(THCState *state, THCudaTensor *self);
-THC_API void  THCudaTensor_std(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim, int flag);
-THC_API float THCudaTensor_normall(THCState *state, THCudaTensor *self, float value);
-THC_API void  THCudaTensor_norm(THCState *state, THCudaTensor* self, THCudaTensor* src, float value, long dimension);
-THC_API void  THCudaTensor_renorm(THCState *state, THCudaTensor* self, THCudaTensor* src, float value, long dimension, float max_norm);
 THC_API float THCudaTensor_dist(THCState *state, THCudaTensor *self, THCudaTensor *src, float value);
 
 THC_API void THCudaTensor_rand(THCState *state, THCudaTensor *r_, THLongStorage *size);
