@@ -55,7 +55,7 @@ static int torch_Storage_(new)(lua_State *L)
   else if(lua_type(L, 2) == LUA_TNUMBER)
   {
     long size = luaL_optlong(L, 1, 0);
-    real *ptr = (real *)luaL_optlong(L, 2, 0);
+    real *ptr = (real *)luaL_optinteger(L, 2, 0);
     storage = THCStorage_(newWithData)(state, ptr, size);
     storage->flag = TH_STORAGE_REFCOUNTED;
   }
