@@ -1041,10 +1041,16 @@ function test.cmax()
   local c = torch.FloatTensor(sz1, sz2):zero()
   local v = torch.uniform()
 
-  compareFloatAndCudaTensorArgs(c, 'cmax', a, b)
-  compareFloatAndCudaTensorArgs(c, 'cmax', a, v)
-  compareFloatAndCudaTensorArgs(a, 'cmax', b)
-  compareFloatAndCuda(a, 'cmax', v)
+  for _, typename in ipairs(typenames) do
+      local a = a:type(t2cpu[typename])
+      local b = b:type(t2cpu[typename])
+      local c = c:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmax', a, b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmax', a, v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmax', b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmax', v)
+  end
+
   checkMultiDevice(c, 'cmax', a, b)
   checkMultiDevice(c, 'cmax', a, v)
   checkMultiDevice(a, 'cmax', b)
@@ -1059,10 +1065,16 @@ function test.cmin()
   local c = torch.FloatTensor(sz1, sz2):zero()
   local v = torch.uniform()
 
-  compareFloatAndCudaTensorArgs(c, 'cmin', a, b)
-  compareFloatAndCudaTensorArgs(c, 'cmin', a, v)
-  compareFloatAndCudaTensorArgs(a, 'cmin', b)
-  compareFloatAndCuda(a, 'cmin', v)
+  for _, typename in ipairs(typenames) do
+      local a = a:type(t2cpu[typename])
+      local b = b:type(t2cpu[typename])
+      local c = c:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmin', a, b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, c, 'cmin', a, v)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmin', b)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cmin', v)
+  end
+
   checkMultiDevice(c, 'cmin', a, b)
   checkMultiDevice(c, 'cmin', a, v)
   checkMultiDevice(a, 'cmin', b)

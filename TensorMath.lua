@@ -629,6 +629,18 @@ for k, Tensor_ in pairs(handledTypenames) do
                {name="index"}})
     end
 
+    for _,name in ipairs({"cmin", "cmax"}) do
+       wrap(name,
+            cname(name),
+            {{name=Tensor, default=true, returned=true},
+             {name=Tensor, method={default=1}},
+             {name=Tensor}},
+            cname(name .. "Value"),
+            {{name=Tensor, default=true, returned=true},
+             {name=Tensor, method={default=1}},
+             {name=real}})
+    end
+
     if Tensor == 'CudaByteTensor' then
        for _,name in pairs({'all', 'any'}) do
           wrap(name,
