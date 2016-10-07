@@ -921,14 +921,28 @@ function test.addcmul()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'addcmul', y, z)
-   compareFloatAndCudaTensorArgs(x, 'addcmul', torch.uniform(), y, z)
+
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      local y = y:type(t2cpu[typename])
+      local z = z:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'addcmul', y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'addcmul', torch.uniform(), y, z)
+   end
+
    checkMultiDevice(x, 'addcmul', y, z)
    checkMultiDevice(x, 'addcmul', torch.uniform(), y, z)
 
    local r = torch.zeros(sz1, sz2)
-   compareFloatAndCudaTensorArgs(r, 'addcmul', x, y, z)
-   compareFloatAndCudaTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      local y = y:type(t2cpu[typename])
+      local z = z:type(t2cpu[typename])
+      local r = r:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, r, 'addcmul', x, y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, r, 'addcmul', x, torch.uniform(), y, z)
+   end
+
    checkMultiDevice(r, 'addcmul', x, y, z)
    checkMultiDevice(r, 'addcmul', x, torch.uniform(), y, z)
 
@@ -937,17 +951,31 @@ end
 function test.addcdiv()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
-   local x = torch.FloatTensor():rand(sz1, sz2)
-   local y = torch.FloatTensor():rand(sz1, sz2)
-   local z = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'addcdiv', y, z)
-   compareFloatAndCudaTensorArgs(x, 'addcdiv', torch.uniform(), y, z)
+   -- add so no divide by zero
+   local x = torch.FloatTensor():rand(sz1, sz2):add(torch.random(1, 5))
+   local y = torch.FloatTensor():rand(sz1, sz2):add(torch.random(1, 5))
+   local z = torch.FloatTensor():rand(sz1, sz2):add(torch.random(1, 5))
+
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      local y = y:type(t2cpu[typename])
+      local z = z:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'addcdiv', y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'addcdiv', torch.uniform(), y, z)
+   end
+
    checkMultiDevice(x, 'addcdiv', y, z)
    checkMultiDevice(x, 'addcdiv', torch.uniform(), y, z)
 
    local r = torch.zeros(sz1, sz2)
-   compareFloatAndCudaTensorArgs(r, 'addcdiv', x, y, z)
-   compareFloatAndCudaTensorArgs(r, 'addcdiv', x, torch.uniform(), y, z)
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      local y = y:type(t2cpu[typename])
+      local z = z:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, r, 'addcdiv', x, y, z)
+      compareCPUAndCUDATypeTensorArgs(typename, nil, r, 'addcdiv', x, torch.uniform(), y, z)
+   end
+
    checkMultiDevice(r, 'addcdiv', x, y, z)
    checkMultiDevice(r, 'addcdiv', x, torch.uniform(), y, z)
 end

@@ -617,6 +617,22 @@ for k, Tensor_ in pairs(handledTypenames) do
                {name=Tensor}})
     end
 
+    wrap("addcmul",
+         cname("addcmul"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real, default=1},
+            {name=Tensor},
+            {name=Tensor}})
+
+    wrap("addcdiv",
+         cname("addcdiv"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real, default=1},
+            {name=Tensor},
+            {name=Tensor}})
+
     for _,name in ipairs({"min", "max"}) do
        wrap(name,
             cname(name .. "all"),
