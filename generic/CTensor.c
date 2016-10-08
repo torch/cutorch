@@ -173,16 +173,16 @@ void THFloatTensor_kernel_copy(float *dst,
                                          long *dst_sz, long *dst_st, int dst_dim,
                                          float *src,
                                          long *src_sz, long *src_st, int src_dim,
-                                         long n_elem)
+                                         ptrdiff_t n_elem)
 {
-  long k;
+  ptrdiff_t k;
 
   for(k = 0; k < n_elem; k++)
   {
-    long src_idx = 0;
-    long src_rest = k;
-    long dst_idx = 0;
-    long dst_rest = k;
+    ptrdiff_t src_idx = 0;
+    ptrdiff_t src_rest = k;
+    ptrdiff_t dst_idx = 0;
+    ptrdiff_t dst_rest = k;
     int dim;
 
     for(dim = 0; dim < dst_dim; dim++)
@@ -206,7 +206,7 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
   THFloatTensor *self = luaT_checkudata(L, 1, "torch.FloatTensor");
   THFloatTensor *src = luaT_checkudata(L, 2, "torch.FloatTensor");
   long *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
-  long nElement = THFloatTensor_nElement(self);
+  ptrdiff_t nElement = THFloatTensor_nElement(self);
 
   THArgCheck(THFloatTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
 
