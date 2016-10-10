@@ -30,10 +30,10 @@
 #include <cuda_fp16.h>
 #include <stdint.h>
 
-THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, long len);
-THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, long len);
-THC_EXTERNC half THC_float2half(float a);
-THC_EXTERNC float THC_half2float(half a);
+THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len);
+THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len);
+THC_API half THC_float2half(float a);
+THC_API float THC_half2float(half a);
 
 /* Check for native fp16 support on the current device (CC 5.3+) */
 THC_EXTERNC int THC_nativeHalfInstructions(THCState *state);

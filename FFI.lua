@@ -50,7 +50,7 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
 typedef struct THCStorage
 {
     real *data;
-    long size;
+    ptrdiff_t size;
     int refcount;
     char flag;
     THAllocator *allocator;
@@ -65,7 +65,7 @@ typedef struct THCTensor
     int nDimension;
 
     THCStorage *storage;
-    long storageOffset;
+    ptrdiff_t storageOffset;
     int refcount;
 
     char flag;

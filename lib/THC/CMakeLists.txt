@@ -116,7 +116,11 @@ ENDIF()
 INCLUDE_DIRECTORIES("${CMAKE_CURRENT_BINARY_DIR}")
 CONFIGURE_FILE(THCGeneral.h.in "${CMAKE_CURRENT_BINARY_DIR}/THCGeneral.h")
 
-SET(CMAKE_C_FLAGS "-std=c99 ${CMAKE_C_FLAGS}")
+IF(MSVC)
+  LIST(APPEND CUDA_NVCC_FLAGS "-Xcompiler /wd4819")
+ELSE()
+  SET(CMAKE_C_FLAGS "-std=c99 ${CMAKE_C_FLAGS}")
+ENDIF()
 
 SET(src
     THCAllocator.c
@@ -208,6 +212,7 @@ INSTALL(FILES
           THCReduceAll.cuh
           THCReduceApplyUtils.cuh
           THCAsmUtils.cuh
+          THCAtomics.cuh
           THCScanUtils.cuh
           THCSortUtils.cuh
           THCAllocator.h
