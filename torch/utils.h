@@ -17,7 +17,7 @@
 #endif
 
 #ifdef _WIN32
-# ifdef cutorch_EXPORTS
+# ifdef torch_EXPORTS
 #  define TORCH_API TORCH_EXTERNC __declspec(dllexport)
 # else
 #  define TORCH_API TORCH_EXTERNC __declspec(dllimport)
