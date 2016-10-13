@@ -26,18 +26,71 @@
 #endif
 
 #ifdef CUDA_HALF_TENSOR
-
 #include <cuda_fp16.h>
 #include <stdint.h>
 
-THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len);
-THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len);
-THC_API half THC_float2half(float a);
-THC_API float THC_half2float(half a);
+/* CPU emulation */
+THC_EXTERNC half THC_float2half(float a);
+THC_EXTERNC float THC_half2float(half a);
+
+#if defined (__CUDA_ARCH__)
+# define THC_FLOAT_TO_HALF(x) __float2half((float)x)
+# define THC_HALF_TO_FLOAT(x) __half2float((float)x)
+#else
+# define THC_FLOAT_TO_HALF(x) THC_float2half((float)x)
+# define THC_HALF_TO_FLOAT(x) THC_half2float((float)x)
+#endif
 
 /* Check for native fp16 support on the current device (CC 5.3+) */
 THC_EXTERNC int THC_nativeHalfInstructions(THCState *state);
 
+__host__ __device__ __forceinline__ bool operator==(const half& a, const half& b) {
+  return a.x == b.x;
+}
+
+__host__ __device__ __forceinline__ bool operator!=(const half& a, const half& b) {
+  return a.x != b.x;
+}
+
 #endif /* CUDA_HALF_TENSOR */
+
+#ifdef __CUDA_ARCH__
+//
+// host (CPU) routines
+//
+THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, long len);
+THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, long len);
+
+/// `half` has some type conversion issues associated with it, since it
+/// is a struct without a constructor/implicit conversion constructor.
+/// We use this to convert scalar values to the given type that the
+/// tensor expects.
+
+template <typename In, typename Out>
+struct ScalarConvert {
+  static inline __host__ __device__ Out to(const In& v) { return Out(v); }
+};
+
+template <typename Out>
+struct ScalarConvert<half, Out> {
+  static __host__ __device__ __forceinline__ Out to(const half& v) {
+    return (Out) THC_HALF_TO_FLOAT(v);
+  }
+};
+
+template <typename In>
+struct ScalarConvert<In, half> {
+  static __host__ __device__ __forceinline__ half to(const In& v) {
+    return THC_FLOAT_TO_HALF(v);
+  }
+};
+
+template <>
+struct ScalarConvert<half, half> {
+  static __host__ __device__ __forceinline__ half to(const half& v) {
+    return v;
+  }
+};
+#endif /* CUDA */
 
 #endif
