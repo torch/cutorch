@@ -966,7 +966,7 @@ int luaopen_libcutorch(lua_State *L)
 
   char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
   if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
-    THCCachingAllocator_init(THCState_getDeviceAllocator(state));
+    THCState_setDeviceAllocator(state, THCCachingAllocator_get());
   }
 
   THCudaInit(state);
