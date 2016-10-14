@@ -900,6 +900,18 @@ static int cutorch_shutdown(lua_State *L)
   return 0;
 }
 
+static int cutorch_hasHalfInstructions(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+  lua_pushboolean(L, THC_nativeHalfInstructions(state));
+  return 1;
+}
+
+static int cutorch_hasFastHalfInstructions(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+  lua_pushboolean(L, THC_fastHalfInstructions(state));
+  return 1;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"synchronizeAll", cutorch_synchronizeAll},
@@ -926,6 +938,8 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"getMemoryUsage", cutorch_getMemoryUsage},
+  {"hasHalfInstructions", cutorch_hasHalfInstructions},
+  {"hasFastHalfInstructions", cutorch_hasFastHalfInstructions},
   {"setDevice", cutorch_setDevice},
   {"seed", cutorch_seed},
   {"seedAll", cutorch_seedAll},
