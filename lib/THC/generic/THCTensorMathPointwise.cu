@@ -245,7 +245,7 @@ THCTensor_(csub)(THCState *state, THCTensor *self_, THCTensor* src1, real value,
       // self += -value * src2
       if (!THC_pointwiseApply2(state, self_, src2,
                                    TensorCAddOp<real>(
-                                     ScalarNegate<real>::to(value)))) {
+                                     THCNumerics<real>::neg(value)))) {
         THArgCheck(false, 2, CUTORCH_DIM_WARNING);
       }
     }
@@ -261,7 +261,7 @@ THCTensor_(csub)(THCState *state, THCTensor *self_, THCTensor* src1, real value,
       // self = src1 - value * src2
       if (!THC_pointwiseApply3(state, self_, src1, src2,
                                    TensorCAddOp<real>(
-                                     ScalarNegate<real>::to(value)))) {
+                                     THCNumerics<real>::neg(value)))) {
         THArgCheck(false, 2, CUTORCH_DIM_WARNING);
       }
     }

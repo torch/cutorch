@@ -1,4 +1,5 @@
 #include "THCHalf.h"
+#include "THCNumerics.cuh"
 #include <thrust/transform.h>
 #include <thrust/execution_policy.h>
 
@@ -29,3 +30,8 @@ void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len) {
 #endif
     in, in + len, out, __half2floatOp());
 }
+
+#if defined (__CUDA_ARCH__) && defined (CUDA_FP16_INSTRINTICS)
+template <> const half THCMathTraitsBase<Half>::one() { return THC_FLOAT_TO_HALF(1.); }
+template <> const half THCMathTraitsBase<Half>::zero(){ return THC_FLOAT_TO_HALF(0.); }
+#endif

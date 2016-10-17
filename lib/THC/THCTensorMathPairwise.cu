@@ -7,237 +7,56 @@
 
 template <typename T>
 struct TensorAddConstantOp {
+  typedef THCNumerics<T> N_;
   TensorAddConstantOp(T v) : val(v) {}
   __device__ __forceinline__ void operator()(T* out, T* in) {
-    *out = *in + val;
+    *out = N_::s_(N_::add(*in, val));
   }
-
   __device__ __forceinline__ void operator()(T* v) {
-    *v += val;
+        this->operator()(v, v);
   }
-
-  const T val;
+  const typename N_::storage_type val;
 };
-
-#ifdef CUDA_HALF_TENSOR
-template <>
-struct TensorAddConstantOp<half> {
-#ifdef CUDA_HALF_INSTRUCTIONS
-  TensorAddConstantOp(half v) : val(v) {}
-#else
-  TensorAddConstantOp(half v) : fval(THC_half2float(v)) {}
-#endif
-
-  __device__ __forceinline__ void operator()(half* out, half* in) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hadd(*in, val);
-#else
-    float fin = __half2float(*in);
-    float fout = fin + fval;
-    *out = __float2half(fout);
-#endif
-  }
-
-  __device__ __forceinline__ void operator()(half* v) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *v = __hadd(*v, val);
-#else
-    float fv = __half2float(*v);
-    fv += fval;
-    *v = __float2half(fv);
-#endif
-  }
-
-#ifdef CUDA_HALF_INSTRUCTIONS
-  const half val;
-#else
-  const float fval;
-#endif
-};
-#endif // CUDA_HALF_TENSOR
-
 
 template <typename T>
 struct TensorSubConstantOp {
+  typedef THCNumerics<T> N_;
   TensorSubConstantOp(T v) : val(v) {}
   __device__ __forceinline__ void operator()(T* out, T* in) {
-    *out = *in - val;
+    *out = N_::s_(N_::sub(*in, val));
   }
-
   __device__ __forceinline__ void operator()(T* v) {
-    *v -= val;
+        this->operator()(v, v);
   }
-
-  const T val;
+  const typename N_::storage_type val;
 };
-
-
-#ifdef CUDA_HALF_TENSOR
-template <>
-struct TensorSubConstantOp<half> {
-#ifdef CUDA_HALF_INSTRUCTIONS
-  TensorSubConstantOp(half v): val(THC_float2half(-(THC_half2float(v)))) {}
-#else
-  TensorSubConstantOp(half v): fval(-(THC_half2float(v))) {}
-#endif
-
-  __device__ __forceinline__ void operator()(half* out, half* in) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hadd(*in, val);
-#else
-    float fin = __half2float(*in);
-    float fout = fin + fval;
-    *out = __float2half(fout);
-#endif
-  }
-
-  __device__ __forceinline__ void operator()(half* v) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *v = __hadd(*v, val);
-#else
-    float fv = __half2float(*v);
-    fv += fval;
-    *v = __float2half(fv);
-#endif
-  }
-
-#ifdef CUDA_HALF_INSTRUCTIONS
-  const half val;
-#else
-  const float fval;
-#endif
-};
-#endif // CUDA_HALF_TENSOR
 
 
 template <typename T>
 struct TensorMulConstantOp {
   TensorMulConstantOp(T v) : val(v) {}
+  typedef THCNumerics<T> N_;
   __device__ __forceinline__ void operator()(T* out, T* in) {
-    *out = *in * val;
+    *out = N_::s_(N_::mul(*in, val));
   }
-
   __device__ __forceinline__ void operator()(T* v) {
-    *v *= val;
+        this->operator()(v, v);
   }
-
-  const T val;
+  const typename N_::storage_type val;
 };
-
-#ifdef CUDA_HALF_TENSOR
-template <>
-struct TensorMulConstantOp<half> {
-#ifdef CUDA_HALF_INSTRUCTIONS
-  TensorMulConstantOp(half v) : val(v) {}
-#else
-  TensorMulConstantOp(half v) : fval(THC_half2float(v)) {}
-#endif
-
-  __device__ __forceinline__ void operator()(half* out, half* in) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hmul(*in, val);
-#else
-    float fin = __half2float(*in);
-    float fout = fin * fval;
-    *out = __float2half(fout);
-#endif
-  }
-
-  __device__ __forceinline__ void operator()(half* v) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *v = __hmul(*v, val);
-#else
-    float fv = __half2float(*v);
-    fv *= fval;
-    *v = __float2half(fv);
-#endif
-  }
-
-#ifdef CUDA_HALF_INSTRUCTIONS
-  const half val;
-#else
-  const float fval;
-#endif
-};
-#endif // CUDA_HALF_TENSOR
 
 template <typename T>
 struct TensorDivConstantOp {
-  TensorDivConstantOp(T v) : val(v) {}
+  typedef THCNumerics<T> N_;
+  TensorDivConstantOp(const T& v) : val(v) {}
   __device__ __forceinline__ void operator()(T* out, T* in) {
-    *out = *in / val;
+    *out = N_::s_(N_::div(*in, val));
   }
-
   __device__ __forceinline__ void operator()(T* v) {
-    *v /= val;
+        this->operator()(v, v);
   }
-
-  const T val;
+  const typename N_::storage_type val;
 };
-
-template <>
-struct TensorDivConstantOp<float> {
-  TensorDivConstantOp(float v) : val(1.f / v) {}
-  __device__ __forceinline__ void operator()(float* out, float* in) {
-    *out = *in * val;
-  }
-
-  __device__ __forceinline__ void operator()(float* v) {
-    *v *= val;
-  }
-
-  const float val;
-};
-
-template <>
-struct TensorDivConstantOp<double> {
-  TensorDivConstantOp(double v) : val(1. / v) {}
-  __device__ __forceinline__ void operator()(double* out, double* in) {
-    *out = *in * val;
-  }
-
-  __device__ __forceinline__ void operator()(double* v) {
-    *v *= val;
-  }
-
-  const double val;
-};
-
-#ifdef CUDA_HALF_TENSOR
-template <>
-struct TensorDivConstantOp<half> {
-#ifdef CUDA_HALF_INSTRUCTIONS
-  TensorDivConstantOp(half v) : val(ScalarInv<half>::to(v)) {}
-#else
-  TensorDivConstantOp(half v) : fval(1.f / THC_half2float(v)) {}
-#endif
-  __device__ __forceinline__ void operator()(half* out, half* in) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hmul(*in, val);
-#else
-    float fin = __half2float(*in);
-    float fout = fin * fval;
-    *out = __float2half(fout);
-#endif
-  }
-
-  __device__ __forceinline__ void operator()(half* v) {
-#ifdef CUDA_HALF_INSTRUCTIONS
-    *v = __hmul(*v, val);
-#else
-    float fv = __half2float(*v);
-    fv *= fval;
-    *v = __float2half(fv);
-#endif
-  }
-
-#ifdef CUDA_HALF_INSTRUCTIONS
-  const half val;
-#else
-  const float fval;
-#endif
-};
-#endif // CUDA_HALF_TENSOR
 
 template <int Upper>
 struct TensorTriOp {

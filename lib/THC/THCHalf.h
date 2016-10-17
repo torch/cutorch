@@ -8,23 +8,6 @@
 #  define CUDA_HALF_TENSOR 1
 # endif
 
-/* This define forces use of 32-bit float math on 16-bit float type 'half' (a.k.a. "pseudo-fp16 mode")
-   even if native harware support is available.
-   This makes difference for Pascal (6.x) cards only: Maxwell (5.x) cards always run 'half' in pseudo mode.
-   !!! Uncomment on your own risk !!!
-   Native fp16 operations may in fact run slower than pseudo-fp16 on your system at the moment
-  (especially if the bulk of your code is in CUDNN and not Cutorch).
-*/
-
-# define FORCE_PSEUDO_FP16 1
-
-# ifndef FORCE_PSEUDO_FP16
-/* Kernel side: Native fp16 ALU instructions are available if we have this: */
-#  if defined(CUDA_HALF_TENSOR) && (CUDA_VERSION >= 8000) && (__CUDA_ARCH__ >= 530)
-#   define CUDA_HALF_INSTRUCTIONS 1
-#  endif
-# endif
-
 # ifdef CUDA_HALF_TENSOR
 
 #  include <cuda_fp16.h>
@@ -43,27 +26,28 @@ THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, long len);
 #  if defined (__CUDA_ARCH__)
 /* use instrintic functons defined for device only in cuda_fp16.h */
 #   define THC_FLOAT_TO_HALF(x) __float2half((float)x)
-#   define THC_HALF_TO_FLOAT(x) __half2float((float)x)
+#   define THC_HALF_TO_FLOAT(x) __half2float(x)
 #  else
 /* use host conversion functions */
 #   define THC_FLOAT_TO_HALF(x) THC_float2half((float)x)
-#   define THC_HALF_TO_FLOAT(x) THC_half2float((float)x)
+#   define THC_HALF_TO_FLOAT(x) THC_half2float(x)
 #  endif
 
-/* Basic wrapper for 'half */
+#if __CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)
+# define CUDA_FP16_INSTRINTICS 1
+#endif
+
+/* Basic wrapper for 'native' half */
 struct Half: public half {
+ public:
   const half& val() const { return *this; }
   half& val() { return *this; }
-  const half& operator half() const { return val(); }
   Half(const half& v): half(v) {}
-  Half(const Half& v): half(v.val) {}
+  Half(const Half& v): half(v.val()) {}
 };
-
 
 /* "pseudo-fp16" type: 16-bit storage, float math */
-struct PseudoHalf: public Half {
-  PseudoHalf(const Half& v): Half(v.val) {}
-};
+typedef  half PseudoHalf;
 
 /* Check for native fp16 support on the current device (CC 5.3+) */
 THC_EXTERNC int THC_nativeHalfInstructions(THCState *state);
@@ -83,12 +67,12 @@ __host__ __device__ __forceinline__ bool operator!=(const half& a, const half& b
 
 template <typename In, typename Out>
 struct ScalarConvert {
-  static inline __host__ __device__ const Out& to(const In& v) { return Out(v); }
+  static inline __host__ __device__ Out to(const In& v) { return Out(v); }
 };
 
 template <typename Out>
 struct ScalarConvert<half, Out> {
-  static __host__ __device__ __forceinline__ const Out& to(const half& v) {
+  static __host__ __device__ __forceinline__ Out to(const half& v) {
     return (Out) THC_HALF_TO_FLOAT(v);
   }
 };
