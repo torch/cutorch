@@ -3243,33 +3243,42 @@ function test.topk()
 end
 
 function test.cat()
-   for dim = 1, 3 do
-      local x = torch.CudaTensor(13, minsize, minsize):uniform():transpose(1, dim)
-      local y = torch.CudaTensor(17, minsize, minsize):uniform():transpose(1, dim)
-      local mx = torch.cat(x, y, dim)
-      tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
-      tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+   for k, typename in ipairs(typenames) do
+      for dim = 1, 3 do
+	 local x = torch.Tensor(13, minsize, minsize):uniform()
+	    :type(typename):transpose(1, dim)
+	 local y = torch.Tensor(17, minsize, minsize):uniform()
+	    :type(typename):transpose(1, dim)
+	 local mx = torch.cat(x, y, dim)
+	 tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+	 tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
 
-      local mxx = torch.CudaTensor()
-      torch.cat(mxx, x, y, dim)
-      tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+	 local mxx = torch.Tensor():type(typename)
+	 torch.cat(mxx, x, y, dim)
+	 tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+      end
    end
 end
 
 function test.catArray()
-   for dim = 1, 3 do
-      local x = torch.CudaTensor(13, minsize, minsize):uniform():transpose(1, dim)
-      local y = torch.CudaTensor(17, minsize, minsize):uniform():transpose(1, dim)
-      local z = torch.CudaTensor(19, minsize, minsize):uniform():transpose(1, dim)
+   for k, typename in ipairs(typenames) do   
+      for dim = 1, 3 do
+	 local x = torch.Tensor(13, minsize, minsize):uniform()
+	    :type(typename):transpose(1, dim)
+	 local y = torch.Tensor(17, minsize, minsize):uniform()
+	    :type(typename):transpose(1, dim)
+	 local z = torch.Tensor(19, minsize, minsize):uniform()
+	    :type(typename):transpose(1, dim)
 
-      local mx = torch.cat({x, y, z}, dim)
-      tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
-      tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
-      tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
+	 local mx = torch.cat({x, y, z}, dim)
+	 tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+	 tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+	 tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
 
-      local mxx = torch.CudaTensor()
-      torch.cat(mxx, {x, y, z}, dim)
-      tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+	 local mxx = torch.Tensor():type(typename)
+	 torch.cat(mxx, {x, y, z}, dim)
+	 tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+      end
    end
 end
 
