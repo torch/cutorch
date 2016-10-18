@@ -904,7 +904,7 @@ static int cutorch_hasHalfInstructions(lua_State *L) {
 #ifdef CUDA_HALF_TENSOR
   lua_pushboolean(L, THC_nativeHalfInstructions(state));
 #else
-  lua_pushboolean(L, false);
+  lua_pushboolean(L, 0);
 #endif
   return 1;
 }
@@ -914,7 +914,7 @@ static int cutorch_hasFastHalfInstructions(lua_State *L) {
 #ifdef CUDA_HALF_TENSOR  
   lua_pushboolean(L, THC_fastHalfInstructions(state));
 #else
-  lua_pushboolean(L, false);
+  lua_pushboolean(L, 0);
 #endif  
   return 1;
 }
