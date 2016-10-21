@@ -48,7 +48,7 @@ struct TensorMulConstantOp {
 template <typename T>
 struct TensorDivConstantOp {
   typedef THCNumerics<T> N_;
-  TensorDivConstantOp(const T& v) : val(v) {}
+  TensorDivConstantOp(const T& v) : val(N_::div(N_::Constants::one(), v)) {}
   __device__ __forceinline__ void operator()(T* out, T* in) {
     *out = N_::s_(N_::div(*in, val));
   }

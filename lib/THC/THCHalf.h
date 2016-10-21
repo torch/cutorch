@@ -37,20 +37,14 @@ THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, long len);
 # define CUDA_FP16_INSTRINTICS 1
 #endif
 
-/* Basic wrapper for 'native' half */
-struct Half: public half {
- public:
-  const half& val() const { return *this; }
-  half& val() { return *this; }
-  Half(const half& v): half(v) {}
-  Half(const Half& v): half(v.val()) {}
-};
-
-/* "pseudo-fp16" type: 16-bit storage, float math */
-typedef  half PseudoHalf;
 
 /* Check for native fp16 support on the current device (CC 5.3+) */
-THC_EXTERNC int THC_nativeHalfInstructions(THCState *state);
+THC_API int THC_nativeHalfInstructions(THCState *state);
+
+/* Check for performant native fp16 support on the current device */
+THC_API int THC_fastHalfInstructions(THCState *state);
+
+#if defined (__cplusplus__) || defined (__CUDACC__)
 
 __host__ __device__ __forceinline__ bool operator==(const half& a, const half& b) {
   return a.x == b.x;
@@ -90,6 +84,6 @@ struct ScalarConvert<half, half> {
     return v;
   }
 };
-
+#  endif /* __cplusplus__ */
 # endif /* CUDA_HALF_TENSOR */
 #endif /* THC_HALF_CONVERSION_INC */

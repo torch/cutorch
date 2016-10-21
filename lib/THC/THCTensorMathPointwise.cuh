@@ -12,9 +12,9 @@
 template <typename T>
 struct TensorSigmoidOp {
   typedef THCNumerics<T> N_;
-  typedef typename N_::traits traits;
+  typedef typename N_::Constants NC_;
   __device__ __forceinline__ void operator()(T* out, T* in) const {
-    *out = N_::div(traits::one(), N_::add(traits::one(), N_::neg(*in)));
+    *out = N_::div(NC_::one(), N_::add(NC_::one(), N_::exp(N_::neg(*in))));
   }
   __device__ __forceinline__ void operator()(T* v) const {
      this->operator()(v, v);
@@ -24,13 +24,13 @@ struct TensorSigmoidOp {
 template <typename T>
 struct TensorSignOp {
   typedef THCNumerics<T> N_;
-  typedef typename N_::traits traits;
+  typedef THCNumConstants<typename N_::storage_type> NC_;
 
   __device__ __forceinline__ void operator()(T* out, T* in) {
     const T& orig = *in;
-    *out = (N_::gt(orig, traits::zero()) ? traits::one() :
-            N_::lt(orig, traits::zero()) ? N_::neg(traits::one()) :
-            traits::zero());
+    *out = (N_::gt(orig, NC_::zero()) ? NC_::one() :
+            N_::lt(orig, NC_::zero()) ? N_::neg(NC_::one()) :
+            NC_::zero());
   }
   __device__ __forceinline__ void operator()(T* v) {
      this->operator()(v, v);

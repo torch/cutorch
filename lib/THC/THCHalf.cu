@@ -31,7 +31,19 @@ void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len) {
     in, in + len, out, __half2floatOp());
 }
 
-#if defined (__CUDA_ARCH__) && defined (CUDA_FP16_INSTRINTICS)
-template <> const half THCMathTraitsBase<Half>::one() { return THC_FLOAT_TO_HALF(1.); }
-template <> const half THCMathTraitsBase<Half>::zero(){ return THC_FLOAT_TO_HALF(0.); }
-#endif
+THC_EXTERNC int THC_nativeHalfInstructions(THCState *state) {
+  cudaDeviceProp* prop =
+    THCState_getCurrentDeviceProperties(state);
+
+  // CC 5.3+
+  return (prop->major > 5 ||
+          (prop->major == 5 && prop->minor == 3));
+}
+
+THC_EXTERNC int THC_fastHalfInstructions(THCState *state) {
+  cudaDeviceProp* prop =
+    THCState_getCurrentDeviceProperties(state);
+
+  // Check for CC 6.0 only (corresponds to P100)
+  return (prop->major == 6 && prop->minor == 0);
+}

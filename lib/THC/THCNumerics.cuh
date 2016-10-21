@@ -5,63 +5,35 @@
 #include <limits>
 #include "THCHalf.h"
 
-
 template <typename T>
-struct CudaNumericLimits
+struct THCNumConstants
 {
+   static __host__ __device__ const T one()  { return T(1); }
+   static __host__ __device__ const T zero() { return T(0); }
+   static __host__ __device__ const T min()  { return std::numeric_limits<T>::min(); }
+   static __host__ __device__ const T max()  { return std::numeric_limits<T>::max(); }
+
 };
 
-template <typename T, bool is_int>
-struct THCNumericsBase {
+template <>
+struct THCNumConstants<half>
+{
+  static __host__ __device__ const half one()  { half ret = THC_FLOAT_TO_HALF(1.f); return ret;} /* TODO: use literal */
+  static __host__ __device__ const half zero() { half ret; ret.x = 0;  return ret;}
+  static __host__ __device__ const half min() { half ret; ret.x = 0x0400;  return ret; }
+  static __host__ __device__ const half max() { half ret; ret.x = 0x7BFF;  return ret; }
 };
 
-template <typename T>
-struct THCMathTraitsBase
-{
+template <typename T, typename M>
+struct THCNumCommonBase {
    typedef T storage_type;
    /* type value should be converted to before doing math on it.
       For most types except 16-bit floats, MathType==StorageType.
    */
-   typedef T math_type;
-   /* type of expression , like (a*b). Usually == MathType */
+   typedef M math_type;
+
+   /* type of math operation result , like (a*b). Usually == StorageType */
    typedef T expr_type;
-
-   static const storage_type one();
-   static const storage_type zero();
-};
-
-template <typename T>
-const T THCMathTraitsBase<T>::zero() { return T(0); }
-
-template <typename T>
-const T THCMathTraitsBase<T>::one() { return T(1); }
-
-template <typename T>
-struct THCMathTraits: public THCMathTraitsBase<T>
-{
-};
-
-/* default handling for bare half is pseudo */
-template <>
-struct THCMathTraits<half>: public THCMathTraitsBase<half>
-{
-   typedef float math_type;
-   typedef half expr_type;
-};
-
-template <>
-struct THCMathTraits<Half>: public THCMathTraitsBase<half>
-{
-   typedef half math_type;
-   typedef half expr_type;
-};
-
-template <typename T>
-struct THCNumericsCommonBase {
-  typedef THCMathTraits<T> traits;
-  typedef typename traits::storage_type storage_type;
-  typedef typename traits::math_type math_type;
-  typedef typename traits::expr_type expr_type;
 
   static __host__ __device__ __forceinline__ math_type m_(const storage_type& a) {
     return ScalarConvert<storage_type, math_type>::to(a);
@@ -72,9 +44,6 @@ struct THCNumericsCommonBase {
   static __host__ __device__ __forceinline__ storage_type s_(const expr_type& a) {
     return ScalarConvert<expr_type, storage_type>::to(a);
   }
-  static __host__ __device__ const T min();
-  static __host__ __device__ const T max();
-
   static inline __host__ __device__ bool lt(const storage_type&  a, const storage_type&  b) { return m_(a) < m_(b);  }
   static inline __host__ __device__ bool le(const storage_type&  a, const storage_type&  b) { return m_(a) <= m_(b); }
   static inline __host__ __device__ bool gt(const storage_type&  a, const storage_type&  b) { return m_(a) > m_(b);  }
@@ -86,42 +55,33 @@ struct THCNumericsCommonBase {
   static inline __host__ __device__  expr_type  mul(const storage_type&  a, const storage_type&  b) { return e_(m_(a) * m_(b)); }
   static inline __host__ __device__  expr_type  sub(const storage_type&  a, const storage_type&  b) { return e_(m_(a) - m_(b)); }
   static inline __host__ __device__  expr_type  div(const storage_type&  a, const storage_type&  b) { return e_(m_(a) / m_(b)); }
-  static inline __host__ __device__  expr_type  abs(const storage_type&  a) { return e_(abs(m_(a))); }
+  static inline __host__ __device__  expr_type  abs(const storage_type&  a) { bool isneg = (a<0); return e_(isneg ? -a  : a); }
   static inline __host__ __device__  expr_type  neg(const storage_type& a) { return  e_(-m_(a)); }
   static inline __host__ __device__  expr_type pow (const storage_type& a, T b) { return e_(::pow((double)a, (double)b)); }
 
 };
 
-template <typename T>
-__host__ __device__ const T THCNumericsCommonBase<T>::min() { return std::numeric_limits<T>::min(); }
+template <typename T, typename M, bool is_int>
+struct THCNumBase {};
 
-template <typename T>
-__host__ __device__ const T THCNumericsCommonBase<T>::max() { return std::numeric_limits<T>::max(); }
-
-/* specialized versions */
-template <>
-const half THCNumericsCommonBase<half>::min();
-
-template <>
-const half THCNumericsCommonBase<half>::max();
-
-/// Class for numeric limits of the particular data type, which
-/// includes support for `half`.
-template <typename T>
-struct THCNumericsBase<T, true>  : public THCNumericsCommonBase<T> {
+template <typename T, typename M>
+struct THCNumBase<T, M, true>  : public THCNumCommonBase<T, M> {
 };
 
-template <typename T>
-struct THCNumericsBase<T, false> : public THCNumericsCommonBase<T> {
-  typedef THCNumericsCommonBase<T> Base;
-  using typename Base::traits;
-  using typename Base::math_type;
-  using typename Base::expr_type;
-  using typename Base::storage_type;
+template <>
+struct THCNumBase<long, long, true>  : public THCNumCommonBase<long, long> {
+  static inline __host__ __device__  expr_type  abs(const storage_type&  a) { return labs(a); }
+};
+
+template <typename T, typename M>
+struct THCNumBase<T, M, false> : public THCNumCommonBase<T, M> {
+  typedef THCNumCommonBase<T, M> Base;
   using Base::e_;
   using Base::m_;
   using Base::s_;
-
+  using typename Base::math_type;
+  using typename Base::expr_type;
+  using typename Base::storage_type;
 
   static inline __host__ __device__  expr_type exp  (const storage_type& a) { return  e_(::exp(m_(a))); }
   static inline __host__ __device__  expr_type log  (const storage_type& a) { return  e_(::log(m_(a))); }
@@ -145,23 +105,45 @@ struct THCNumericsBase<T, false> : public THCNumericsCommonBase<T> {
   static inline __host__ __device__  expr_type abs  (const storage_type& a) { return  e_(::abs(m_(a))); }
   static inline __host__ __device__  expr_type round(const storage_type& a) { return  e_(::round(m_(a))); }
   static inline __host__ __device__  expr_type frac (const storage_type& a) { return  e_(m_(a) - ::trunc(m_(a))); }
-  static inline __host__ __device__  expr_type cinv (const storage_type& a) { return  Base::div(Base::traits::one(), a); }
+  static inline __host__ __device__  expr_type cinv (const storage_type& a) { return  Base::div(THCNumConstants<T>::one(), a); }
   static inline __host__ __device__  expr_type pow  (const storage_type& a, T b) { return e_(::pow(m_(a), m_(b))); }
 };
 
 template <typename T>
-struct THCNumerics: public THCNumericsBase<T, std::numeric_limits<T>::is_integer> {
+struct THCNumerics: public THCNumBase<T, T, std::numeric_limits<T>::is_integer> {
+  typedef THCNumCommonBase<T, T> Base;
+  using typename Base::math_type;
+  using typename Base::expr_type;
+  using typename Base::storage_type;
+  typedef THCNumConstants<T> Constants;
 };
 
 #ifdef CUDA_HALF_TENSOR
 
 template <>
-struct THCNumerics<half>: public THCNumericsBase<half, false>  {
+struct THCNumerics<half>: public THCNumBase<half, float, false>  {
+  typedef THCNumCommonBase<half, float> Base;
+  using typename Base::math_type;
+  using typename Base::expr_type;
+  using typename Base::storage_type;
+  using Base::e_;
+  using Base::m_;
+  using Base::s_;
+  typedef THCNumConstants<half> Constants;
 };
 
-#if defined (__CUDA_ARCH__) && defined (CUDA_FP16_INSTRINTICS)
+
+#if TO_BE_CONTINUED_WITH_EXTRA_TEMPLATE_PARAM
 template <>
-struct THCNumerics<Half>: public THCNumericsBase<Half, false>  {
+struct THCNumerics<half,half>: public THCNumBase<half, half, false>  {
+  typedef THCNumCommonBase<half, half> Base;
+  using typename Base::math_type;
+  using typename Base::expr_type;
+  using typename Base::storage_type;
+  using Base::e_;
+  using Base::m_;
+  using Base::s_;
+  typedef THCNumConstants<half> Constants;
 
   static inline __host__ __device__ bool lt(const half& a, const half& b) {
     return __hlt(a, b);

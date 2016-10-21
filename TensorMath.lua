@@ -873,7 +873,18 @@ for k, Tensor_ in pairs(handledTypenames) do
     wrap("sign",
          cname("sign"),
          {{name=Tensor, default=true, returned=true, method={default='nil'}},
-             {name=Tensor, method={default=1}}})
+	    {name=Tensor, method={default=1}}})
+
+    wrap("cat",
+	 cname("cat"),
+	 {{name=Tensor, default=true, returned=true},
+	    {name=Tensor},
+	    {name=Tensor},
+	    {name="index", default=lastdim(2)}},
+	 cname("catArray"),
+	 {{name=Tensor, default=true, returned=true},
+	    {name=Tensor .. "Array"},
+	    {name="index", default=lastdimarray(2)}})
 
     if real == 'float' or real == 'double' or real == 'half' then
        for _,name in ipairs({"log", "log1p", "exp",

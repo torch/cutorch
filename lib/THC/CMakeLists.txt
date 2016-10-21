@@ -17,7 +17,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9.3")
     if(CUDA_VERSION VERSION_LESS "8.0")
       MESSAGE(STATUS "Found gcc >=5 and CUDA <= 7.5, adding workaround C++ flags")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FORCE_INLINES")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FORCE_INLINES -D_MWAITXINTRIN_H_INCLUDED -D__STRICT_ANSI__")
     endif(CUDA_VERSION VERSION_LESS "8.0")
   endif(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9.3")
 endif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -128,6 +128,7 @@ SET(src
     THCGeneral.c
     THCStorage.c
     THCStorageCopy.c
+    THCStream.c
     THCTensor.c
     THCTensorCopy.c
     THCThreadLocal.c
@@ -173,6 +174,7 @@ MESSAGE(STATUS "got cuda version " ${CUDA_VERSION})
 IF(CUDA_HAS_FP16 OR NOT ${CUDA_VERSION} LESS 7.5)
   MESSAGE(STATUS "Found CUDA with FP16 support, compiling with torch.CudaHalfTensor")
   LIST(APPEND src-cuda THCHalf.cu)
+  LIST(APPEND src-cuda THCHalf.c)
   LIST(APPEND CUDA_NVCC_FLAGS "-DCUDA_HAS_FP16=1")
   SET(CMAKE_C_FLAGS "-DCUDA_HAS_FP16=1 ${CMAKE_C_FLAGS}")
 ELSE(CUDA_HAS_FP16 OR NOT ${CUDA_VERSION} LESS 7.5)
@@ -200,6 +202,7 @@ INSTALL(FILES
           THCBlas.h
           THCStorage.h
           THCStorageCopy.h
+          THCStream.h
           THCTensor.h
           THCTensorCopy.h
           THCTensorRandom.h
@@ -273,4 +276,5 @@ INSTALL(FILES
           generic/THCTensorIndex.cu
           generic/THCTensorSort.h
           generic/THCTensorSort.cu
+          generic/THCDeviceTensorUtils.cu
           DESTINATION "${THC_INSTALL_INCLUDE_SUBDIR}/THC/generic")

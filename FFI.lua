@@ -8,8 +8,15 @@ struct cublasContext;
 typedef struct cublasContext *cublasHandle_t;
 typedef struct CUhandle_st *cublasHandle_t;
 
+typedef struct _THCStream {
+   cudaStream_t stream;
+   int device;
+   int refcount;
+} THCStream;
+
+
 typedef struct _THCCudaResourcesPerDevice {
-  cudaStream_t* streams;
+  THCStream** streams;
   cublasHandle_t* blasHandles;
   size_t scratchSpacePerStream;
   void** devScratchSpacePerStream;
@@ -40,10 +47,16 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
       {'long','Long'},
       {'double','Double'},
   }
-  if cutorch.hasHalf then
-      table.insert(CudaTypes, {'half','Half'})
-  end
-
+   if cutorch.hasHalf then
+      if cutorch.hasFastHalfInstructions() then
+         -- Enable native half math on Pascal plaforms where fp16 is efficient (GP100)
+         table.insert(CudaTypes, {'half','Half'})
+     else
+        -- on the rest (Maxwell and Pascal 6.1 (1080), resort to storage-only
+        -- (a.k.a 'pseudo') fp16 type (16-bit storage, float math via conversions)
+        table.insert(CudaTypes, {'half','Half', 'float'})
+      end
+   end
    for _, typedata in ipairs(CudaTypes) do
       local real, Real = unpack(typedata)
       local ctype_def = [[
