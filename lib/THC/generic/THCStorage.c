@@ -33,40 +33,35 @@ real THCStorage_(get)(THCState *state, const THCStorage *self, ptrdiff_t index)
 
 THCStorage* THCStorage_(new)(THCState *state)
 {
-  THCStorage *storage = (THCStorage*)THAlloc(sizeof(THCStorage));
-  storage->data = NULL;
-  storage->size = 0;
-  storage->refcount = 1;
-  storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
-  return storage;
+  return THCStorage_(newWithSize)(state, 0);
 }
 
 THCStorage* THCStorage_(newWithSize)(THCState *state, ptrdiff_t size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
 
-  if(size > 0)
-  {
-    THCStorage *storage = (THCStorage*)THAlloc(sizeof(THCStorage));
+  int device;
+  THCudaCheck(cudaGetDevice(&device));
 
+  void *data = NULL;
+  if(size > 0) {
     // update heap *before* attempting malloc, to free space for the malloc
     THCHeapUpdate(state, size * sizeof(real));
-    cudaError_t err =
-      THCudaMalloc(state, (void**)&(storage->data), size * sizeof(real));
+    cudaError_t err = THCudaMalloc(state, &data, size * sizeof(real));
     if(err != cudaSuccess){
       THCHeapUpdate(state, -size * sizeof(real));
     }
     THCudaCheck(err);
+  }
 
-    storage->size = size;
-    storage->refcount = 1;
-    storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
-    return storage;
-  }
-  else
-  {
-    return THCStorage_(new)(state);
-  }
+  THCStorage *storage = (THCStorage*)THAlloc(sizeof(THCStorage));
+  memset(storage, 0, sizeof(THCStorage));
+  storage->size = size;
+  storage->data = (real*)data;
+  storage->refcount = 1;
+  storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
+  storage->device = device;
+  return storage;
 }
 
 THCStorage* THCStorage_(newWithSize1)(THCState *state, real data0)
@@ -111,11 +106,22 @@ THCStorage* THCStorage_(newWithMapping)(THCState *state, const char *fileName, p
 
 THCStorage* THCStorage_(newWithData)(THCState *state, real *data, ptrdiff_t size)
 {
+  int device;
+  if (data) {
+    struct cudaPointerAttributes attr;
+    THCudaCheck(cudaPointerGetAttributes(&attr, data));
+    device = attr.device;
+  } else {
+    THCudaCheck(cudaGetDevice(&device));
+  }
+
   THCStorage *storage = (THCStorage*)THAlloc(sizeof(THCStorage));
+  memset(storage, 0, sizeof(THCStorage));
   storage->data = data;
   storage->size = size;
   storage->refcount = 1;
   storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
+  storage->device = device;
   return storage;
 }
 

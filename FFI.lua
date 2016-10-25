@@ -63,6 +63,7 @@ typedef struct THCStorage
     THAllocator *allocator;
     void *allocatorContext;
     struct THCStorage *view;
+    int device;
 } THCStorage;
 
 typedef struct THCTensor
