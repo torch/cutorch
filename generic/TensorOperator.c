@@ -145,8 +145,7 @@ static int cutorch_TensorOperator_(__unm__)(lua_State *L)
 
 static int cutorch_TensorOperator_(__mul__)(lua_State *L)
 {
-  // FIXME: implement
-#ifdef THC_REAL_IS_FLOAT
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE)
   THCTensor *tensor1 = luaT_toudata(L, 1, torch_Tensor);
   THCTensor *tensor2 = luaT_toudata(L, 2, torch_Tensor);
   THCTensor *r;
