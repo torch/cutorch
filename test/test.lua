@@ -2483,7 +2483,7 @@ function test.logNormal()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), 0.1 * torch.uniform()
-   local tolerance = 0.01
+   local tolerance = 0.02
    local t = torch.CudaTensor(sz1, sz2)
 
    t:logNormal(mean, std)
@@ -3261,7 +3261,7 @@ function test.cat()
 end
 
 function test.catArray()
-   for k, typename in ipairs(typenames) do   
+   for k, typename in ipairs(typenames) do
       for dim = 1, 3 do
 	 local x = torch.Tensor(13, minsize, minsize):uniform()
 	    :type(typename):transpose(1, dim)

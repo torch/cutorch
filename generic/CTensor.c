@@ -2,8 +2,6 @@
 #define THC_GENERIC_FILE "generic/CTensor.c"
 #else
 
-#include "THCHalf.h"
-
 /* everything is as the generic Storage.c, except few things (see below) */
 
 #define TH_GENERIC_FILE "generic/Tensor.c"

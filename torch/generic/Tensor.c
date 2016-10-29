@@ -2,8 +2,6 @@
 #define TH_GENERIC_FILE "generic/Tensor.c"
 #else
 
-#include "THCHalf.h"
-
 static void torch_Tensor_(c_readTensorStorageSizeStride)(lua_State *L, int index, int allowNone, int allowTensor, int allowStorage, int allowStride,
                                                          THCStorage **storage_, ptrdiff_t *storageOffset_, THLongStorage **size_, THLongStorage **stride_);
 
@@ -143,7 +141,7 @@ static int torch_Tensor_(new)(lua_State *L)
           luaL_error(L, "invalid element (not a number)");
         }
 
-#ifndef THC_HALF
+#ifdef THC_REAL_IS_HALF
         half value = THC_float2half((float) lua_tonumber(L, -1));
 #else
         real value = (real) lua_tonumber(L, -1);

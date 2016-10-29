@@ -1,4 +1,4 @@
-#include "THCHalf.h"
+#include "THCGeneral.h"
 #include <thrust/transform.h>
 #include <thrust/execution_policy.h>
 
@@ -28,21 +28,6 @@ void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len) {
     thrust::device,
 #endif
     in, in + len, out, __half2floatOp());
-}
-
-float THC_half2float(half a)
-{
-  TH_half h;
-  h.x = a.x;
-  return TH_half2float(h);
-}
-
-half THC_float2half(float a)
-{
-  half ret;
-  TH_half th_res = TH_float2half(a);
-  ret.x = th_res.x ;
-  return ret ;
 }
 
 THC_EXTERNC int THC_nativeHalfInstructions(THCState *state) {

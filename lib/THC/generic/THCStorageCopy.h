@@ -23,7 +23,7 @@ THC_API void THCStorage_(copyCudaLong)(THCState *state, THCStorage *storage, str
 THC_API void THCStorage_(copyCudaFloat)(THCState *state, THCStorage *storage, struct THCudaStorage *src);
 THC_API void THCStorage_(copyCudaDouble)(THCState *state, THCStorage *storage, struct THCudaDoubleStorage *src);
 
-#if 0 /* def CUDA_HALF_TENSOR */
+#ifdef CUDA_HALF_TENSOR
 THC_API void THCStorage_(copyCudaHalf)(THCState *state, THCStorage *storage, struct THCudaHalfStorage *src);
 #endif
 
