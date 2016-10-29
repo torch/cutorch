@@ -8,9 +8,8 @@
 #define CUDA_HALF_TENSOR 1
 #endif
 
-#ifdef CUDA_HALF_TENSOR
+#include "THHalf.h"
 
-#include <cuda_fp16.h>
 #include <stdint.h>
 
 THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len);
@@ -24,6 +23,8 @@ THC_API int THC_nativeHalfInstructions(THCState *state);
 /* Check for performant native fp16 support on the current device */
 THC_API int THC_fastHalfInstructions(THCState *state);
 
-#endif /* CUDA_HALF_TENSOR */
+#  undef  TH_GENERIC_USE_HALF
+#  define TH_GENERIC_USE_HALF 1
+
 
 #endif

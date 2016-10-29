@@ -56,7 +56,6 @@ static int cutorch_Tensor_(copy)(lua_State *L)
   return 1;
 }
 
-#ifndef THC_REAL_IS_HALF
 static int cutorch_Tensor_(copyAsyncCPU)(lua_State *L)
 {
 #define STRINGIFY_TENSOR(x) TH_CONCAT_STRING_3(torch.,x,Tensor)
@@ -74,10 +73,7 @@ static int cutorch_Tensor_(copyAsyncCPU)(lua_State *L)
   return 1;
 #undef STRINGIFY_TENSOR
 }
-#endif
 
-
-#ifndef THC_REAL_IS_HALF
 static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
 {
   THTensor *tensor = luaT_checkudata(L, 1, TH_CONCAT_STRING_3(torch.,Real,Tensor));
@@ -122,9 +118,7 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
   lua_settop(L, 1);
   return 1;
 }
-#endif
 
-#ifndef THC_REAL_IS_HALF
 static int TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda)(lua_State *L)
 {
 #define STRINGIFY_TENSOR(x) TH_CONCAT_STRING_3(torch.,x,Tensor)
@@ -139,9 +133,6 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda)(lua_State *L)
   return 1;
 #undef STRINGIFY_TENSOR
 }
-#endif
-
-
 
 #ifdef THC_REAL_IS_FLOAT
 static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
@@ -248,7 +239,6 @@ void cutorch_Tensor_(init)(lua_State* L)
   lua_pop(L, 1);
 #endif
 
-#ifndef THC_REAL_IS_HALF
   luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
   lua_pushcfunction(L, TH_CONCAT_3(cutorch_,Real,Tensor_copy));
   lua_setfield(L, -2, "copy");
@@ -264,7 +254,6 @@ void cutorch_Tensor_(init)(lua_State* L)
   lua_pushcfunction(L, cutorch_Tensor_(copyAsyncCPU));
   lua_setfield(L, -2, "copyAsync");
   lua_pop(L, 1);
-#endif
 
   luaT_pushmetatable(L, torch_Tensor);
   lua_pushcfunction(L, cutorch_Tensor_(copy));

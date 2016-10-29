@@ -143,7 +143,7 @@ static int torch_Tensor_(new)(lua_State *L)
           luaL_error(L, "invalid element (not a number)");
         }
 
-#ifdef THC_REAL_IS_HALF
+#ifndef THC_HALF
         half value = THC_float2half((float) lua_tonumber(L, -1));
 #else
         real value = (real) lua_tonumber(L, -1);

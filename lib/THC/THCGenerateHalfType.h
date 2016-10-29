@@ -5,7 +5,6 @@
 #include "THCHalf.h"
 
 #ifdef CUDA_HALF_TENSOR
-
 #define real half
 #define accreal float
 #define Real Half
