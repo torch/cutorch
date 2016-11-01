@@ -66,6 +66,7 @@ function cutorch.createCudaUVATensor(...)
    end
 
    print('FOOOOOOOOOO')
+   print('BAAAAAAAAAR')
    print('Use cutorch.CudaUVAAllocator', cutorch.CudaUVADeviceAllocator)
    local storage = torch.CudaStorage(cutorch.CudaUVADeviceAllocator, size:prod())
    print(storage[16])
