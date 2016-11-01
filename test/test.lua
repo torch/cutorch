@@ -1184,9 +1184,12 @@ function test.cumsum()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'cumsum')
-   compareFloatAndCuda(x, 'cumsum', 1)
-   compareFloatAndCuda(x, 'cumsum', 2)
+   for _, typename in ipairs(typenames) do
+       local x = x:type(t2cpu[typename])
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cumsum');
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cumsum', 1);
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cumsum', 2);
+   end
    checkMultiDevice(x, 'cumsum')
    checkMultiDevice(x, 'cumsum', 1)
 end
@@ -1210,9 +1213,12 @@ function test.cumprod()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'cumprod')
-   compareFloatAndCuda(x, 'cumprod', 1)
-   compareFloatAndCuda(x, 'cumprod', 2)
+   for _, typename in ipairs(typenames) do
+       local x = x:type(t2cpu[typename])
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cumprod');
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cumprod', 1);
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cumprod', 2);
+   end
    checkMultiDevice(x, 'cumprod')
    checkMultiDevice(x, 'cumprod', 1)
 end
@@ -1871,7 +1877,12 @@ function test.dist()
    local sz2 = chooseInt(minsize, maxsize)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'dist', y)
+   for _, typename in ipairs(float_typenames) do
+       local x = x:type(t2cpu[typename])
+       local y = y:type(t2cpu[typename])
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'dist', y)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'dist', y, 3)
+   end
    checkMultiDevice(x, 'dist', y)
 end
 

@@ -747,6 +747,14 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor},
             {name="index"}})
 
+    for _, name in ipairs({"cumsum", "cumprod"}) do
+        wrap(name,
+             cname(name),
+             {{name=Tensor, default=true, returned=true},
+                 {name=Tensor},
+                 {name="index", default=1}})
+    end
+
     wrap("prod",
          cname("prodall"),
          {{name=Tensor},
@@ -935,6 +943,14 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=real},
             {name="index"},
             {name=real}})
+
+      wrap("dist",
+           cname("dist"),
+           {{name=Tensor},
+               {name=Tensor},
+               {name=real, default=2},
+               {name=accreal, creturned=true}})
+
 
       for _,name in ipairs({"var", "std"}) do
          wrap(name,

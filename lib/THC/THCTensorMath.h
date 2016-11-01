@@ -25,6 +25,9 @@
 #include "generic/THCTensorMathCompareT.h"
 #include "THCGenerateAllTypes.h"
 
+#include "generic/THCTensorMathScan.h"
+#include "THCGenerateAllTypes.h"
+
 #include "generic/THCTensorMasked.h"
 #include "THCGenerateAllTypes.h"
 
@@ -36,9 +39,6 @@
 
 #include "generic/THCTensorSort.h"
 #include "THCGenerateAllTypes.h"
-
-THC_API void THCudaTensor_cumsum(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim);
-THC_API void THCudaTensor_cumprod(THCState *state, THCudaTensor *self, THCudaTensor *src, long dim);
 
 // MAGMA (i.e. CUDA implementation of LAPACK functions)
 THC_API void THCudaTensor_gesv(THCState *state, THCudaTensor *rb_, THCudaTensor *ra_, THCudaTensor *b_, THCudaTensor *a_);
@@ -52,8 +52,6 @@ THC_API void THCudaTensor_potri(THCState *state, THCudaTensor *ra_, THCudaTensor
 THC_API void THCudaTensor_potrf(THCState *state, THCudaTensor *ra_, THCudaTensor *a);
 THC_API void THCudaTensor_potrs(THCState *state, THCudaTensor *rb_, THCudaTensor *a, THCudaTensor *b);
 THC_API void THCudaTensor_qr(THCState *state, THCudaTensor *rq_, THCudaTensor *rr_, THCudaTensor *a);
-
-THC_API float THCudaTensor_dist(THCState *state, THCudaTensor *self, THCudaTensor *src, float value);
 
 THC_API void THCudaTensor_rand(THCState *state, THCudaTensor *r_, THLongStorage *size);
 THC_API void THCudaTensor_randn(THCState *state, THCudaTensor *r_, THLongStorage *size);
