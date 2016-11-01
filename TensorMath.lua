@@ -944,6 +944,14 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name="index"},
             {name=real}})
 
+      wrap("dist",
+           cname("dist"),
+           {{name=Tensor},
+               {name=Tensor},
+               {name=real, default=2},
+               {name=accreal, creturned=true}})
+
+
       for _,name in ipairs({"var", "std"}) do
          wrap(name,
               cname(name .. "all"),
