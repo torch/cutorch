@@ -982,6 +982,14 @@ int luaopen_libcutorch(lua_State *L)
   luaT_pushudata(L, THCState_getCudaHostAllocator(state), "torch.Allocator");
   lua_setfield(L, -2, "CudaHostAllocator");
 
+  /* Register torch.CudaUVAHostAllocator. */
+  luaT_pushudata(L, THCState_getCudaUVAHostAllocator(state), "torch.Allocator");
+  lua_setfield(L, -2, "CudaUVAHostAllocator");
+
+  /* Register torch.CudaUVADeviceAllocator. */
+  luaT_pushudata(L, THCState_getCudaUVADeviceAllocator(state), "torch.Allocator");
+  lua_setfield(L, -2, "CudaUVADeviceAllocator");
+
 #ifdef USE_MAGMA
   THCMagma_init(state);
   lua_pushboolean(L, 1);
