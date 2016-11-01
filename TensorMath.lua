@@ -907,6 +907,16 @@ for k, Tensor_ in pairs(handledTypenames) do
 
        end
 
+       wrap("pow",
+            cname("pow"),
+            {{name=Tensor, default=true, returned=true, method={default='nil'}},
+                {name=Tensor, method={default=1}},
+                {name=real}},
+            cname("tpow"),
+            {{name=Tensor, default=true, returned=true, method={default='nil'}},
+                {name = real},
+                {name=Tensor, method={default=1}}})
+
       wrap("norm",
            cname("normall"),
            {{name=Tensor},
@@ -937,6 +947,31 @@ for k, Tensor_ in pairs(handledTypenames) do
                {name="index"},
                {name="boolean", default=false}})
       end
+
+      wrap("tril",
+           cname("tril"),
+           {{name=Tensor, default=true, returned=true},
+               {name=Tensor},
+               {name="int", default=0}})
+
+      wrap("triu",
+           cname("triu"),
+           {{name=Tensor, default=true, returned=true},
+               {name=Tensor},
+               {name="int", default=0}})
+
+      wrap("diag",
+           cname("diag"),
+           {{name=Tensor, default=true, returned=true},
+               {name=Tensor},
+               {name="int", default=0}})
+
+      wrap("trace",
+           cname("trace"),
+           {{name=Tensor},
+               {name=accreal, creturned=true}})
+
+
 
       wrap("lerp",
         cname("lerp"),
