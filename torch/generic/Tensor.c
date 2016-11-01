@@ -2,8 +2,6 @@
 #define TH_GENERIC_FILE "generic/Tensor.c"
 #else
 
-#include "THCHalf.h"
-
 static void torch_Tensor_(c_readTensorStorageSizeStride)(lua_State *L, int index, int allowNone, int allowTensor, int allowStorage, int allowStride,
                                                          THCStorage **storage_, ptrdiff_t *storageOffset_, THLongStorage **size_, THLongStorage **stride_);
 

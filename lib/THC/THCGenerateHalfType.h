@@ -2,10 +2,9 @@
 #error "You must define THC_GENERIC_FILE before including THGenerateHalfType.h"
 #endif
 
-#include "THCHalf.h"
+#include "THCGeneral.h"
 
 #ifdef CUDA_HALF_TENSOR
-
 #define real half
 #define accreal float
 #define Real Half

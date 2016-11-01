@@ -1,9 +1,9 @@
 #ifndef THC_NUMERICS_INC
 #define THC_NUMERICS_INC
 
-#include <cuda.h>
+
 #include <limits>
-#include "THCHalf.h"
+#include "THCGeneral.h"
 
 template <typename T>
 struct THCNumConstants

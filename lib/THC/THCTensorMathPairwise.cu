@@ -1,6 +1,5 @@
-#include "THCTensorMath.h"
 #include "THCGeneral.h"
-#include "THCHalf.h"
+#include "THCTensorMath.h"
 #include "THCTensorCopy.h"
 #include "THCApply.cuh"
 #include "THCNumerics.cuh"

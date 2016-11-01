@@ -1,5 +1,5 @@
-#include "THCHalf.h"
-#include "THCNumerics.cuh"
+#include "THCGeneral.h"
+
 #include <thrust/transform.h>
 #include <thrust/execution_policy.h>
 

@@ -1,29 +1,39 @@
 #ifndef THC_HALF_CONVERSION_INC
 # define THC_HALF_CONVERSION_INC
 
-# include "THCGeneral.h"
+#include "cuda.h"
+#include "cuda_runtime.h"
+#include "cublas_v2.h"
+#include "cuda_fp16.h"
 
 /* We compile with CudaHalfTensor support if we have this: */
-# if CUDA_VERSION >= 7050 || CUDA_HAS_FP16
+#if CUDA_VERSION >= 7050 || CUDA_HAS_FP16
 #  define CUDA_HALF_TENSOR 1
-# endif
+#endif
 
-# ifdef CUDA_HALF_TENSOR
+#ifdef CUDA_HALF_TENSOR
 
-#  include <cuda_fp16.h>
-#  include <stdint.h>
+#  undef  TH_GENERIC_USE_HALF
+#  define TH_GENERIC_USE_HALF 1
 
-/* CPU conversion methods, scalar */
-THC_EXTERNC half  THC_float2half(float a);
-THC_EXTERNC float THC_half2float(half a);
+#include "THCGeneral.h"
+#include "THHalf.h"
 
-//
-// Vector conversion routines, using Thrust
-//
-THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, long len);
-THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, long len);
+#include <stdint.h>
 
-#  if defined (__CUDA_ARCH__)
+THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len);
+THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len);
+# define THC_float2half(a) TH_float2half(a)
+# define THC_half2float(a) TH_half2float(a)
+
+/* Check for native fp16 support on the current device (CC 5.3+) */
+THC_API int THC_nativeHalfInstructions(THCState *state);
+
+/* Check for performant native fp16 support on the current device */
+THC_API int THC_fastHalfInstructions(THCState *state);
+
+ #  if defined (__CUDA_ARCH__)
+
 /* use instrintic functons defined for device only in cuda_fp16.h */
 #   define THC_FLOAT_TO_HALF(x) __float2half((float)x)
 #   define THC_HALF_TO_FLOAT(x) __half2float(x)
@@ -36,13 +46,6 @@ THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, long len);
 #if __CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)
 # define CUDA_FP16_INSTRINTICS 1
 #endif
-
-
-/* Check for native fp16 support on the current device (CC 5.3+) */
-THC_API int THC_nativeHalfInstructions(THCState *state);
-
-/* Check for performant native fp16 support on the current device */
-THC_API int THC_fastHalfInstructions(THCState *state);
 
 #if defined (__cplusplus__) || defined (__CUDACC__)
 

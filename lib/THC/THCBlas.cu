@@ -1,6 +1,4 @@
 #include "THCBlas.h"
-#include "THCGeneral.h"
-#include "THCHalf.h"
 
 float THCudaBlas_Sdot(THCState *state, long n, float *x, long incx, float *y, long incy)
 {

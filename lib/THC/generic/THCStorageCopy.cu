@@ -43,14 +43,18 @@ void THCStorage_(copyCuda)(THCState *state, THCStorage *self, THCStorage *src)
   void THCStorage_(copyCuda##TYPEC)(THCState *state, THCStorage *self, struct THCuda##TYPECUDA##Storage *src)  \
   {                                                                      \
     THArgCheck(self->size == src->size, 2, "size does not match");       \
-    if(THCTypeIdx_(TYPEC) == THCTypeIdxFloat) {                          \
-      THCFloat2Half(state, self->data, (float*) src->data, src->size);   /* cast removes compiler error */     \
-    } else {                                                             \
-      THCudaStorage *buffer = THCudaStorage_newWithSize(state, src->size); \
-      THCudaStorage_copyCuda##TYPEC(state, buffer, src);                 \
-      THCFloat2Half(state, self->data, buffer->data, buffer->size);      \
-      THCudaStorage_free(state, buffer);                                 \
-    }                                                                    \
+    if(THCTypeIdx_(Real) == THCTypeIdx_(TYPEC)) {                        \
+      THCStorage_(copy)(state, self, (THCStorage*) src);   /* cast just removes compiler warning */ \
+    } else {                                                            \
+      if(THCTypeIdx_(TYPEC) == THCTypeIdxFloat) {                       \
+        THCFloat2Half(state, self->data, (float*) src->data, src->size);   /* cast removes compiler error */ \
+      } else {                                                          \
+        THCudaStorage *buffer = THCudaStorage_newWithSize(state, src->size); \
+        THCudaStorage_copyCuda##TYPEC(state, buffer, src);              \
+          THCFloat2Half(state, self->data, buffer->data, buffer->size); \
+          THCudaStorage_free(state, buffer);                            \
+      }                                                                 \
+    }                                                                   \
   }
 #endif
 
@@ -62,7 +66,7 @@ THC_CUDA_STORAGE_IMPLEMENT_COPY(Long,Long)
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Float,)  // i.e. float
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Double,Double)
 
-#ifdef CUDA_HALF_TENSOR
+#if defined (CUDA_HALF_TENSOR)
 #define FLOAT_COPY(TYPE) TH_CONCAT_3(TH, CReal, Storage_copyCudaFloat)
 void THCStorage_(copyCudaHalf)(THCState *state, THCStorage *self, struct THCudaHalfStorage *src)
 {
@@ -76,7 +80,7 @@ void THCStorage_(copyCudaHalf)(THCState *state, THCStorage *self, struct THCudaH
         THCudaStorage_free(state, buffer);
     }
 }
-#undef FLOAT_COPY
+# undef FLOAT_COPY
 #endif // CUDA_HALF_TENSOR
 
 #undef THC_CUDA_STORAGE_IMPLEMENT_COPY

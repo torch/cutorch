@@ -1,7 +1,7 @@
 #ifndef THC_ATOMICS_INC
 #define THC_ATOMICS_INC
 
-#include "THCHalf.h"
+#include "THCGeneral.h"
 
 template <typename T, size_t n>
 struct AtomicAddIntegerImpl;

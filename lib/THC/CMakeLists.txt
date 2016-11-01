@@ -113,6 +113,7 @@ ELSE()
   SET(THC_INSTALL_CMAKE_SUBDIR ${Torch_INSTALL_CMAKE_SUBDIR})
 ENDIF()
 
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}")
 INCLUDE_DIRECTORIES("${CMAKE_CURRENT_BINARY_DIR}")
 CONFIGURE_FILE(THCGeneral.h.in "${CMAKE_CURRENT_BINARY_DIR}/THCGeneral.h")
 
@@ -123,10 +124,8 @@ ELSE()
 ENDIF()
 
 SET(src
-    THCAllocator.c
     THCCachingAllocator.cpp
     THCGeneral.c
-    THCStorage.c
     THCStorageCopy.c
     THCStream.c
     THCTensor.c
@@ -176,7 +175,7 @@ IF(CUDA_HAS_FP16 OR NOT ${CUDA_VERSION} LESS 7.5)
   LIST(APPEND src-cuda THCHalf.cu)
   LIST(APPEND src-cuda THCHalf.c)
   LIST(APPEND CUDA_NVCC_FLAGS "-DCUDA_HAS_FP16=1")
-  SET(CMAKE_C_FLAGS "-DCUDA_HAS_FP16=1 ${CMAKE_C_FLAGS}")
+  SET(CMAKE_C_FLAGS "-DCUDA_HAS_FP16=1 -DTH_GENERIC_USE_HALF=1 ${CMAKE_C_FLAGS}")
 ELSE(CUDA_HAS_FP16 OR NOT ${CUDA_VERSION} LESS 7.5)
   MESSAGE(STATUS "Could not find CUDA with FP16 support, compiling without torch.CudaHalfTensor")
 ENDIF(CUDA_HAS_FP16 OR NOT ${CUDA_VERSION} LESS 7.5)
@@ -203,6 +202,7 @@ INSTALL(FILES
           THCStorage.h
           THCStorageCopy.h
           THCStream.h
+          THCThreadLocal.h
           THCTensor.h
           THCTensorCopy.h
           THCTensorRandom.h
