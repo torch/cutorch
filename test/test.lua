@@ -896,6 +896,27 @@ function test.cpow()
    checkMultiDevice(x, 'cpow', y)
 end
 
+function test.nonzero()
+    local minsize = 10
+    local maxsize = 20
+    local dims = {chooseInt(minsize, maxsize)}
+    local threshold = 1 / 3
+    local flip = math.random()
+    while flip > threshold do
+        dims[#dims + 1] = chooseInt(minsize, maxsize)
+        flip = math.random()
+    end
+    local x = createTestTensorWithSizes(true, true, dims)
+    local randMask = torch.ByteTensor(unpack(dims)):bernoulli()
+    x:maskedFill(randMask, 0)
+    for k, typename in ipairs(typenames) do
+        local ctype = t2cpu[typename]
+        local x = x:type(ctype)
+        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'nonzero')
+    end
+    checkMultiDevice(x, 'nonzero')
+end
+
 function test.cdiv()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
@@ -3261,7 +3282,7 @@ function test.cat()
 end
 
 function test.catArray()
-   for k, typename in ipairs(typenames) do   
+   for k, typename in ipairs(typenames) do
       for dim = 1, 3 do
 	 local x = torch.Tensor(13, minsize, minsize):uniform()
 	    :type(typename):transpose(1, dim)
