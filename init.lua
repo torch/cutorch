@@ -53,6 +53,27 @@ function cutorch.createCudaHostTensor(...)
    return torch.FloatTensor(storage, 1, size:storage())
 end
 
+-- Creates a CudaTensor using the CudaUVAAllocator.
+-- Accepts either a LongStorage or a sequence of numbers.
+function cutorch.createCudaUVATensor(...)
+   local size
+   if not ... then
+      size = torch.LongTensor{0}
+   elseif torch.isStorage(...) then
+      size = torch.LongTensor(...)
+   else
+      size = torch.LongTensor{...}
+   end
+
+   print('FOOOOOOOOOO')
+   print('Use cutorch.CudaUVAAllocator', cutorch.CudaUVADeviceAllocator)
+   local storage = torch.CudaStorage(cutorch.CudaUVADeviceAllocator, size:prod())
+   print(storage[16])
+   local res = torch.CudaTensor(storage):fill(111)
+   print(res[16])
+   return res
+end
+
 -- remove this line to disable automatic cutorch heap-tracking
 -- for garbage collection
 cutorch.setHeapTracking(true)

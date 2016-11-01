@@ -39,8 +39,10 @@ __host__ void destroyGenerator(THCState *state, Generator* gen)
 /* Creates a new generator state given the seed. */
 __host__ void createGeneratorState(Generator* gen, unsigned long seed)
 {
-  if (curandMakeMTGP32Constants(mtgp32dc_params_fast_11213, gen->kernel_params) != CURAND_STATUS_SUCCESS)
+  int res;
+  if (res = curandMakeMTGP32Constants(mtgp32dc_params_fast_11213, gen->kernel_params) != CURAND_STATUS_SUCCESS)
   {
+    fprintf(stderr, "curandMakeMTGP32Constants %d\n", res);
     THError("Creating MTGP constants failed.");
   }
   if (curandMakeMTGP32KernelState(gen->gen_states, mtgp32dc_params_fast_11213,

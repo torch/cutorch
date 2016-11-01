@@ -6,15 +6,26 @@ static int torch_Storage_(new)(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   THCStorage *storage;
-  if(lua_type(L, 1) == LUA_TSTRING)
+
+  int index = 1;
+  THAllocator *allocator = (luaT_toudata(L, index, "torch.Allocator"));
+  if (allocator) index++;
+
+  if (allocator && 
+      (lua_type(L, index) == LUA_TSTRING || lua_type(L, index) == LUA_TTABLE || lua_type(L, index) == LUA_TUSERDATA || lua_type(L, index + 1) == LUA_TNUMBER)) 
   {
-    const char *fileName = luaL_checkstring(L, 1);
+    THError("Allocator only supported with torch.CudaStorage(allocator, size) version");
+  }
+
+  if(lua_type(L, index) == LUA_TSTRING)
+  {    
+    const char *fileName = luaL_checkstring(L, index);
     int isShared = luaT_optboolean(L, 2, 0);
     ptrdiff_t size = luaL_optinteger(L, 3, 0);
     storage = THCStorage_(newWithMapping)(state, fileName, size, isShared);
   }
-  else if(lua_type(L, 1) == LUA_TTABLE)
-  {
+  else if(lua_type(L, index) == LUA_TTABLE)
+  {    
     ptrdiff_t size = lua_objlen(L, 1);
     ptrdiff_t i;
     storage = THCStorage_(newWithSize)(state, size);
@@ -35,8 +46,8 @@ static int torch_Storage_(new)(lua_State *L)
       lua_pop(L, 1);
     }
   }
-  else if(lua_type(L, 1) == LUA_TUSERDATA)
-  {
+  else if(lua_type(L, index) == LUA_TUSERDATA)
+  {    
     THCStorage *src = luaT_checkudata(L, 1, torch_Storage);
     real *ptr = src->data;
     ptrdiff_t offset = luaL_optinteger(L, 2, 1) - 1;
@@ -52,7 +63,7 @@ static int torch_Storage_(new)(lua_State *L)
     storage->view = src;
     THCStorage_(retain)(state, storage->view);
   }
-  else if(lua_type(L, 2) == LUA_TNUMBER)
+  else if(lua_type(L, index + 1) == LUA_TNUMBER)
   {
     ptrdiff_t size = luaL_optinteger(L, 1, 0);
     real *ptr = (real *)luaL_optinteger(L, 2, 0);
@@ -61,8 +72,12 @@ static int torch_Storage_(new)(lua_State *L)
   }
   else
   {
-    ptrdiff_t size = luaL_optinteger(L, 1, 0);
-    storage = THCStorage_(newWithSize)(state, size);
+    ptrdiff_t size = luaL_optinteger(L, index, 0);
+    if (allocator) {
+      storage = THCStorage_(newWithAllocator)(state, size, allocator, NULL);
+    } else {
+      storage = THCStorage_(newWithSize)(state, size);
+    }
   }
   luaT_pushudata(L, storage, torch_Storage);
   return 1;

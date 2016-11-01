@@ -11,7 +11,6 @@
 /* Size of scratch space available in global memory per each SM + stream */
 #define GLOBAL_SCRATCH_SPACE_PER_SM_STREAM 4 * sizeof(float)
 
-
 THCCudaResourcesPerDevice* THCState_getDeviceResourcePtr(
   THCState *state, int device);
 
@@ -45,10 +44,30 @@ static THCDeviceAllocator defaultDeviceAllocator = {
   NULL
 };
 
+static cudaError_t cudaMallocManagedWrapper(void* ctx, void** devPtr, size_t size, cudaStream_t stream)
+{
+  return cudaMallocManaged(devPtr, size, cudaMemAttachGlobal);
+}
+
+static cudaError_t cudaFreeManagedWrapper(void* ctx, void* devPtr)
+{
+  return cudaFree(devPtr);
+}
+
+static THCDeviceAllocator UVADeviceAllocator = {
+  &cudaMallocManagedWrapper,
+  NULL,
+  &cudaFreeManagedWrapper,
+  NULL
+};
+
 void THCudaInit(THCState* state)
 {
   if (!state->cudaDeviceAllocator) {
     state->cudaDeviceAllocator = &defaultDeviceAllocator;
+  }
+  if (!state->cudaUVADeviceAllocator) {
+    state->cudaUVADeviceAllocator = &UVADeviceAllocator;
   }
 
   int numDevices = 0;
@@ -77,6 +96,9 @@ void THCudaInit(THCState* state)
 
   state->cudaHostAllocator = (THAllocator*)malloc(sizeof(THAllocator));
   THCAllocator_init(state);
+
+  state->cudaUVAHostAllocator = (THAllocator*)malloc(sizeof(THAllocator));
+  THCUVAHostAllocator_init(state->cudaUVAHostAllocator);
 
   /* Enable P2P access between all pairs, if possible */
   THCudaEnablePeerToPeerAccess(state);
@@ -122,6 +144,7 @@ void THCudaShutdown(THCState* state)
 
   free(state->rngState);
   free(state->cudaHostAllocator);
+  free(state->cudaUVAHostAllocator);
   free(state->deviceProperties);
 
   int deviceCount = 0;
@@ -306,6 +329,16 @@ struct THCRNGState* THCState_getRngState(THCState *state)
 THAllocator* THCState_getCudaHostAllocator(THCState* state)
 {
   return state->cudaHostAllocator;
+}
+
+THAllocator* THCState_getCudaUVAHostAllocator(THCState* state)
+{
+  return state->cudaUVAHostAllocator;
+}
+
+THCDeviceAllocator* THCState_getCudaUVADeviceAllocator(THCState* state)
+{
+  return state->cudaUVADeviceAllocator;
 }
 
 void THCState_setDeviceAllocator(THCState* state, THCDeviceAllocator* allocator)
