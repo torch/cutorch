@@ -891,6 +891,24 @@ static int cutorch_setHeapTracking(lua_State *L)
   return 0;
 }
 
+static int cutorch_isManagedPtr(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  if(lua_type(L, 1) != LUA_TNUMBER) {
+    THError("Must receive a ptr cast as a number");
+  }
+  void* ptr = (void* )luaL_optinteger(L, 1, 0);
+  struct cudaPointerAttributes attributes;
+  cudaError_t res = cudaPointerGetAttributes(&attributes, ptr);
+  if (res == cudaErrorInvalidValue) {
+    lua_pushboolean(L, 0);
+  } else {
+    THCudaCheck(res);
+    lua_pushboolean(L, attributes.isManaged);
+  }
+  return 1;
+}
+
 static int cutorch_shutdown(lua_State *L)
 {
   THCState **state = (THCState **) lua_topointer(L, 1);
@@ -911,11 +929,11 @@ static int cutorch_hasHalfInstructions(lua_State *L) {
 
 static int cutorch_hasFastHalfInstructions(lua_State *L) {
   THCState *state = cutorch_getstate(L);
-#ifdef CUDA_HALF_TENSOR  
+#ifdef CUDA_HALF_TENSOR
   lua_pushboolean(L, THC_fastHalfInstructions(state));
 #else
   lua_pushboolean(L, 0);
-#endif  
+#endif
   return 1;
 }
 
@@ -957,6 +975,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"setRNGState", cutorch_setRNGState},
   {"getState", cutorch_getState},
   {"setHeapTracking", cutorch_setHeapTracking},
+  {"isManagedPtr", cutorch_isManagedPtr},
   {NULL, NULL}
 };
 
@@ -981,6 +1000,10 @@ int luaopen_libcutorch(lua_State *L)
   /* Register torch.CudaHostAllocator. */
   luaT_pushudata(L, THCState_getCudaHostAllocator(state), "torch.Allocator");
   lua_setfield(L, -2, "CudaHostAllocator");
+
+  /* Register torch.CudaUVAHostAllocator. */
+  luaT_pushudata(L, THCState_getCudaUVAAllocator(state), "torch.Allocator");
+  lua_setfield(L, -2, "CudaUVAAllocator");
 
 #ifdef USE_MAGMA
   THCMagma_init(state);

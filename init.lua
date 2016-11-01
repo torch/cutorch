@@ -37,9 +37,7 @@ function cutorch.withDevice(newDeviceID, closure)
     error(unpack(vals, 2))
 end
 
--- Creates a FloatTensor using the CudaHostAllocator.
--- Accepts either a LongStorage or a sequence of numbers.
-function cutorch.createCudaHostTensor(...)
+local function longTensorSize(...)
    local size
    if not ... then
       size = torch.LongTensor{0}
@@ -48,9 +46,90 @@ function cutorch.createCudaHostTensor(...)
    else
       size = torch.LongTensor{...}
    end
+   return size
+end
 
+-- Creates a FloatTensor using the CudaHostAllocator.
+-- Accepts either a LongStorage or a sequence of numbers.
+function cutorch.createCudaHostTensor(...)
+   local size = longTensorSize(...)
    local storage = torch.FloatStorage(cutorch.CudaHostAllocator, size:prod())
    return torch.FloatTensor(storage, 1, size:storage())
+end
+
+-- Creates a CudaTensor using the CudaUVAAllocator.
+-- Accepts either a LongStorage or a sequence of numbers.
+local function _createUVATensor(...)
+   local size = longTensorSize(...)
+   -- See CUDA_C_Programming_guide.pdf for detailed explanation about synchronization
+   -- Section J.
+   -- "It is worth a comment on the synchronization between host and device. Notice how in
+   -- the non-managed example, the synchronous cudaMemcpy() routine is used both to
+   -- synchronize the kernel (that is, to wait for it to finish running), and to transfer the data
+   -- to the host. The Unified Memory examples do not call cudaMemcpy() and so require an
+   -- explicit cudaDeviceSynchronize() before the host program can safely use the output
+   -- from the GPU."
+   -- Section J.2.2.1.
+   -- " Note that if memory is dynamically allocated with cudaMallocManaged() or
+   -- cuMemAllocManaged() while the GPU is active, the behavior of the memory is
+   -- unspecified until additional work is launched or the GPU is synchronized. Attempting
+   -- to access the memory on the CPU during this time may or may not cause a segmentation
+   -- fault."
+   cutorch.synchronize()
+   local storage = torch.FloatStorage(cutorch.CudaUVAAllocator, size:prod())
+   return torch.FloatTensor(storage)
+end
+
+function cutorch.createFloatUVATensor(...)
+   return _createUVATensor(...)
+end
+
+-- Creates a CudaTensor using the CudaUVAAllocator.
+-- Accepts either a LongStorage or a sequence of numbers.
+-- First creates a UVA backed FloatTensor and takes its pointer.
+function cutorch.createCudaUVATensor(...)
+   -- Delegate actual allocation and synchronization to CPU tensor and
+   -- take the pointer.
+   local ft = _createUVATensor(...)
+   local storage = torch.CudaStorage(
+      ft:storage():size(),
+      tonumber(torch.data(ft:storage(), true))
+   )
+   return torch.CudaTensor(storage)
+end
+
+-- UVA storage is a single memory location backed by virtual addressing.
+-- Converting between CPU / GPU tensor types is done by raw pointer passing.
+-- We only support FloatTensor, CudaTensor, Cuda -> float and float -> Cuda atm
+function cutorch.toFloatUVATensor(t)
+   if not torch.isTensor(t) then
+      error('Must use a tensor, got ' .. torch.type(t))
+   end
+   local storage = torch.FloatStorage(
+      t:storage():size(),
+      tonumber(torch.data(t:storage(), true))
+   )
+   assert(cutorch.isManaged(storage))
+   return torch.FloatTensor(storage)
+end
+
+function cutorch.toCudaUVATensor(t)
+   if not torch.isTensor(t) then
+      error('Must use a tensor, got ' .. torch.type(t))
+   end
+   local storage = torch.CudaStorage(
+      t:storage():size(),
+      tonumber(torch.data(t:storage(), true))
+   )
+   assert(cutorch.isManaged(storage))
+   return torch.CudaTensor(storage)
+end
+
+function cutorch.isManaged(t)
+   if not torch.isTensor(t) and not torch.isStorage(t) then
+      error('Usage: cutorch.isManaged(Tensor|Storage), got ' .. torch.type(t))
+   end
+   return cutorch.isManagedPtr(tonumber(torch.data(t, true)))
 end
 
 -- remove this line to disable automatic cutorch heap-tracking
