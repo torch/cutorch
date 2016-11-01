@@ -886,6 +886,11 @@ for k, Tensor_ in pairs(handledTypenames) do
 	    {name=Tensor .. "Array"},
 	    {name="index", default=lastdimarray(2)}})
 
+    wrap("nonzero",
+         cname("nonzero"),
+         {{name="CudaLongTensor", default=true, returned=true},
+             {name=Tensor}})
+
     if real == 'float' or real == 'double' or real == 'half' then
        for _,name in ipairs({"log", "log1p", "exp",
                              "cos", "acos", "cosh",
@@ -1619,6 +1624,11 @@ wrap("cat",
      {{name=Tensor, default=true, returned=true},
       {name=Tensor .. "Array"},
       {name="index", default=lastdimarray(2)}})
+
+wrap("nonzero",
+     cname("nonzero"),
+     {{name="CudaLongTensor", default=true, returned=true},
+         {name=Tensor}})
 
 for _,f in ipairs({{name='geometric'},
                    {name='bernoulli', a=0.5}}) do
