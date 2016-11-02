@@ -1134,7 +1134,7 @@ for k, Tensor_ in pairs(handledTypenames) do
          cname("dot"),
          {{name=Tensor},
             {name=Tensor},
-            {name=real, creturned=true}})
+            {name=accreal, creturned=true}})
 
     method:register("m_cutorch_" .. Tensor .. "Math__")
     interface:print(method:tostring())
