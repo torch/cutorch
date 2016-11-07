@@ -894,6 +894,14 @@ for k, Tensor_ in pairs(handledTypenames) do
 	    {name=Tensor .. "Array"},
 	    {name="index", default=lastdimarray(2)}})
 
+    for _,f in ipairs({{name='bernoulli', a=0.5}}) do
+
+       wrap(f.name,
+            cname(f.name),
+            {{name=Tensor, returned=true},
+             {name='double', default=f.a}})
+    end
+
     wrap("nonzero",
          cname("nonzero"),
          {{name="CudaLongTensor", default=true, returned=true},
