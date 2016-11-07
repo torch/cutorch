@@ -2526,8 +2526,11 @@ function test.uniform()
    local max = min + torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:uniform(min, max)
-   checkIfUniformlyDistributed(t, min, max)
+   for _, typename in ipairs(float_typenames) do
+       local x = t:type(t2cpu[typename])
+       x:uniform(min, max)
+       checkIfUniformlyDistributed(x, min, max)
+   end
    checkMultiDevice(t, 'uniform', min, max)
 end
 
