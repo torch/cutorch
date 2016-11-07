@@ -925,6 +925,20 @@ for k, Tensor_ in pairs(handledTypenames) do
                 {name = real},
                 {name=Tensor, method={default=1}}})
 
+     wrap("rand",
+          cname("rand"),
+          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+           {name="LongArg"}})
+
+     for _,f in ipairs({{name='uniform', a=0, b=1}}) do
+
+        wrap(f.name,
+             cname(f.name),
+             {{name=Tensor, returned=true},
+              {name='double', default=f.a},
+              {name='double', default=f.b}})
+     end
+
       wrap("norm",
            cname("normall"),
            {{name=Tensor},
