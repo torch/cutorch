@@ -2561,9 +2561,13 @@ function test.normal()
    local tolerance = 0.01
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:normal(mean, std)
-   tester:assertalmosteq(t:mean(), mean, tolerance, "mean is wrong")
-   tester:assertalmosteq(t:std(), std, tolerance, "standard deviation is wrong")
+   for _, typename in ipairs(float_typenames) do
+       local x = t:type(t2cpu[typename])
+       x:normal(mean, std)
+       tester:assertalmosteq(x:mean(), mean, tolerance, "mean is wrong")
+       tester:assertalmosteq(x:std(), std, tolerance, "standard deviation is wrong")
+   end
+
    checkMultiDevice(t, 'normal', mean, std)
 end
 
