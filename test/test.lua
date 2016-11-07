@@ -2540,13 +2540,17 @@ function test.bernoulli()
    local p = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:bernoulli(p)
-   tester:assertalmosteq(t:mean(), p, 0.1, "mean is not equal to p")
-   local f = t:float()
-   tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
-                         torch.FloatTensor(sz1, sz2):fill(1),
-                         1e-6,
-                         "each value must be either 0 or 1")
+   for _, typename in ipairs(typenames) do
+       local x = t:type(t2cpu[typename])
+       x:bernoulli(p)
+       local mean = x:sum() / (sz1 * sz2)
+       tester:assertalmosteq(mean, p, 0.1, "mean is not equal to p")
+       local f = t:float()
+       tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
+                             torch.FloatTensor(sz1, sz2):fill(1),
+                             1e-6,
+                             "each value must be either 0 or 1")
+   end
    checkMultiDevice(t, 'bernoulli', p)
 end
 
