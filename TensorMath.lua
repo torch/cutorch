@@ -894,7 +894,8 @@ for k, Tensor_ in pairs(handledTypenames) do
 	    {name=Tensor .. "Array"},
 	    {name="index", default=lastdimarray(2)}})
 
-    for _,f in ipairs({{name='bernoulli', a=0.5}}) do
+    for _,f in ipairs({{name='geometric'},
+                       {name='bernoulli', a=0.5}}) do
 
        wrap(f.name,
             cname(f.name),
