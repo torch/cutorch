@@ -2591,10 +2591,13 @@ function test.geometric()
    local p = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:geometric(p)
-   local u = torch.FloatTensor(sz1, sz2):fill(1) -
-                 ((t:float() - 1) * math.log(p)):exp()
-   checkIfUniformlyDistributed(u, 0, 1)
+   for _, typename in ipairs(float_typenames) do
+       local x = t:type(t2cpu[typename])
+       x:geometric(p)
+       local u = torch.FloatTensor(sz1, sz2):fill(1) -
+                     ((x:float() - 1) * math.log(p)):exp()
+       checkIfUniformlyDistributed(u, 0, 1)
+   end
    checkMultiDevice(t, 'geometric', p)
 end
 
