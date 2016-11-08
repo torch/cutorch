@@ -948,6 +948,12 @@ for k, Tensor_ in pairs(handledTypenames) do
               {name='double', default=f.b}})
      end
 
+
+     wrap('exponential',
+          cname('exponential'),
+          {{name=Tensor, returned=true},
+           {name='double', default=nil}})
+
       wrap("norm",
            cname("normall"),
            {{name=Tensor},
