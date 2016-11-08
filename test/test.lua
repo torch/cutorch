@@ -2620,9 +2620,12 @@ function test.cauchy()
    local median, sigma = torch.uniform(), torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:cauchy(median, sigma)
-   local u = ((t:float() - median) / sigma):atan() / math.pi + 0.5
-   checkIfUniformlyDistributed(u, 0, 1)
+   for _, typename in ipairs(float_typenames) do
+       local x = t:type(t2cpu[typename])
+       x:cauchy(median, sigma)
+       local u = ((x:float() - median) / sigma):atan() / math.pi + 0.5
+       checkIfUniformlyDistributed(u, 0, 1)
+   end
    checkMultiDevice(t, 'cauchy', median, sigma)
 end
 
