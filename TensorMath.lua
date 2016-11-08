@@ -938,6 +938,13 @@ for k, Tensor_ in pairs(handledTypenames) do
           {{name=Tensor, default=true, returned=true, method={default='nil'}},
            {name="LongArg"}})
 
+     wrap("multinomial",
+          cname("multinomial"),
+          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+           {name=Tensor},
+           {name="int"},
+           {name="boolean", default=false}})
+
      for _,f in ipairs({{name='uniform', a=0, b=1},
                         {name='cauchy', a=0, b=1},
                         {name='normal', a=0, b=1}}) do
