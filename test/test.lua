@@ -2604,10 +2604,13 @@ function test.exponential()
    local lambda = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:exponential(lambda)
-   local u = torch.FloatTensor(sz1, sz2):fill(1) -
-                 (t:float() * -lambda):exp()
-   checkIfUniformlyDistributed(u, 0, 1)
+   for _, typename in ipairs(float_typenames) do
+       local x = t:type(t2cpu[typename])
+       x:exponential(lambda)
+       local u = torch.FloatTensor(sz1, sz2):fill(1) -
+                     (x:float() * -lambda):exp()
+       checkIfUniformlyDistributed(u, 0, 1)
+   end
    checkMultiDevice(t, 'exponential', lambda)
 end
 
