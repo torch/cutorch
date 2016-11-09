@@ -939,6 +939,11 @@ for k, Tensor_ in pairs(handledTypenames) do
           {{name=Tensor, default=true, returned=true, method={default='nil'}},
            {name="LongArg"}})
 
+     wrap("randn",
+          cname("randn"),
+          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+           {name="LongArg"}})
+
      wrap("multinomial",
           cname("multinomial"),
           {{name=Tensor, default=true, returned=true, method={default='nil'}},
