@@ -948,7 +948,8 @@ for k, Tensor_ in pairs(handledTypenames) do
 
      for _,f in ipairs({{name='uniform', a=0, b=1},
                         {name='cauchy', a=0, b=1},
-                        {name='normal', a=0, b=1}}) do
+                        {name='normal', a=0, b=1},
+                        {name='logNormal', a=1, b=2}}) do
 
         wrap(f.name,
              cname(f.name),
@@ -956,7 +957,6 @@ for k, Tensor_ in pairs(handledTypenames) do
               {name='double', default=f.a},
               {name='double', default=f.b}})
      end
-
 
      wrap('exponential',
           cname('exponential'),
