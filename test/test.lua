@@ -2578,10 +2578,13 @@ function test.logNormal()
    local tolerance = 0.01
    local t = torch.CudaTensor(sz1, sz2)
 
-   t:logNormal(mean, std)
-   local logt = t:log()
-   tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
-   tester:assertalmosteq(logt:std(), std, tolerance, "standard deviation is wrong")
+   for _, typename in ipairs(float_typenames) do
+       local x = t:type(t2cpu[typename])
+       x:logNormal(mean, std)
+       local logt = x:log()
+       tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
+       tester:assertalmosteq(logt:std(), std, tolerance, "standard deviation is wrong")
+   end
    checkMultiDevice(t, 'logNormal', mean, std)
 end
 
