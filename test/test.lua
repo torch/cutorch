@@ -2527,7 +2527,7 @@ function test.uniform()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(float_typenames) do
-       local x = t:type(t2cpu[typename])
+       local x = t:type(typename)
        x:uniform(min, max)
        checkIfUniformlyDistributed(x, min, max)
    end
@@ -2541,7 +2541,7 @@ function test.bernoulli()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(typenames) do
-       local x = t:type(t2cpu[typename])
+       local x = t:type(typename)
        x:bernoulli(p)
        local mean = x:sum() / (sz1 * sz2)
        tester:assertalmosteq(mean, p, 0.1, "mean is not equal to p")
@@ -2579,7 +2579,7 @@ function test.logNormal()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(float_typenames) do
-       local x = t:type(t2cpu[typename])
+       local x = t:type(typename)
        x:logNormal(mean, std)
        local logt = x:log()
        tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
@@ -2595,8 +2595,9 @@ function test.geometric()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(float_typenames) do
-       local x = t:type(t2cpu[typename])
+       local x = t:type(typename)
        x:geometric(p)
+
        local u = torch.FloatTensor(sz1, sz2):fill(1) -
                      ((x:float() - 1) * math.log(p)):exp()
        checkIfUniformlyDistributed(u, 0, 1)
@@ -2627,7 +2628,7 @@ function test.cauchy()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(float_typenames) do
-       local x = t:type(t2cpu[typename])
+       local x = t:type(typename)
        x:cauchy(median, sigma)
        local u = ((x:float() - median) / sigma):atan() / math.pi + 0.5
        checkIfUniformlyDistributed(u, 0, 1)
