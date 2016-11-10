@@ -2700,7 +2700,7 @@ function test.multinomial_with_replacement()
       prob_dist:select(2, n_col):fill(0) --index n_col shouldn't be sampled
       local n_sample = torch.random(n_col - 1)
       for _, typename in ipairs(float_typenames) do
-          local pd = prob_dist:type(t2cpu[typename])
+          local pd = prob_dist:type(typename)
           local sample_indices = torch.multinomial(pd, n_sample, true)
           tester:assert(sample_indices:dim() == 2, "wrong sample_indices dim")
           tester:assert(sample_indices:size(2) == n_sample, "wrong number of samples")
@@ -2726,7 +2726,7 @@ function test.multinomial_without_replacement()
       prob_dist:select(2, n_col):fill(0) --index n_col shouldn't be sampled
       local n_sample = torch.random(n_col - 1)
       for _, typename in ipairs(float_typenames) do
-          local pd = prob_dist:type(t2cpu[typename])
+          local pd = prob_dist:type(typename)
           local sample_indices = torch.multinomial(pd, n_sample, false)
           tester:assert(sample_indices:dim() == 2, "wrong sample_indices dim")
           tester:assert(sample_indices:size(2) == n_sample, "wrong number of samples")
@@ -2764,7 +2764,7 @@ function test.multinomial_without_replacement_gets_all()
       local orig = t:clone():long()
 
       for _, typename in ipairs(float_typenames) do
-          local x = t:type(t2cpu[typename])
+          local x = t:type(typename)
 
           -- Sample without replacement
           local result = torch.multinomial(x, distSize)
@@ -2774,7 +2774,7 @@ function test.multinomial_without_replacement_gets_all()
           -- Sort, and we should have the original results, since without replacement
           -- sampling everything, we should have chosen every value uniquely
           result = result:sort(2)
-          tester:assertTensorEq(orig, result, 0, "error in multinomial_without_replacement_gets_all")
+          tester:assertTensorEq(orig:type(typename), result, 0, "error in multinomial_without_replacement_gets_all")
       end
    end
 end
@@ -2784,7 +2784,7 @@ function test.multinomial_vector()
    local prob_dist = torch.CudaTensor(n_col):uniform()
    local n_sample = n_col
    for _, typename in ipairs(float_typenames) do
-       local pd = prob_dist:type(t2cpu[typename])
+       local pd = prob_dist:type(typename)
        local sample_indices = torch.multinomial(pd, n_sample, true)
        tester:assert(sample_indices:dim() == 1, "wrong sample_indices dim")
        -- Multinomial resizes prob_dist to be 2d (1xn), check that the resize
