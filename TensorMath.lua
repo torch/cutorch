@@ -894,15 +894,6 @@ for k, Tensor_ in pairs(handledTypenames) do
 	    {name=Tensor .. "Array"},
 	    {name="index", default=lastdimarray(2)}})
 
-    for _,f in ipairs({{name='geometric'},
-                       {name='bernoulli', a=0.5}}) do
-
-       wrap(f.name,
-            cname(f.name),
-            {{name=Tensor, returned=true},
-             {name='double', default=f.a}})
-    end
-
     wrap("nonzero",
          cname("nonzero"),
          {{name="CudaLongTensor", default=true, returned=true},
@@ -933,40 +924,6 @@ for k, Tensor_ in pairs(handledTypenames) do
             {{name=Tensor, default=true, returned=true, method={default='nil'}},
                 {name = real},
                 {name=Tensor, method={default=1}}})
-
-     wrap("rand",
-          cname("rand"),
-          {{name=Tensor, default=true, returned=true, method={default='nil'}},
-           {name="LongArg"}})
-
-     wrap("randn",
-          cname("randn"),
-          {{name=Tensor, default=true, returned=true, method={default='nil'}},
-           {name="LongArg"}})
-
-     wrap("multinomial",
-          cname("multinomial"),
-          {{name=Tensor, default=true, returned=true, method={default='nil'}},
-           {name=Tensor},
-           {name="int"},
-           {name="boolean", default=false}})
-
-     for _,f in ipairs({{name='uniform', a=0, b=1},
-                        {name='cauchy', a=0, b=1},
-                        {name='normal', a=0, b=1},
-                        {name='logNormal', a=1, b=2}}) do
-
-        wrap(f.name,
-             cname(f.name),
-             {{name=Tensor, returned=true},
-              {name='double', default=f.a},
-              {name='double', default=f.b}})
-     end
-
-     wrap('exponential',
-          cname('exponential'),
-          {{name=Tensor, returned=true},
-           {name='double', default=nil}})
 
       wrap("norm",
            cname("normall"),
