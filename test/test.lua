@@ -2591,14 +2591,20 @@ end
 function test.geometric()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
-   local p = torch.uniform()
+
+   -- unlike other tests, we pick a large p-value to lower the variance, so
+   -- that its highly unlikely the mean falls outside the bounds of the
+   -- specified tolerance
+   local p = 0.8
+   local tolerance = 0.2
+
    local t = torch.CudaTensor(sz1, sz2)
    local mean = (1 / p)
 
    for _, typename in ipairs(float_typenames) do
        local x = t:type(typename)
        x:geometric(p)
-       tester:assertalmosteq(x:mean(), mean, 0.2, "mean is wrong")
+       tester:assertalmosteq(x:mean(), mean, tolerance, "mean is wrong")
    end
    checkMultiDevice(t, 'geometric', p)
 end
