@@ -2419,11 +2419,15 @@ if cutorch.magma then
       }
       A = A * A:t()
 
-      local i1 = torch.potri(A)
-      local i2 = torch.potri(A:cuda())
-      local M = A:cuda() * i2
-      tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potri answer")
-      tester:assertle((M - torch.eye(A:size(1)):cuda()):abs():max(), 1e-5, "potri not an inverse")
+      for _, triarg in ipairs({'U', 'L'}) do
+          local chol  = torch.potrf(A, triarg)
+
+          local i1 = torch.potri(chol, triarg)
+          local i2 = torch.potri(chol:cuda(), triarg)
+          local M = A:cuda() * i2
+          tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potri answer")
+          tester:assertle((M - torch.eye(A:size(1)):cuda()):abs():max(), 1e-5, "potri not an inverse")
+      end
    end
 
    function test.potrf()
@@ -2434,9 +2438,11 @@ if cutorch.magma then
          {-0.6738, 0.4734,-1.1123, 2.4071,-1.2756},
          {-3.3883, 0.2807, 0.8161,-1.2756, 4.3415},
       }
-      local i1 = torch.potrf(A)
-      local i2 = torch.potrf(A:cuda())
-      tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potrf answer")
+      for _, triarg in ipairs({'U', 'L'}) do
+          local i1 = torch.potrf(A, triarg)
+          local i2 = torch.potrf(A:cuda(), triarg)
+          tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potrf answer")
+      end
    end
 
    function test.potrs()
@@ -2452,10 +2458,12 @@ if cutorch.magma then
         {0.2334,  0.8594,  0.4103},
         {0.7556,  0.1966,  0.9637},
         {0.1420,  0.7185,  0.7476}})
-      local chol = torch.potrf(A)
-      local solve1 = torch.potrs(B, chol)
-      local solve2 = torch.potrs(B:cuda(), chol:cuda())
-      tester:assertle((solve2 - solve1:cuda()):abs():max(), 1e-4, "wrong potrs answer")
+      for _, triarg in ipairs({'U', 'L'}) do
+          local chol = torch.potrf(A, triarg)
+          local solve1 = torch.potrs(B, chol, triarg)
+          local solve2 = torch.potrs(B:cuda(), chol:cuda(), triarg)
+          tester:assertle((solve2 - solve1:cuda()):abs():max(), 1e-4, "wrong potrs answer")
+      end
    end
 
    function test.qr()

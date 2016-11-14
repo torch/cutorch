@@ -1818,28 +1818,34 @@ wrap("inverse",
 wrap("potri",
      cname("potri"),
      {{name=Tensor, returned=true},
-      {name=Tensor}},
+      {name=Tensor},
+      {name='charoption', values={'U', 'L'}, default='U'}},
      cname("potri"),
      {{name=Tensor, default=true, returned=true, invisible=true},
-      {name=Tensor}})
+      {name=Tensor},
+      {name='charoption', values={'U', 'L'}, default='U'}})
 
 wrap("potrf",
      cname("potrf"),
      {{name=Tensor, returned=true},
-      {name=Tensor}},
+      {name=Tensor},
+      {name='charoption', values={'U', 'L'}, default='U'}},
      cname("potrf"),
      {{name=Tensor, default=true, returned=true, invisible=true},
-      {name=Tensor}})
+      {name=Tensor},
+      {name='charoption', values={'U', 'L'}, default='U'}})
 
 wrap("potrs",
      cname("potrs"),
      {{name=Tensor, returned=true},
       {name=Tensor},
-      {name=Tensor}},
+      {name=Tensor},
+      {name='charoption', values={'U', 'L'}, default='U'}},
      cname("potrs"),
      {{name=Tensor, default=true, returned=true, invisible=true},
       {name=Tensor},
-      {name=Tensor}})
+      {name=Tensor},
+      {name='charoption', values={'U', 'L'}, default='U'}})
 
 wrap("qr",
      cname("qr"),
