@@ -70,7 +70,7 @@ TENSOR_UTILS(THCudaCharTensor, char, long);
 TENSOR_UTILS(THCudaShortTensor, short, long);
 TENSOR_UTILS(THCudaIntTensor, int, long);
 TENSOR_UTILS(THCudaLongTensor, long, long);
-TENSOR_UTILS(THCudaTensor, float, double);
+TENSOR_UTILS(THCudaTensor, float, float);
 TENSOR_UTILS(THCudaDoubleTensor, double, double);
 
 #ifdef CUDA_HALF_TENSOR
