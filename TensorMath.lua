@@ -1173,6 +1173,24 @@ for k, Tensor_ in pairs(handledTypenames) do
        end
     end
 
+    if real == 'float' or real == 'double' then
+
+        for _,name in ipairs({"gesv"}) do
+           wrap(name,
+                cname(name),
+                {{name=Tensor, returned=true},
+                 {name=Tensor, returned=true},
+                 {name=Tensor},
+                 {name=Tensor}},
+                cname(name),
+                {{name=Tensor, default=true, returned=true, invisible=true},
+                 {name=Tensor, default=true, returned=true, invisible=true},
+                 {name=Tensor},
+                 {name=Tensor}})
+        end
+
+    end
+
     wrap("dot",
          cname("dot"),
          {{name=Tensor},

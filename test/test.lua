@@ -2334,10 +2334,14 @@ if cutorch.magma then
    function test.gesv()
       local a = torch.Tensor(5, 5):uniform(-1, 1)
       local b = torch.Tensor(5, 3):uniform(-1, 1)
-      local rb1, ra1 = torch.gesv(b, a)
-      local rb2, ra2 = torch.gesv(b:cuda(), a:cuda())
-      tester:assertle((rb2 - rb1:cuda()):abs():max(), 1e-5, "wrong gesv answer")
-      tester:assertle((ra2 - ra1:cuda()):abs():max(), 1e-5, "wrong gesv answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = a:type(typename)
+          local bt = b:type(typename)
+          local rb1, ra1 = torch.gesv(bt, at)
+          local rb2, ra2 = torch.gesv(bt:cuda(), at:cuda())
+          tester:assertle((rb2 - rb1:cuda()):abs():max(), 1e-5, "wrong gesv answer")
+          tester:assertle((ra2 - ra1:cuda()):abs():max(), 1e-5, "wrong gesv answer")
+      end
    end
 
    function test.gels()
