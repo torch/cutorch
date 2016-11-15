@@ -2359,10 +2359,14 @@ if cutorch.magma then
          { 0.5360, 0.2048, 0.2745},
          { 0.8535,-0.3938,-0.2140},
       }
-      local rb1, ra1 = torch.gels(b, a)
-      local rb2, ra2 = torch.gels(b:cuda(), a:cuda())
-      tester:assertle((rb2 - rb1:cuda()):abs():max(), 5e-4, "wrong gels answer")
-      tester:assertle((ra2 - ra1:cuda()):abs():max(), 5e-4, "wrong gels answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = a:type(typename)
+          local bt = b:type(typename)
+          local rb1, ra1 = torch.gels(bt, at)
+          local rb2, ra2 = torch.gels(bt:cuda(), at:cuda())
+          tester:assertle((rb2 - rb1:cuda()):abs():max(), 5e-4, "wrong gels answer")
+          tester:assertle((ra2 - ra1:cuda()):abs():max(), 5e-4, "wrong gels answer")
+      end
    end
 
    function test.symeig()

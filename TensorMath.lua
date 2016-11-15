@@ -1175,7 +1175,7 @@ for k, Tensor_ in pairs(handledTypenames) do
 
     if real == 'float' or real == 'double' then
 
-        for _,name in ipairs({"gesv"}) do
+        for _,name in ipairs({"gesv", "gels"}) do
            wrap(name,
                 cname(name),
                 {{name=Tensor, returned=true},
