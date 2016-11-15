@@ -1202,6 +1202,19 @@ for k, Tensor_ in pairs(handledTypenames) do
               {name=Tensor},
               {name='charoption', values={'N', 'V'}, default='N'},
               {name='charoption', values={'U', 'L'}, default='U'}})
+
+        wrap("eig",
+             cname("geev"),
+             {{name=Tensor, returned=true},
+              {name=Tensor, returned=true},
+              {name=Tensor},
+              {name='charoption', values={'N', 'V'}, default='N'}},
+             cname("geev"),
+             {{name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor},
+              {name='charoption', values={'N', 'V'}, default='N'}})
+
     end
 
     wrap("dot",

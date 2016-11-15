@@ -2392,10 +2392,13 @@ if cutorch.magma then
          { 0.5766, -0.6743,  0.6903, 0.3646, -0.4571},
          {-0.8956, -0.4074, -0.7583, 0.1838, -0.0091},
       }
-      local e1,v1 = torch.eig(a, 'V')
-      local e2,v2 = torch.eig(a:cuda(), 'V')
-      tester:assertle((e2 - e1:cuda()):abs():max(), 1e-6, "wrong eig answer")
-      tester:assertle((v2:abs() - v1:abs():cuda()):abs():max(), 1e-6, "wrong eig answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = a:type(typename)
+          local e1,v1 = torch.eig(at, 'V')
+          local e2,v2 = torch.eig(at:cuda(), 'V')
+          tester:assertle((e2 - e1:cuda()):abs():max(), 1e-6, "wrong eig answer")
+          tester:assertle((v2:abs() - v1:abs():cuda()):abs():max(), 1e-6, "wrong eig answer")
+      end
    end
 
    function test.svd()
