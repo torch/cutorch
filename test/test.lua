@@ -2325,9 +2325,12 @@ end
 
 function test.inverse()
    local a = torch.eye(5):add(torch.Tensor(5, 5):uniform(-0.1, 0.1))
-   local i1 = torch.inverse(a)
-   local i2 = torch.inverse(a:cuda())
-   tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
+   for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+       local at = a:type(typename)
+       local i1 = torch.inverse(at)
+       local i2 = torch.inverse(at:cuda())
+       tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
+   end
 end
 
 if cutorch.magma then

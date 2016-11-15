@@ -1229,6 +1229,14 @@ for k, Tensor_ in pairs(handledTypenames) do
               {name=Tensor},
               {name='charoption', values={'A', 'S'}, default='S'}})
 
+        wrap("inverse",
+             cname("getri"),
+             {{name=Tensor, returned=true},
+              {name=Tensor}},
+             cname("getri"),
+             {{name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor}})
+
     end
 
     wrap("dot",
