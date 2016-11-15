@@ -2409,17 +2409,20 @@ if cutorch.magma then
          {5.45, -0.27,  4.85,  0.74, 10.00, -6.02},
          {3.16,  7.98,  3.01,  5.80,  4.27, -5.31}}
 
-      local u,s,v = torch.svd(a, 'A')
+      for _, typename in ipairs({'torch.CudaDoubleTensor', 'torch.CudaTensor'}) do
+          local at = a:type(typename)
+          local u,s,v = torch.svd(a, 'A')
 
-      local temp = torch.Tensor(a:size(2)):zero()
-      temp:narrow(1, 1, a:size(1)):copy(s)
-      local sigma = torch.diag(temp):resize(a:size(1), a:size(2)):cuda()
+          local temp = torch.Tensor(a:size(2)):zero()
+          temp:narrow(1, 1, a:size(1)):copy(s)
+          local sigma = torch.diag(temp):resize(a:size(1), a:size(2)):cuda()
 
-      local m = u * sigma * v:t()
+          local m = u * sigma * v:t()
 
-      tester:assertle((m - a):abs():max(), 1e-5, "svd: a != u * s * vT")
-      tester:assertle((u*u:t() - torch.eye(a:size(1)):cuda()):abs():max(), 1e-6, "svd: u should be unitary")
-      tester:assertle((v*v:t() - torch.eye(a:size(2)):cuda()):abs():max(), 1e-6, "svd: v should be unitary")
+          tester:assertle((m - a):abs():max(), 1e-5, "svd: a != u * s * vT")
+          tester:assertle((u*u:t() - torch.eye(a:size(1)):cuda()):abs():max(), 1e-6, "svd: u should be unitary")
+          tester:assertle((v*v:t() - torch.eye(a:size(2)):cuda()):abs():max(), 1e-6, "svd: v should be unitary")
+      end
    end
 
 
