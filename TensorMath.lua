@@ -1189,6 +1189,19 @@ for k, Tensor_ in pairs(handledTypenames) do
                  {name=Tensor}})
         end
 
+        wrap("symeig",
+             cname("syev"),
+             {{name=Tensor, returned=true},
+              {name=Tensor, returned=true},
+              {name=Tensor},
+              {name='charoption', values={'N', 'V'}, default='N'},
+              {name='charoption', values={'U', 'L'}, default='U'}},
+             cname("syev"),
+             {{name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor},
+              {name='charoption', values={'N', 'V'}, default='N'},
+              {name='charoption', values={'U', 'L'}, default='U'}})
     end
 
     wrap("dot",

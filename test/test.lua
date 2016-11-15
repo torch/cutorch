@@ -2375,10 +2375,13 @@ if cutorch.magma then
                               {-0.47, -6.39,  4.17,  0.00,  0.00},
                               {-7.20,  1.50, -1.51,  5.70,  0.00},
                               {-0.65, -6.34,  2.67,  1.80, -7.10}}):t()
-      local e1,v1 = torch.symeig(a, 'V')
-      local e2,v2 = torch.symeig(a:cuda(), 'V')
-      tester:assertle((e2 - e1:cuda()):abs():max(), 1e-5, "wrong symeig answer")
-      tester:assertle((v2 - v1:cuda()):abs():max(), 1e-5, "wrong symeig answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = a:type(typename)
+          local e1,v1 = torch.symeig(at, 'V')
+          local e2,v2 = torch.symeig(at:cuda(), 'V')
+          tester:assertle((e2 - e1:cuda()):abs():max(), 1e-5, "wrong symeig answer")
+          tester:assertle((v2 - v1:cuda()):abs():max(), 1e-5, "wrong symeig answer")
+      end
    end
 
    function test.eig()
