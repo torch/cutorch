@@ -1269,6 +1269,16 @@ for k, Tensor_ in pairs(handledTypenames) do
               {name=Tensor},
               {name='charoption', values={'U', 'L'}, default='U'}})
 
+        wrap("qr",
+             cname("qr"),
+             {{name=Tensor, returned=true},
+              {name=Tensor, returned=true},
+              {name=Tensor}},
+             cname("qr"),
+             {{name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor, default=true, returned=true, invisible=true},
+              {name=Tensor}})
+
     end
 
     wrap("dot",

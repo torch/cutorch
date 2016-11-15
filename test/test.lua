@@ -2504,10 +2504,13 @@ if cutorch.magma then
          {-0.2987,  1.9035, -1.4192, -0.9738,  1.4384},
          {-0.5315,  0.4958,  0.4449, -0.4676, -0.4878},
       }
-      local q1,r1 = torch.qr(A)
-      local q2,r2 = torch.qr(A:cuda())
-      tester:assertle((q2 - q1:cuda()):abs():max(), 1e-5, "wrong qr answer")
-      tester:assertle((r2 - r1:cuda()):abs():max(), 1e-5, "wrong qr answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = A:type(typename)
+          local q1,r1 = torch.qr(at)
+          local q2,r2 = torch.qr(at:cuda())
+          tester:assertle((q2 - q1:cuda()):abs():max(), 1e-5, "wrong qr answer")
+          tester:assertle((r2 - r1:cuda()):abs():max(), 1e-5, "wrong qr answer")
+      end
    end
 end
 
