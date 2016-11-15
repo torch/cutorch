@@ -2328,7 +2328,7 @@ function test.inverse()
    for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
        local at = a:type(typename)
        local i1 = torch.inverse(at)
-       local i2 = torch.inverse(at:cuda())
+       local i2 = torch.inverse(a:cuda())
        tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong inverse answer")
    end
 end
@@ -2439,14 +2439,17 @@ if cutorch.magma then
       }
       A = A * A:t()
 
-      for _, triarg in ipairs({'U', 'L'}) do
-          local chol  = torch.potrf(A, triarg)
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = A:type(typename)
+          for _, triarg in ipairs({'U', 'L'}) do
+              local chol  = torch.potrf(at, triarg)
 
-          local i1 = torch.potri(chol, triarg)
-          local i2 = torch.potri(chol:cuda(), triarg)
-          local M = A:cuda() * i2
-          tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potri answer")
-          tester:assertle((M - torch.eye(A:size(1)):cuda()):abs():max(), 1e-5, "potri not an inverse")
+              local i1 = torch.potri(chol, triarg)
+              local i2 = torch.potri(chol:cuda(), triarg)
+              local M = at:cuda() * i2
+              tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potri answer")
+              tester:assertle((M - torch.eye(at:size(1)):cuda()):abs():max(), 1e-5, "potri not an inverse")
+          end
       end
    end
 
@@ -2458,10 +2461,13 @@ if cutorch.magma then
          {-0.6738, 0.4734,-1.1123, 2.4071,-1.2756},
          {-3.3883, 0.2807, 0.8161,-1.2756, 4.3415},
       }
-      for _, triarg in ipairs({'U', 'L'}) do
-          local i1 = torch.potrf(A, triarg)
-          local i2 = torch.potrf(A:cuda(), triarg)
-          tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potrf answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = A:type(typename)
+          for _, triarg in ipairs({'U', 'L'}) do
+              local i1 = torch.potrf(at, triarg)
+              local i2 = torch.potrf(at:cuda(), triarg)
+              tester:assertle((i2 - i1:cuda()):abs():max(), 1e-5, "wrong potrf answer")
+          end
       end
    end
 
@@ -2478,11 +2484,15 @@ if cutorch.magma then
         {0.2334,  0.8594,  0.4103},
         {0.7556,  0.1966,  0.9637},
         {0.1420,  0.7185,  0.7476}})
-      for _, triarg in ipairs({'U', 'L'}) do
-          local chol = torch.potrf(A, triarg)
-          local solve1 = torch.potrs(B, chol, triarg)
-          local solve2 = torch.potrs(B:cuda(), chol:cuda(), triarg)
-          tester:assertle((solve2 - solve1:cuda()):abs():max(), 1e-4, "wrong potrs answer")
+      for _, typename in ipairs({'torch.DoubleTensor', 'torch.FloatTensor'}) do
+          local at = A:type(typename)
+          local bt = B:type(typename)
+          for _, triarg in ipairs({'U', 'L'}) do
+              local chol = torch.potrf(at, triarg)
+              local solve1 = torch.potrs(bt, chol, triarg)
+              local solve2 = torch.potrs(bt:cuda(), chol:cuda(), triarg)
+              tester:assertle((solve2 - solve1:cuda()):abs():max(), 1e-4, "wrong potrs answer")
+          end
       end
    end
 
