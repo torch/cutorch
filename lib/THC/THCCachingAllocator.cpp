@@ -158,12 +158,12 @@ struct THCCachingAllocator
     allocated_blocks.erase(it);
 
     bool small = block->size <= kSmallAlloc;
-    auto& free_blocks = small ? large_blocks : small_blocks;
-    try_merge_blocks(block, block->prev, free_blocks);
-    try_merge_blocks(block, block->next, free_blocks);
+    auto& cur_free_blocks = small ? large_blocks : small_blocks;
+    try_merge_blocks(block, block->prev, cur_free_blocks);
+    try_merge_blocks(block, block->next, cur_free_blocks);
 
     block->allocated = false;
-    free_blocks.insert(block);
+    cur_free_blocks.insert(block);
 
     return cudaSuccess;
   }
@@ -204,6 +204,27 @@ struct THCCachingAllocator
     }
     return basePtr;
   }
+
+  // Accumulates sizes of all memory blocks for given device in given free list
+  void cacheInfoAux(FreeBlocks& blocks, int dev_id, size_t* total, size_t* largest)
+  {
+    Block search_key(dev_id, 0, 0);
+    auto it = blocks.lower_bound(&search_key);
+    for (;it != blocks.end() && *it && (*it)->device == dev_id; ++it) {
+      size_t blocksize = (*it)->size;
+      total += blocksize;
+      if (blocksize > *largest)
+	*largest = blocksize;
+    }
+  }
+  
+  void cacheInfo(int dev_id, size_t* total, size_t* largest)
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    cacheInfoAux(large_blocks, dev_id, total, largest);
+    cacheInfoAux(small_blocks, dev_id, total, largest);
+  }
+
 
   /** combine previously split blocks */
   void try_merge_blocks(Block* dst, Block* src, FreeBlocks& free_blocks)
@@ -327,12 +348,20 @@ static cudaError_t THCCachingAllocator_emptyCache(void* ctx)
   return a->emptyCache();
 }
 
+static cudaError_t THCCachingAllocator_cacheInfo(void* ctx, int dev_id, size_t* totalCached, size_t* largestBlock)
+{
+  THCCachingAllocator* a = (THCCachingAllocator*) ctx;
+  a->cacheInfo(dev_id, totalCached, largestBlock);
+  return cudaSuccess;
+}
+
 static THCCachingAllocator caching_allocator;
 static THCDeviceAllocator device_allocator = {
   &THCCachingAllocator_malloc,
   NULL,
   &THCCachingAllocator_free,
   &THCCachingAllocator_emptyCache,
+  &THCCachingAllocator_cacheInfo,
   &caching_allocator
 };
 
