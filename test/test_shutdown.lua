@@ -10,8 +10,6 @@ local function test_cudaEvent()
 
    local t1View = t1:narrow(1, 10000000, 1)
    t1:fill(1)
-   print('Memory usage after some allocations [free memory], [total memory]')
-   print(cutorch.getMemoryUsage())
 
    -- Event is created here
    local event = cutorch.Event()
@@ -26,13 +24,41 @@ local function test_cudaEvent()
    cutorch.setStream(0)
 end
 
-print ("cutorch.hasHalf is ", cutorch.hasHalf)
+local Gig = 1024*1024*1024
 
+local function test_getMemInfo()
+   local sz = Gig*0.1
+   local t1 = torch.CudaTensor(sz):zero()
+   print('Memory usage after 1st allocation [free memory], [total memory]')
+   local total, free = cutorch.getMemoryUsage()
+   print(free/Gig, total/Gig)
+   local t2 = torch.CudaTensor(sz*1.3):zero()
+   print('Memory usage after 2nd allocation [free memory], [total memory]')
+   local total, free = cutorch.getMemoryUsage()
+   print(free/Gig, total/Gig)
+   t1 = nil
+   collectgarbage()
+   print('Memory usage after 1st deallocation [free memory], [total memory]')
+   local total, free = cutorch.getMemoryUsage()
+   print(free/Gig, total/Gig)
+   t2 = nil
+   collectgarbage()
+   print('Memory usage after 2nd deallocation [free memory], [total memory]')
+   total, free = cutorch.getMemoryUsage()
+   print(free/Gig, total/Gig)
+end
+
+print ("cutorch.hasHalf is ", cutorch.hasHalf)
 print('Memory usage before intialization of threads [free memory], [total memory]')
-print(cutorch.getMemoryUsage())
-threads = Threads(100, function() require 'cutorch'; test_cudaEvent(); end)
+local total, free = cutorch.getMemoryUsage()
+print(free/Gig, total/Gig)
+threads = Threads(20, function() require 'cutorch'; test_getMemInfo(); test_cudaEvent(); end)
 print('Memory usage after intialization of threads [free memory], [total memory]')
-print(cutorch.getMemoryUsage())
+total, free = cutorch.getMemoryUsage()
+print(free/Gig, total/Gig)
 threads:terminate()
+collectgarbage()  
 print('Memory usage after termination of threads [free memory], [total memory]')
-print(cutorch.getMemoryUsage())
+total, free = cutorch.getMemoryUsage()
+print(free/Gig, total/Gig)
+

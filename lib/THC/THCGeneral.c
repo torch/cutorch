@@ -732,7 +732,7 @@ cudaError_t THCudaMemGetInfo(THCState *state,  size_t* freeBytes, size_t* totalB
   
   if (allocator->cacheInfo != NULL)
     allocator->cacheInfo(allocator->state, device, &cachedBytes, &largestBlock);
-  
+
   /* Adjust resulting free bytes number. largesBlock unused for now */
   *freeBytes += cachedBytes;
   return cudaSuccess;

@@ -212,7 +212,7 @@ struct THCCachingAllocator
     auto it = blocks.lower_bound(&search_key);
     for (;it != blocks.end() && *it && (*it)->device == dev_id; ++it) {
       size_t blocksize = (*it)->size;
-      total += blocksize;
+      *total += blocksize;
       if (blocksize > *largest)
 	*largest = blocksize;
     }
