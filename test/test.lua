@@ -1001,6 +1001,81 @@ function test.addcdiv()
    checkMultiDevice(r, 'addcdiv', x, torch.uniform(), y, z)
 end
 
+function test.fmod()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():randn(sz1, sz2)
+   x:apply(function(x)
+       x = x * torch.random(1, 100)
+       return x
+   end)
+   local r = torch.normal(0, 25)
+   print(x, r)
+
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'fmod', r)
+   end
+end
+
+function test.remainder()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():randn(sz1, sz2)
+   x:apply(function(x)
+       x = x * torch.random(1, 100)
+       return x
+   end)
+   local r = torch.normal(0, 25)
+   print(x, r)
+
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'remainder', r)
+   end
+end
+
+function test.equal()
+    -- empty tensors are equal
+    local x = torch.FloatTensor()
+    local y = torch.FloatTensor()
+
+    for _, typename in ipairs(typenames) do
+        local a = x:type(typename)
+        local b = y:type(typename)
+        tester:assert(a:equal(b), 'Empty Tensors should be considered equal')
+    end
+
+    -- mismatched size tensors are not equal
+    local x = torch.FloatTensor(5):fill(1)
+    local y = torch.FloatTensor(3):fill(1)
+
+    for _, typename in ipairs(typenames) do
+        local a = x:type(typename)
+        local b = y:type(typename)
+        tester:assert(not a:equal(b), 'Tensors of different sizes not equal')
+    end
+
+    -- tensors of same size but different value are not equal
+    local sz1 = chooseInt(minsize, maxsize)
+    local sz2 = chooseInt(minsize, maxsize)
+    local x = torch.FloatTensor(sz1, sz2):apply(function() return torch.random(0, 255) end)
+    local y = torch.add(x, 1)
+
+    for _, typename in ipairs(typenames) do
+        local a = x:type(typename)
+        local b = y:type(typename)
+        tester:assert(not a:equal(b), 'Tensors should not be equal')
+    end
+
+    -- actual equality
+    for _, typename in ipairs(typenames) do
+        local a = x:type(typename)
+        local b = x:type(typename)
+        tester:assert(a:equal(b), 'Tensors should be equal')
+    end
+end
+
 function test.logicalValue()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
