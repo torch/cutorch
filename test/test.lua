@@ -383,7 +383,6 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
 		 string.format("number of return arguments for CPU and CUDA "
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
-      print(rcpu[k], rcuda[k])
       tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
                     string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
    end
@@ -1000,6 +999,23 @@ function test.addcdiv()
 
    checkMultiDevice(r, 'addcdiv', x, y, z)
    checkMultiDevice(r, 'addcdiv', x, torch.uniform(), y, z)
+end
+
+function test.fmod()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor():randn(sz1, sz2)
+   x:apply(function(x)
+       x = x * torch.random(1, 100)
+       return x
+   end)
+   local r = torch.normal(0, 25)
+   print(x, r)
+
+   for _, typename in ipairs(typenames) do
+      local x = x:type(t2cpu[typename])
+      compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'fmod', r)
+   end
 end
 
 function test.remainder()
