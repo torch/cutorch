@@ -673,6 +673,12 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor, method={default=1}},
             {name=real}})
 
+    wrap("equal",
+         cname("equal"),
+         {{name=Tensor},
+          {name=Tensor},
+          {name="boolean", creturned=true}})
+
     for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
        wrap(name,
             cname(name),
@@ -1329,6 +1335,12 @@ wrap("remainder",
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
         {name=Tensor, method={default=1}},
         {name=real}})
+
+wrap("equal",
+     cname("equal"),
+     {{name=Tensor},
+      {name=Tensor},
+      {name="boolean", creturned=true}})
 
 for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
   wrap(name,
