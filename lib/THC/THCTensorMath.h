@@ -2,7 +2,6 @@
 #define TH_CUDA_TENSOR_MATH_INC
 
 #include "THCTensor.h"
-#include "THCGeneral.h"
 
 #include "generic/THCTensorMath.h"
 #include "THCGenerateAllTypes.h"

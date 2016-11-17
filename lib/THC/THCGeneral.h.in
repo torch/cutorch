@@ -6,12 +6,6 @@
 #include "THCThreadLocal.h"
 #undef log1p
 
-#include "cuda.h"
-#include "cuda_runtime.h"
-#include "cublas_v2.h"
-
-#cmakedefine USE_MAGMA
-
 #ifdef __cplusplus
 # define THC_EXTERNC extern "C"
 #else
@@ -43,6 +37,10 @@
 struct THCRNGState;  /* Random number generator state. */
 typedef struct THCStream THCStream;
 typedef struct THCState THCState;
+
+#include "THCHalf.h"
+
+#cmakedefine USE_MAGMA
 
 typedef struct _THCDeviceAllocator {
    cudaError_t (*malloc)( void*, void**, size_t,         cudaStream_t);

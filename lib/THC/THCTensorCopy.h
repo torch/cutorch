@@ -3,7 +3,6 @@
 
 #include "THCTensor.h"
 #include "THCGeneral.h"
-#include "THCHalf.h"
 
 #include "generic/THCTensorCopy.h"
 #include "THCGenerateAllTypes.h"

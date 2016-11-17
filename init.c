@@ -3,7 +3,6 @@
 #include "THCGeneral.h"
 #include "THCCachingAllocator.h"
 #include "THCTensorRandom.h"
-#include "THCHalf.h" // for CUDA_HALF_TENSOR
 
 extern void cutorch_CudaByteStorage_init(lua_State* L);
 extern void cutorch_CudaCharStorage_init(lua_State* L);

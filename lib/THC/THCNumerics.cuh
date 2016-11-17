@@ -3,7 +3,8 @@
 
 #include <cuda.h>
 #include <limits.h>
-#include "THCHalf.h"
+
+#include "THCGeneral.h"
 
 /// Class for numeric limits of the particular data type, which
 /// includes support for `half`.
