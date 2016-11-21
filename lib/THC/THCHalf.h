@@ -26,8 +26,4 @@ THC_API int THC_nativeHalfInstructions(THCState *state);
 /* Check for performant native fp16 support on the current device */
 THC_API int THC_fastHalfInstructions(THCState *state);
 
-#  undef  TH_GENERIC_USE_HALF
-#  define TH_GENERIC_USE_HALF 1
-
-
 #endif
