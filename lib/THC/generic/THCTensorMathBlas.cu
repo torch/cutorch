@@ -43,7 +43,7 @@ THCTensor_(dot)(THCState *state, THCTensor *self, THCTensor *src)
 THC_API void
 THCTensor_(addmv)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real alpha, THCTensor *mat, THCTensor *vec)
 {
-#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE)
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE) || defined(THC_REAL_IS_HALF)
   THAssert(THCTensor_(checkGPU)(state, 4, r_, t, mat, vec));
   if( (mat->nDimension != 2) || (vec->nDimension != 1) )
     THError("matrix and vector expected");
@@ -57,6 +57,7 @@ THCTensor_(addmv)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real 
   if(t->size[0] != mat->size[0])
     THError("size mismatch");
 
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE)
   if(r_ != t)
   {
     THCTensor_(resizeAs)(state, r_, t);
@@ -110,6 +111,21 @@ THCTensor_(addmv)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real 
     THCTensor_(free)(state, cmat);
   }
 
+#elif defined(THC_REAL_IS_HALF)
+    // Currently no Hgemv/SgemvEx in Cublas
+    THCTensor *vecAsMatrix = THCTensor_(newWithTensor)(state, vec);
+    THCTensor_(resize2d)(state, vecAsMatrix, vecAsMatrix->size[0], 1);
+
+    THCTensor *tAsMatrix = THCTensor_(newWithTensor)(state, t);
+    THCTensor_(resize2d)(state, tAsMatrix, tAsMatrix->size[0], 1);
+
+    THCTensor_(addmm)(state, r_, beta, tAsMatrix, alpha, mat, vecAsMatrix);
+
+    // r_ will have answer as matrix, need to return a vecotr
+    THCTensor_(resize1d)(state, r_, r_->size[0]);
+    THCTensor_(free)(state, vecAsMatrix);
+    THCTensor_(free)(state, tAsMatrix);
+#endif
 #else
   THError("unimplemented data type");
 #endif
@@ -118,7 +134,7 @@ THCTensor_(addmv)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real 
 THC_API void
 THCTensor_(addr)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real alpha, THCTensor *vec1, THCTensor *vec2)
 {
-#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE)
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE) || defined(THC_REAL_IS_HALF)
   THAssert(THCTensor_(checkGPU)(state, 4, r_, t, vec1, vec2));
   if ( (vec1->nDimension != 1) || (vec2->nDimension != 1) ) {
     THError("vector and vector expected");
@@ -132,12 +148,13 @@ THCTensor_(addr)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real a
     THError("size mismatch");
   }
 
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE)
   if (r_ != t) {
     THCTensor_(resizeAs)(state, r_, t);
     THCTensor_(copy)(state, r_, t);
   }
 
-  if(beta != 1) {
+  if(THCNumerics<real>::ne(beta, ScalarConvert<int, real>::to(1))) {
     THCTensor_(mul)(state, r_, r_, beta);
   }
 
@@ -187,6 +204,19 @@ THCTensor_(addr)(THCState *state, THCTensor *r_, real beta, THCTensor *t, real a
 
     THCTensor_(freeCopyTo)(state, cr, r_);
   }
+#elif defined(THC_REAL_IS_HALF)
+  // currently no Hger/SgerEx in Cublas.
+  THCTensor *vec2T = THCTensor_(newWithTensor)(state, vec2);
+  THCTensor_(resize2d)(state, vec2T, vec2T->size[0], 1);
+  THCTensor_(transpose)(state, vec2T, NULL, 0, 1);
+
+  THCTensor *vec1M = THCTensor_(newWithTensor)(state, vec1);
+  THCTensor_(resize2d)(state, vec1M, vec1M->size[0], 1);
+
+  THCTensor_(addmm)(state, r_, beta, t, alpha, vec1M, vec2T);
+  THCTensor_(free)(state, vec2T);
+  THCTensor_(free)(state, vec1M);
+#endif
 #else
   THError("unimplemented data type");
 #endif
@@ -389,6 +419,14 @@ THCTensor_(addbmm)(THCState *state, THCTensor *result, real beta, THCTensor *t,
 #endif
 }
 
+__global__ void createBatchGemmBuffer(const real** buffer, real* data,
+                                      long stride, long num_batches) {
+  const long idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < num_batches) {
+    buffer[idx] = data + idx * stride;
+   }
+}
+
 THC_API void
 THCTensor_(baddbmm)(THCState *state, THCTensor *result, real beta, THCTensor *t,
                     real alpha, THCTensor *batch1, THCTensor *batch2) {
@@ -487,15 +525,6 @@ THCTensor_(baddbmm)(THCState *state, THCTensor *result, real beta, THCTensor *t,
   // Compute pointers to matrices in each batch.
   long num_batches = result_->size[0];
   size_t matrices_size = num_batches * sizeof(real*);
-  const real **matrices1 = (const real **)THAlloc(matrices_size);
-  const real **matrices2 = (const real **)THAlloc(matrices_size);
-  real **result_matrices = (real **)THAlloc(matrices_size);
-  for (int i = 0; i < num_batches; ++i)
-  {
-    matrices1[i] = THCTensor_(data)(state, batch1_) + i * batch1_->stride[0];
-    matrices2[i] = THCTensor_(data)(state, batch2_) + i * batch2_->stride[0];
-    result_matrices[i] = THCTensor_(data)(state, result_) + i * result_->stride[0];
-  }
 
   // Copy pointers to device.
   const real **d_matrices1, **d_matrices2;
@@ -504,12 +533,18 @@ THCTensor_(baddbmm)(THCState *state, THCTensor *result, real beta, THCTensor *t,
   THCudaCheck(THCudaMalloc(state, (void**)&d_matrices2, matrices_size));
   THCudaCheck(THCudaMalloc(state, (void**)&d_result_matrices, matrices_size));
 
-  THCudaCheck(cudaMemcpyAsync(d_matrices1, matrices1, matrices_size,
-                              cudaMemcpyHostToDevice, THCState_getCurrentStream(state)));
-  THCudaCheck(cudaMemcpyAsync(d_matrices2, matrices2, matrices_size,
-                              cudaMemcpyHostToDevice, THCState_getCurrentStream(state)));
-  THCudaCheck(cudaMemcpyAsync(d_result_matrices, result_matrices, matrices_size,
-                              cudaMemcpyHostToDevice, THCState_getCurrentStream(state)));
+  const long block = 512;
+  const long grid = (num_batches + block - 1) / block;
+
+  createBatchGemmBuffer<<<grid, block, 0, THCState_getCurrentStream(state)>>>(
+    d_matrices1, THCTensor_(data)(state, batch1_), batch1_->stride[0],
+    num_batches);
+  createBatchGemmBuffer<<<grid, block, 0, THCState_getCurrentStream(state)>>>(
+    d_matrices2, THCTensor_(data)(state, batch2_), batch2_->stride[0],
+    num_batches);
+  createBatchGemmBuffer<<<grid, block, 0, THCState_getCurrentStream(state)>>>(
+    (const real**)d_result_matrices, THCTensor_(data)(state,result_),
+    result_->stride[0], num_batches);
 
 #ifdef THC_REAL_IS_FLOAT
   THCudaBlas_SgemmBatched(
@@ -544,9 +579,6 @@ THCTensor_(baddbmm)(THCState *state, THCTensor *result, real beta, THCTensor *t,
   THCudaFree(state, d_matrices1);
   THCudaFree(state, d_matrices2);
   THCudaFree(state, d_result_matrices);
-  THFree(matrices1);
-  THFree(matrices2);
-  THFree(result_matrices);
 
   if (batch1_ != batch1) {
     THCTensor_(free)(state, batch1_);
