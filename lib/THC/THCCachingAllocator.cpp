@@ -158,12 +158,12 @@ struct THCCachingAllocator
     allocated_blocks.erase(it);
 
     bool small = block->size <= kSmallAlloc;
-    auto& cur_free_blocks = small ? large_blocks : small_blocks;
-    try_merge_blocks(block, block->prev, cur_free_blocks);
-    try_merge_blocks(block, block->next, cur_free_blocks);
+    auto& free_blocks = small ? large_blocks : small_blocks;
+    try_merge_blocks(block, block->prev, free_blocks);
+    try_merge_blocks(block, block->next, free_blocks);
 
     block->allocated = false;
-    cur_free_blocks.insert(block);
+    free_blocks.insert(block);
 
     return cudaSuccess;
   }
@@ -348,10 +348,10 @@ static cudaError_t THCCachingAllocator_emptyCache(void* ctx)
   return a->emptyCache();
 }
 
-static cudaError_t THCCachingAllocator_cacheInfo(void* ctx, int dev_id, size_t* totalCached, size_t* largestBlock)
+static cudaError_t THCCachingAllocator_cacheInfo(void* ctx, int dev_id, size_t* cachedAndFree, size_t* largestBlock)
 {
   THCCachingAllocator* a = (THCCachingAllocator*) ctx;
-  a->cacheInfo(dev_id, totalCached, largestBlock);
+  a->cacheInfo(dev_id, cachedAndFree, largestBlock);
   return cudaSuccess;
 }
 
