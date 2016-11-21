@@ -3,6 +3,7 @@
 #include "THCTensorCopy.h"
 #include "THCApply.cuh"
 #include "THCNumerics.cuh"
+#include "THCTensorMathCompareT.cuh"
 
 template <typename T>
 struct TensorAddConstantOp {
@@ -238,12 +239,136 @@ struct TensorDivConstantOp<half> {
 };
 #endif // CUDA_HALF_TENSOR
 
-template <int Upper>
+template <typename T>
+struct TensorRemainderOp {
+  TensorRemainderOp(T v) : val(v) {}
+  __device__ __forceinline__ void operator()(T* out, T* in) {
+    *out = *in - val * (*in / val);
+  }
+
+  __device__ __forceinline__ void operator()(T* v) {
+    *v = *v - val * (*v / val);
+  }
+
+  const T val;
+};
+
+template <>
+struct TensorRemainderOp<float> {
+  TensorRemainderOp(float v) : val(v) {}
+  __device__ __forceinline__ void operator()(float* out, float* in) {
+    *out = *in - val * floorf(*in / val);
+  }
+
+  __device__ __forceinline__ void operator()(float* v) {
+    *v = *v - val * floorf(*v / val);
+  }
+
+  const float val;
+};
+
+template <>
+struct TensorRemainderOp<double> {
+  TensorRemainderOp(double v) : val(v) {}
+  __device__ __forceinline__ void operator()(double* out, double* in) {
+    *out = *in - val * floor(*in / val);
+  }
+
+  __device__ __forceinline__ void operator()(double* v) {
+    *v = *v - val * floor(*v / val);
+  }
+
+  const double val;
+};
+
+#ifdef CUDA_HALF_TENSOR
+template <>
+struct TensorRemainderOp<half> {
+#ifdef CUDA_HALF_INSTRUCTIONS
+  TensorRemainderOp(half v) : val(v) {}
+#else
+  TensorRemainderOp(half v): fval(THC_half2float(v)) {}
+#endif
+
+  __device__ __forceinline__ void operator()(half* out, half* in) {
+#ifdef CUDA_HALF_INSTRUCTIONS
+    *out = __hsub(*in,  __hmul(val, hfloor(__hdiv(*in,  val))));
+#else
+    float fin = __half2float(*in);
+    float fout = fin - fval * floorf(fin / fval);
+    *out = __float2half(fout);
+#endif
+  }
+
+  __device__ __forceinline__ void operator()(half* v) {
+#ifdef CUDA_HALF_INSTRUCTIONS
+    *v = __hsub(*v, __hmul(val, hfloor(__hdiv(*v, val))));
+#else
+    float fv = __half2float(*v);
+    fv = fv - fval * floorf(fv / fval);
+    *v = __float2half(fv);
+#endif
+  }
+
+#ifdef CUDA_HALF_INSTRUCTIONS
+  const half val;
+#else
+  const float fval;
+#endif
+};
+#endif // CUDA_HALF_TENSOR
+
+template <typename T>
+struct TensorFmodOp {
+  TensorFmodOp(T v) : val((float)v) {}
+  __device__ __forceinline__ void operator()(T* out, T* in) {
+    *out = (T) fmodf((float) *in, val);
+  }
+
+  __device__ __forceinline__ void operator()(T* v) {
+    *v = (T) fmodf((float) *v, val);
+  }
+
+  const float val;
+};
+
+template <>
+struct TensorFmodOp<double> {
+  TensorFmodOp(double v) : val(v) {}
+  __device__ __forceinline__ void operator()(double* out, double* in) {
+    *out = fmod(*in, val);
+  }
+
+  __device__ __forceinline__ void operator()(double* v) {
+    *v = fmod(*v, val);
+  }
+
+  const double val;
+};
+
+#ifdef CUDA_HALF_TENSOR
+template <>
+struct TensorFmodOp<half> {
+  TensorFmodOp(half v): fval(THC_half2float(v)) {}
+
+  __device__ __forceinline__ void operator()(half* out, half* in) {
+    *out = __float2half(fmodf(__half2float(*in), fval));
+  }
+
+  __device__ __forceinline__ void operator()(half* v) {
+    *v = __float2half(fmodf(__half2float(*v), fval));
+  }
+
+  const float fval;
+};
+#endif // CUDA_HALF_TENSOR
+
+template <typename T, int Upper>
 struct TensorTriOp {
-  TensorTriOp(float *start_, long stride0_, long stride1_, long k_)
+  TensorTriOp(T *start_, long stride0_, long stride1_, long k_)
     : start(start_), stride0(stride0_), stride1(stride1_), k(k_) {}
 
-  __device__ __forceinline__ int mask(float *in) {
+  __device__ __forceinline__ int mask(T *in) {
     ptrdiff_t n = in - start;
     long row, col;
     if (stride0 > stride1)
@@ -260,148 +385,18 @@ struct TensorTriOp {
     return Upper ? (col - row >= k) : (col - row <= k);
   }
 
-  __device__ __forceinline__ void operator()(float* out, float* in) {
-    *out = mask(in) ? *in : 0;
+  __device__ __forceinline__ void operator()(T* out, T* in) {
+    *out = mask(in) ? *in : ScalarConvert<int, T>::to(0);
   }
 
-  __device__ __forceinline__ void operator()(float* v) {
+  __device__ __forceinline__ void operator()(T* v) {
     if (!mask(v))
-      *v = 0;
+      *v = ScalarConvert<int, T>::to(0);
   }
 
-  const float *start;
+  const T *start;
   const long stride0, stride1, k;
 };
 
-void THCudaTensor_tril(THCState *state, THCudaTensor *self_, THCudaTensor *src_, long k)
-{
-  THAssert(THCudaTensor_checkGPU(state, 2, self_, src_));
-  THArgCheck(src_->nDimension == 2, 1, "expected a matrix");
-
-  THCudaTensor *src = src_;
-  if (self_ == src_)
-    src = THCudaTensor_newContiguous(state, src_);
-
-  long stride0 = src->stride[0];
-  long stride1 = src->stride[1];
-  float *start = THCudaTensor_data(state, src) + src->storageOffset;
-
-  TensorTriOp<0> op(start, stride0, stride1, k);
-
-  if (self_ == src_) {
-    if (!THC_pointwiseApply1(state, src, op)) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  } else {
-    THCudaTensor_resizeAs(state, self_, src);
-
-    if (!THC_pointwiseApply2(state, self_, src, op)) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  }
-
-  if (self_ == src_)
-    THCudaTensor_freeCopyTo(state, src, src_);
-
-  THCudaCheck(cudaGetLastError());
-}
-
-void THCudaTensor_triu(THCState *state, THCudaTensor *self_, THCudaTensor *src_, long k)
-{
-  THAssert(THCudaTensor_checkGPU(state, 2, self_, src_));
-  THArgCheck(src_->nDimension == 2, 1, "expected a matrix");
-
-  THCudaTensor *src = src_;
-  if (self_ == src_)
-    src = THCudaTensor_newContiguous(state, src_);
-
-  long stride0 = src->stride[0];
-  long stride1 = src->stride[1];
-  float *start = THCudaTensor_data(state, src) + src->storageOffset;
-
-  TensorTriOp<1> op(start, stride0, stride1, k);
-
-  if (self_ == src_) {
-    if (!THC_pointwiseApply1(state, src, op)) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  } else {
-    THCudaTensor_resizeAs(state, self_, src);
-
-    if (!THC_pointwiseApply2(state, self_, src, op)) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  }
-
-  if (self_ == src_)
-    THCudaTensor_freeCopyTo(state, src, src_);
-
-  THCudaCheck(cudaGetLastError());
-}
-
 #include "generic/THCTensorMathPairwise.cu"
 #include "THCGenerateAllTypes.h"
-
-// Copy the kth diagonal of a matrix B to a vector A.
-__global__ void THCudaTensor_copyFromDiagonal(float* a, float* b, ptrdiff_t start, ptrdiff_t size, ptrdiff_t strideSum, ptrdiff_t strideA) {
-  for (ptrdiff_t linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
-       linearIndex < size;
-       linearIndex += gridDim.x * blockDim.x) {
-    const ptrdiff_t bOffset = start + strideSum * linearIndex;
-    a[strideA * linearIndex] = b[bOffset];
-  }
-}
-
-// Copy vector B to the kth diagonal of a matrix A
-__global__ void THCudaTensor_copyToDiagonal(float* a, float* b, ptrdiff_t start, ptrdiff_t size, ptrdiff_t strideSum, ptrdiff_t strideB) {
-  for (ptrdiff_t linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
-       linearIndex < size;
-       linearIndex += gridDim.x * blockDim.x) {
-    const ptrdiff_t aOffset = start + strideSum * linearIndex;
-    a[aOffset] = b[strideB * linearIndex];
-  }
-}
-
-void THCudaTensor_diag(THCState *state, THCudaTensor *self_, THCudaTensor *src_, long k){
-  THAssert(THCudaTensor_checkGPU(state, 2, self_, src_));
-  int nDimension = THCudaTensor_nDimension(state, src_);
-  THArgCheck((nDimension == 2) || (nDimension == 1), 1, "expected a matrix or a vector");
-  if (nDimension == 2) {
-    long stride0 = THCudaTensor_stride(state, src_, 0);
-    long stride1 = THCudaTensor_stride(state, src_, 1);
-    long size0 = THCudaTensor_size(state, src_, 0);
-    long size1 = THCudaTensor_size(state, src_, 1);
-    long size = (k > 0) ? min((long long)size0, (long long)size1 - k) : min((long long)size0 + k, (long long)size1);
-    THCudaTensor_resize1d(state, self_, size);
-    long strideSelf = THCudaTensor_stride(state, self_, 0);
-    const dim3 threads(min((long long)THCState_getCurrentDeviceProperties(state)->maxThreadsPerBlock, (long long)size));
-    dim3 grid(min((long long)1024, (long long)THCCeilDiv(size, (long)threads.x)));
-    long start = (k >= 0 ? k * stride1 : -k * stride0);
-    THCudaTensor_copyFromDiagonal<<<grid, threads, 0, THCState_getCurrentStream(state)>>>
-    (THCudaTensor_data(state, self_), THCudaTensor_data(state, src_), start, size, stride0 + stride1, strideSelf);
-  } else {
-    ptrdiff_t totalElements = THCudaTensor_nElement(state, src_);
-    ptrdiff_t size = (k > 0) ? totalElements + k : totalElements - k;
-    long strideSrc = THCudaTensor_stride(state, src_, 0);
-    THCudaTensor_resize2d(state, self_, size, size);
-    THCudaTensor_zero(state, self_);
-    long stride0 = THCudaTensor_stride(state, self_, 0);
-    long stride1 = THCudaTensor_stride(state, self_, 1);
-    const dim3 threads(min((long long)THCState_getCurrentDeviceProperties(state)->maxThreadsPerBlock, (long long)size));
-    dim3 grid(min((long long)1024, (long long)THCCeilDiv(size, (ptrdiff_t)threads.x)));
-    ptrdiff_t start = (k >= 0 ? k * stride1 : -k * stride0);
-    THCudaTensor_copyToDiagonal<<<grid, threads, 0, THCState_getCurrentStream(state)>>>
-    (THCudaTensor_data(state, self_), THCudaTensor_data(state, src_), start, totalElements, stride0 + stride1, strideSrc);
-  }
-  THCudaCheck(cudaGetLastError());
-}
-
-float THCudaTensor_trace(THCState *state, THCudaTensor *src_) {
-  THAssert(THCudaTensor_checkGPU(state, 1, src_));
-  THArgCheck((src_->nDimension == 2), 1, "expected a matrix");
-  THCudaTensor *diag = THCudaTensor_new(state);
-  THCudaTensor_diag(state, diag, src_, 0);
-  float trace = THCudaTensor_sumall(state, diag);
-  THCudaTensor_free(state, diag);
-  return trace;
-}
