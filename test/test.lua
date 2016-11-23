@@ -1010,7 +1010,6 @@ function test.fmod()
        return x
    end)
    local r = torch.normal(0, 25)
-   print(x, r)
 
    for _, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
@@ -1027,7 +1026,6 @@ function test.remainder()
        return x
    end)
    local r = torch.normal(0, 25)
-   print(x, r)
 
    for _, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
