@@ -776,35 +776,35 @@ static int cutorch_getDeviceProperties(lua_State *L)
 
 static int cutorch_seed(lua_State *L)
 {
-  unsigned long long seed = THCRandom_seed(cutorch_getstate(L));
+  unsigned long seed = THCRandom_seed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_seedAll(lua_State *L)
 {
-  unsigned long long seed = THCRandom_seedAll(cutorch_getstate(L));
+  unsigned long seed = THCRandom_seedAll(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_initialSeed(lua_State *L)
 {
-  unsigned long long seed = THCRandom_initialSeed(cutorch_getstate(L));
+  unsigned long seed = THCRandom_initialSeed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_manualSeed(lua_State *L)
 {
-  unsigned long long seed = luaL_checknumber(L, 1);
+  unsigned long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeed(cutorch_getstate(L), seed);
   return 0;
 }
 
 static int cutorch_manualSeedAll(lua_State* L)
 {
-  unsigned long long seed = luaL_checknumber(L, 1);
+  unsigned long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeedAll(cutorch_getstate(L), seed);
   return 0;
 }
