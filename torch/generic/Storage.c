@@ -75,6 +75,14 @@ static int torch_Storage_(retain)(lua_State *L)
   return 0;
 }
 
+static int torch_Storage_(setFlag)(lua_State *L)
+{
+  THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
+  char flag = luaL_checkint(L, 2);
+  THCStorage_(setFlag)(cutorch_getstate(L), storage, flag);
+  return 0;
+}
+
 static int torch_Storage_(free)(lua_State *L)
 {
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
@@ -266,6 +274,7 @@ static const struct luaL_Reg torch_Storage_(_) [] = {
   {"__index__", torch_Storage_(__index__)},
   {"resize", torch_Storage_(resize)},
   {"fill", torch_Storage_(fill)},
+  {"setFlag", torch_Storage_(setFlag)},
   {"copy", torch_Storage_(copy)},
   {"totable", torch_Storage_(totable)},
   {"write", torch_Storage_(write)},

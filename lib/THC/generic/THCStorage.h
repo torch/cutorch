@@ -5,6 +5,7 @@
 #define TH_STORAGE_REFCOUNTED 1
 #define TH_STORAGE_RESIZABLE  2
 #define TH_STORAGE_FREEMEM    4
+#define TH_STORAGE_TEMP       8
 
 typedef struct THCStorage
 {
