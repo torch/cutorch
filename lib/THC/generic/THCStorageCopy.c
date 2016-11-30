@@ -21,13 +21,26 @@ void THCStorage_(copy##TYPEC)(THCState *state, THCStorage *self, struct TH##TYPE
   TH##TYPEC##Tensor_free(srcTensor);                                   \
   THCTensor_(free)(state, selfTensor);                                 \
 }
+
+#ifndef THC_GENERIC_NO_BYTE
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Byte)
+#endif
+#ifndef THC_GENERIC_NO_CHAR
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Char)
+#endif
+#ifndef THC_GENERIC_NO_SHORT
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Short)
+#endif
+#ifndef THC_GENERIC_NO_INT
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Int)
+#endif
+#ifndef THC_GENERIC_NO_LONG
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Long)
+#endif
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Float)
+#ifndef THC_GENERIC_NO_DOUBLE
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
+#endif
 
 #ifndef THC_REAL_IS_HALF
 void THStorage_(copyCuda)(THCState *state, THStorage *self, struct THCStorage *src)
@@ -47,14 +60,25 @@ void TH_CONCAT_4(TH,TYPEC,Storage_copyCuda,Real)(THCState *state, TH##TYPEC##Sto
   TH_CONCAT_4(TH,TYPEC,Tensor_copyCuda,Real)(state, selfTensor, srcTensor); \
   THCTensor_(free)(state, srcTensor);                                       \
 }
+#ifndef THC_GENERIC_NO_BYTE
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Byte)
+#endif
+#ifndef THC_GENERIC_NO_CHAR
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Char)
+#endif
+#ifndef THC_GENERIC_NO_SHORT
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Short)
+#endif
+#ifndef THC_GENERIC_NO_INT
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Int)
+#endif
+#ifndef THC_GENERIC_NO_LONG
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Long)
+#endif
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Float)
+#ifndef THC_GENERIC_NO_DOUBLE
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
-
+#endif
 #undef TH_CUDA_STORAGE_IMPLEMENT_COPY
 #undef TH_CUDA_STORAGE_IMPLEMENT_COPYTO
 

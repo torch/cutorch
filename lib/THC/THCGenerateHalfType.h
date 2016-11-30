@@ -4,6 +4,7 @@
 
 #include "THCHalf.h"
 
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
 
 #define real half
@@ -20,6 +21,7 @@
 #undef THC_REAL_IS_HALF
 
 #endif // CUDA_HALF_TENSOR
+#endif
 
 #ifndef THCGenerateAllTypes
 #ifndef THCGenerateFloatTypes

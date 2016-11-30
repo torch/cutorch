@@ -30,16 +30,30 @@ THCTensor_(copyIgnoringOverlaps)(THCState* state, THCTensor* dst, THCTensor* src
     THC_copyTensor<THCTensor, THCuda##TYPECUDA##Tensor>(state, self, src); \
   }
 
+#ifndef TH_GENERIC_NO_BYTE
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Byte, Byte)
+#endif
+#ifndef TH_GENERIC_NO_CHAR
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Char, Char)
+#endif
+#ifndef TH_GENERIC_NO_SHORT
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Short, Short)
+#endif
+#ifndef TH_GENERIC_NO_INT
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Int, Int)
+#endif
+#ifndef TH_GENERIC_NO_LONG
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Long, Long)
+#endif
 // THCudaTensor aka the non-existent THCudaFloatTensor
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Float, )
+#ifndef TH_GENERIC_NO_DOUBLE
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Double, Double)
+#endif
+#ifndef TH_GENERIC_NO_HALF 
 #ifdef CUDA_HALF_TENSOR
 IMPLEMENT_THC_CUDA_TENSOR_COPY(Half, Half)
+#endif
 #endif
 
 #undef IMPLEMENT_THC_CUDA_TENSOR_COPY

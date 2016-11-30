@@ -40,6 +40,17 @@
   } while(0)
 #endif
 
+#if defined ( __ANDROID__ ) && !defined (THC_REDUCED_TYPE_SET)
+# define THC_REDUCED_TYPE_SET 1
+#endif
+
+#ifdef THC_REDUCED_TYPE_SET
+# define THC_GENERIC_NO_CHAR
+# define THC_GENERIC_NO_INT
+# define THC_GENERIC_NO_SHORT
+# define THC_GENERIC_NO_DOUBLE
+#endif
+
 struct THCRNGState;  /* Random number generator state. */
 typedef struct THCStream THCStream;
 typedef struct THCState THCState;
