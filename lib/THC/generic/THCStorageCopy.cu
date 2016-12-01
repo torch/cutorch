@@ -20,9 +20,8 @@ void THCStorage_(copyCuda##TYPEC)(THCState *state, THCStorage *self, struct THCu
   THCTensor_(free)(state, selfTensor);                                                  \
 }
 
-#ifndef TH_GENERIC_NO_BYTE
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Byte,Byte)
-#endif
+
 #ifndef TH_GENERIC_NO_CHAR
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Char,Char)
 #endif
@@ -32,9 +31,7 @@ THC_CUDA_STORAGE_IMPLEMENT_COPY(Short,Short)
 #ifndef TH_GENERIC_NO_INT
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Int,Int)
 #endif
-#ifndef TH_GENERIC_NO_LONG
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Long,Long)
-#endif
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Float,)  // i.e. float
 #ifndef TH_GENERIC_NO_DOUBLE
 THC_CUDA_STORAGE_IMPLEMENT_COPY(Double,Double)
