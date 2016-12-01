@@ -2,6 +2,7 @@
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCCachingAllocator.h"
+#include "THCCachingHostAllocator.h"
 #include "THCSleep.h"
 #include "THCTensorRandom.h"
 #include "THCHalf.h" // for CUDA_HALF_TENSOR
@@ -1005,6 +1006,7 @@ int luaopen_libcutorch(lua_State *L)
   char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
   if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
     THCState_setDeviceAllocator(state, THCCachingAllocator_get());
+    state->cudaHostAllocator = &THCCachingHostAllocator;
   }
 
   THCudaInit(state);
