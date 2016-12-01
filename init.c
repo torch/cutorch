@@ -2,6 +2,7 @@
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCCachingAllocator.h"
+#include "THCSleep.h"
 #include "THCTensorRandom.h"
 #include "THCHalf.h" // for CUDA_HALF_TENSOR
 
@@ -938,6 +939,15 @@ static int cutorch_hasFastHalfInstructions(lua_State *L) {
   return 1;
 }
 
+static int cutorch_sleep(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+  if (!luaT_checklong(L, 1)) {
+      THError("expected number 'cycles'");
+  }
+  THC_sleep(state, luaT_tolong(L, 1));
+  return 0;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"synchronizeAll", cutorch_synchronizeAll},
@@ -972,6 +982,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"initialSeed", cutorch_initialSeed},
   {"manualSeed", cutorch_manualSeed},
   {"manualSeedAll", cutorch_manualSeedAll},
+  {"_sleep", cutorch_sleep},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
   {"getState", cutorch_getState},
