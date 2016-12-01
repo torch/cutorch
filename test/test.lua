@@ -3923,6 +3923,35 @@ function test.kernelP2PAccess()
    end
 end
 
+if os.getenv('THC_CACHING_ALLOCATOR') == '1' then
+   local function getCyclesPerMs()
+      cutorch.synchronize()
+      local t = torch.Timer()
+      cutorch._sleep(1e6)
+      cutorch.synchronize()
+      return 1e6 / (t:time().real * 1000)
+   end
+
+   function test.cachedPinnedMemory()
+      local cyclesPerMs = getCyclesPerMs()
+
+      -- check that allocations are re-used after deletion
+      t = cutorch.createCudaHostTensor({1})
+      ptr = t:data()
+      t = nil; collectgarbage()
+      t = cutorch.createCudaHostTensor({1})
+      tester:asserteq(t:data(), ptr, 'allocation not reused')
+
+      -- check that the allocation is not re-used if it's in-use by a copy
+      gpuTensor = torch.CudaTensor({0})
+      cutorch._sleep(50 * cyclesPerMs)  -- delay the copy
+      gpuTensor:copyAsync(t)
+      t = nil; collectgarbage()
+      t = cutorch.createCudaHostTensor({1})
+      tester:assertne(t:data(), ptr, 'allocation re-used too soon')
+   end
+end
+
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
 -- It would be nice to fix torch.Tester() eventually.
 local function setUp()
