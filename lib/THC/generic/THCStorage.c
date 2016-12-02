@@ -174,7 +174,7 @@ void THCStorage_(free)(THCState *state, THCStorage *self)
   if(!(self->flag & TH_STORAGE_REFCOUNTED))
     return;
 
-  if (THAtomicDecrementRef(&self->refcount))
+  if ((THAtomicGet(&self->refcount)>0) && THAtomicDecrementRef(&self->refcount))
   {
     if(self->flag & TH_STORAGE_FREEMEM) {
       THCHeapUpdate(state, -self->size * sizeof(real));
