@@ -56,23 +56,32 @@ static int cutorch_Storage_(copy)(lua_State *L)
   void *src;
   if( (src = luaT_toudata(L, 2, "torch.CudaByteStorage")) )
     THCStorage_(copyCudaByte)(state, storage, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CudaCharStorage")) )
     THCStorage_(copyCudaChar)(state, storage, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.CudaShortStorage")) )
     THCStorage_(copyCudaShort)(state, storage, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.CudaIntStorage")) )
     THCStorage_(copyCudaInt)(state, storage, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.CudaLongStorage")) )
     THCStorage_(copyCudaLong)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaStorage")) )
     THCStorage_(copyCudaFloat)(state, storage, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleStorage")) )
     THCStorage_(copyCudaDouble)(state, storage, src);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfStorage")) )
     THCStorage_(copyCudaHalf)(state, storage, src);
 #endif
-
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
     THCStorage_(copyByte)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )
@@ -103,35 +112,53 @@ static int TH_CONCAT_3(cutorch_,Real,Storage_copy)(lua_State *L)
     THStorage_(copy)(storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
     THStorage_(copyByte)(storage, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )
     THStorage_(copyChar)(storage, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )
     THStorage_(copyShort)(storage, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )
     THStorage_(copyInt)(storage, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )
     THStorage_(copyLong)(storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )
     THStorage_(copyFloat)(storage, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )
     THStorage_(copyDouble)(storage, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.CudaStorage")) )
     THStorage_(copyCudaFloat)(cutorch_getstate(L), storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaLongStorage")) )
     THStorage_(copyCudaLong)(cutorch_getstate(L), storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaByteStorage")) )
     THStorage_(copyCudaByte)(cutorch_getstate(L), storage, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CudaCharStorage")) )
     THStorage_(copyCudaChar)(cutorch_getstate(L), storage, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.CudaShortStorage")) )
     THStorage_(copyCudaShort)(cutorch_getstate(L), storage, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.CudaIntStorage")) )
     THStorage_(copyCudaInt)(cutorch_getstate(L), storage, src);
+#endif
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleStorage")) )
     THStorage_(copyCudaDouble)(cutorch_getstate(L), storage, src);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfStorage")) )
     THStorage_(copyCudaHalf)(cutorch_getstate(L), storage, src);
+#endif
 #endif
   else
     luaL_typerror(L, 2, "torch.*Storage");
