@@ -1013,47 +1013,84 @@ int luaopen_libcutorch(lua_State *L)
 #endif
 
   cutorch_CudaByteStorage_init(L);
+#ifndef THC_GENERIC_NO_CHAR
   cutorch_CudaCharStorage_init(L);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   cutorch_CudaShortStorage_init(L);
+#endif
+#ifndef THC_GENERIC_NO_INT
   cutorch_CudaIntStorage_init(L);
+#endif
   cutorch_CudaLongStorage_init(L);
   cutorch_CudaStorage_init(L);
+#ifndef THC_GENERIC_NO_DOUBLE
   cutorch_CudaDoubleStorage_init(L);
+#endif
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfStorage_init(L);
 #endif
-
   cutorch_CudaByteTensor_init(L);
+#ifndef THC_GENERIC_NO_CHAR
   cutorch_CudaCharTensor_init(L);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   cutorch_CudaShortTensor_init(L);
+#endif
+#ifndef THC_GENERIC_NO_INT
   cutorch_CudaIntTensor_init(L);
+#endif
   cutorch_CudaLongTensor_init(L);
   cutorch_CudaTensor_init(L);
+#ifndef THC_GENERIC_NO_DOUBLE
   cutorch_CudaDoubleTensor_init(L);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensor_init(L);
 #endif
+#endif
 
   cutorch_CudaByteTensorOperator_init(L);
+#ifndef THC_GENERIC_NO_CHAR
   cutorch_CudaCharTensorOperator_init(L);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   cutorch_CudaShortTensorOperator_init(L);
+#endif
+#ifndef THC_GENERIC_NO_INT
   cutorch_CudaIntTensorOperator_init(L);
+#endif
   cutorch_CudaLongTensorOperator_init(L);
   cutorch_CudaTensorOperator_init(L);
+#ifndef THC_GENERIC_NO_DOUBLE
   cutorch_CudaDoubleTensorOperator_init(L);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensorOperator_init(L);
 #endif
+#endif
 
   cutorch_CudaByteTensorMath_init(L);
+#ifndef THC_GENERIC_NO_CHAR
   cutorch_CudaCharTensorMath_init(L);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   cutorch_CudaShortTensorMath_init(L);
+#endif
+#ifndef THC_GENERIC_NO_INT
   cutorch_CudaIntTensorMath_init(L);
+#endif
   cutorch_CudaLongTensorMath_init(L);
   cutorch_CudaTensorMath_init(L);
+#ifndef THC_GENERIC_NO_DOUBLE
   cutorch_CudaDoubleTensorMath_init(L);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensorMath_init(L);
+#endif
 #endif
 
   cutorch_Event_init(L);
@@ -1068,6 +1105,13 @@ int luaopen_libcutorch(lua_State *L)
   lua_pushboolean(L, 0);
 #endif
   lua_setfield(L, -2, "hasHalf");
+
+#ifdef THC_REDUCED_TYPE_SET
+  lua_pushboolean(L, 1);
+#else
+  lua_pushboolean(L, 0);
+#endif
+  lua_setfield(L, -2, "reducedTypeSet");
 
   /* store gpu driver version in field */
   int driverVersion;
