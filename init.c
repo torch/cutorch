@@ -2,6 +2,8 @@
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCCachingAllocator.h"
+#include "THCCachingHostAllocator.h"
+#include "THCSleep.h"
 #include "THCTensorRandom.h"
 #include "THCHalf.h" // for CUDA_HALF_TENSOR
 
@@ -698,13 +700,14 @@ static int cutorch_getMemoryUsage(lua_State *L) {
   size_t totalBytes = 0;
   int curDevice;
   THCudaCheck(cudaGetDevice(&curDevice));
+  THCState *state = cutorch_getstate(L);
 
   int device = luaL_optint(L, 1, -10);
   if (device == -10) { /* no argument passed, current device mem usage */
-    THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+    THCudaCheck(THCudaMemGetInfo(state, &freeBytes, &totalBytes));
   } else { /* argument was given, particular device's memory usage */
     THCudaCheck(cudaSetDevice(device-1)); /* zero indexed */
-    THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+    THCudaCheck(THCudaMemGetInfo(state, &freeBytes, &totalBytes));
     THCudaCheck(cudaSetDevice(curDevice));
   }
   lua_pushnumber(L, freeBytes);
@@ -775,35 +778,35 @@ static int cutorch_getDeviceProperties(lua_State *L)
 
 static int cutorch_seed(lua_State *L)
 {
-  unsigned long seed = THCRandom_seed(cutorch_getstate(L));
+  unsigned long long seed = THCRandom_seed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_seedAll(lua_State *L)
 {
-  unsigned long seed = THCRandom_seedAll(cutorch_getstate(L));
+  unsigned long long seed = THCRandom_seedAll(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_initialSeed(lua_State *L)
 {
-  unsigned long seed = THCRandom_initialSeed(cutorch_getstate(L));
+  unsigned long long seed = THCRandom_initialSeed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_manualSeed(lua_State *L)
 {
-  unsigned long seed = luaL_checknumber(L, 1);
+  unsigned long long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeed(cutorch_getstate(L), seed);
   return 0;
 }
 
 static int cutorch_manualSeedAll(lua_State* L)
 {
-  unsigned long seed = luaL_checknumber(L, 1);
+  unsigned long long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeedAll(cutorch_getstate(L), seed);
   return 0;
 }
@@ -937,6 +940,15 @@ static int cutorch_hasFastHalfInstructions(lua_State *L) {
   return 1;
 }
 
+static int cutorch_sleep(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+  if (!luaT_checklong(L, 1)) {
+      THError("expected number 'cycles'");
+  }
+  THC_sleep(state, luaT_tolong(L, 1));
+  return 0;
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"synchronizeAll", cutorch_synchronizeAll},
@@ -971,6 +983,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"initialSeed", cutorch_initialSeed},
   {"manualSeed", cutorch_manualSeed},
   {"manualSeedAll", cutorch_manualSeedAll},
+  {"_sleep", cutorch_sleep},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
   {"getState", cutorch_getState},
@@ -993,6 +1006,7 @@ int luaopen_libcutorch(lua_State *L)
   char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
   if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
     THCState_setDeviceAllocator(state, THCCachingAllocator_get());
+    state->cudaHostAllocator = &THCCachingHostAllocator;
   }
 
   THCudaInit(state);
