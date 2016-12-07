@@ -277,7 +277,7 @@ wrap.types.half = {
     declare = function(arg)
         -- if it is a number we initialize here
         local default = tonumber(interpretdefaultvalue(arg)) or 0
-        return string.format("half arg%d = THC_float2half((float) %d);", arg.i, tonumber(default))
+        return string.format("half arg%d = TH_float2half((float) %d);", arg.i, tonumber(default))
     end,
 
     check = function(arg, idx)
@@ -285,7 +285,7 @@ wrap.types.half = {
     end,
 
     read = function(arg, idx)
-        return string.format("arg%d = THC_float2half((float) lua_tonumber(L, %d));", arg.i, idx)
+        return string.format("arg%d = TH_float2half((float) lua_tonumber(L, %d));", arg.i, idx)
     end,
 
     init = function(arg)
@@ -293,7 +293,7 @@ wrap.types.half = {
         if arg.default then
             local default = interpretdefaultvalue(arg)
             if not tonumber(default) then
-                return string.format("arg%d = THC_float2half((float) %s);", arg.i, default)
+                return string.format("arg%d = TH_float2half((float) %s);", arg.i, default)
             end
         end
     end,
