@@ -9,6 +9,9 @@
 /* We compile with CudaHalfTensor support if we have this: */
 #if CUDA_VERSION >= 7050 || CUDA_HAS_FP16
 #  define CUDA_HALF_TENSOR 1
+#  ifndef TH_HALF_TYPE
+#   define TH_HALF_TYPE __half
+#  endif
 #endif
 
 #include "THHalf.h"
