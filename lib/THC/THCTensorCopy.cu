@@ -1,3 +1,6 @@
+#include "THCGeneral.h"
+#include "THCTensorCopy.h"
+
 #include "THCApply.cuh"
 #include "THCNumerics.cuh"
 
