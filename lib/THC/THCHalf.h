@@ -18,10 +18,12 @@
 
 #include <stdint.h>
 
-THC_EXTERNC void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len);
-THC_EXTERNC void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len);
-# define THC_float2half(a) TH_float2half(a)
-# define THC_half2float(a) TH_half2float(a)
+THC_API void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len);
+THC_API void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len);
+
+THC_API half THC_float2half(float a);
+THC_API float THC_half2float(half a);
+
 
 /* Check for native fp16 support on the current device (CC 5.3+) */
 THC_API int THC_nativeHalfInstructions(THCState *state);

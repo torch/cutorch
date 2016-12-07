@@ -34,7 +34,7 @@ THC_API void TH_CONCAT_2(THLongTensor_copyCuda  , Real)  (THCState *state, THLon
 THC_API void TH_CONCAT_2(THFloatTensor_copyCuda , Real)  (THCState *state, THFloatTensor *self, THCTensor *src);
 THC_API void TH_CONCAT_2(THDoubleTensor_copyCuda, Real)  (THCState *state, THDoubleTensor *self, THCTensor *src);
 #ifdef CUDA_HALF_TENSOR
-THC_API void TH_CONCAT_2(THHalfTensor_copyCuda, Real)  (THCState *state, THDoubleTensor *self, THCTensor *src);
+THC_API void TH_CONCAT_2(THHalfTensor_copyCuda, Real)  (THCState *state, THHalfTensor *self, THCTensor *src);
 #endif
 THC_API void THCTensor_(copyCuda) (THCState *state, THCTensor *self, THCTensor *src);
 
