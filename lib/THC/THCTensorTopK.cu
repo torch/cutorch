@@ -1,8 +1,10 @@
+#include "THC.h"
 #include "THCReduceApplyUtils.cuh"
+#include "THCTensorCopy.h"
 #include "THCTensorMath.h"
-#include "THCTensorSort.h"
 #include "THCAsmUtils.cuh"
 #include "THCScanUtils.cuh"
+#include "THCTensorTypeUtils.cuh"
 #include <algorithm> // for std::min
 
 #if CUDA_VERSION >= 7000
@@ -248,18 +250,18 @@ __device__ void radixSelect(const RadixConverter& conv,
 }
 
 template <typename IndexType, int Dim, bool Order>
-__global__ void gatherTopK(TensorInfo<IndexType> input,
+__global__ void gatherTopK(TensorInfo<float, IndexType> input,
                            IndexType inputSliceSize,
                            IndexType outputSliceSize, // aka `k`
 
                            IndexType numInputSlices,
                            IndexType inputWithinSliceStride,
 
-                           TensorInfo<IndexType> topK,
+                           TensorInfo<float, IndexType> topK,
                            IndexType numTopKSlices,
                            IndexType topKWithinSliceStride,
 
-                           TensorInfo<IndexType> indices,
+                           TensorInfo<long, IndexType> indices,
                            IndexType indicesWithinSliceStride) {
   // Indices are limited to integer fp precision, so counts can fit in
   // int32, regardless of IndexType
@@ -272,15 +274,15 @@ __global__ void gatherTopK(TensorInfo<IndexType> input,
 
   // Find the start offset for our slice
   IndexType sliceStartIndex =
-    IndexToOffset<IndexType, Dim>::get(slice, input);
+    IndexToOffset<float, IndexType, Dim>::get(slice, input);
   IndexType topKSliceStartIndex =
-    IndexToOffset<IndexType, Dim>::get(slice, topK);
+    IndexToOffset<float, IndexType, Dim>::get(slice, topK);
   IndexType indicesSliceStartIndex =
-    IndexToOffset<IndexType, Dim>::get(slice, indices);
+    IndexToOffset<long, IndexType, Dim>::get(slice, indices);
 
   float* inputSliceStart = &input.data[sliceStartIndex];
   float* topKSliceStart = &topK.data[topKSliceStartIndex];
-  float* indicesSliceStart = &indices.data[indicesSliceStartIndex];
+  long* indicesSliceStart = &indices.data[indicesSliceStartIndex];
 
   // Find the k-th highest element in our input
   float topKValue = -1.0f;
@@ -330,7 +332,7 @@ __global__ void gatherTopK(TensorInfo<IndexType> input,
       IndexType indexOffset = writeIndex * indicesWithinSliceStride;
 
       topKSliceStart[topKOffset] = v;
-      indicesSliceStart[indexOffset] = i + 1; // to Lua index
+      indicesSliceStart[indexOffset] = i + TH_INDEX_BASE; // to Lua index
     }
 
     writeIndexStart += carry;
@@ -362,7 +364,7 @@ __global__ void gatherTopK(TensorInfo<IndexType> input,
       IndexType indexOffset = writeIndex * indicesWithinSliceStride;
 
       topKSliceStart[topKOffset] = v;
-      indicesSliceStart[indexOffset] = i + 1; // to Lua index
+      indicesSliceStart[indexOffset] = i + TH_INDEX_BASE; // to Lua index
     }
 
     if (carry >= topKRemaining) {
@@ -380,13 +382,14 @@ __global__ void gatherTopK(TensorInfo<IndexType> input,
 
 THC_API void THCudaTensor_topk(THCState* state,
                                THCudaTensor *topK,
-                               THCudaTensor *indices,
+                               THCudaLongTensor *indices,
                                THCudaTensor *input,
                                long k, int dim, int dir, int sorted) {
   THAssert(topK != NULL && indices != NULL && input != NULL);
   THAssert(THCudaTensor_checkGPU(state, 3, topK, indices, input));
   THCCheckTensorDims(state, topK, 2);
-  THCCheckTensorDims(state, indices, 2);
+  long dims = THCudaLongTensor_nDimension(state, indices);
+  THArgCheck(dims <= MAX_CUTORCH_DIMS, 2, CUTORCH_DIM_WARNING);
   THCCheckTensorDims(state, input, 2);
 
   int numDims = THCudaTensor_nDimension(state, input);
@@ -395,27 +398,16 @@ THC_API void THCudaTensor_topk(THCState* state,
   long sliceSize = THCudaTensor_size(state, input, dim);
   THArgCheck(k > 0 && k <= sliceSize, 2, "k not in range for dimension");
 
-  // We're using THCudaTensor to write out indices, so if the slice
-  // size that we're selecting has more elements than can be
-  // represented in fp32, warn the user
-  // FIXME: this isn't a real restriction of either our code or of
-  // Thrust, but we have to switch to a CUDA long tensor to support
-  // larger slice sizes. Otherwise the indices will contain garbage.
-  THArgCheck(sliceSize <= (long) FLOAT32_MAX_CONSECUTIVE_INT, 1,
-             "The dimension to be selected exceeds single-precision float "
-             "consecutive integer precision size (2^24), since float "
-             "is used for indices");
-
   // Build the output size, which is the dim being selected set to
   // size k
   THLongStorage* topKSize = THCudaTensor_newSizeOf(state, input);
   THLongStorage_set(topKSize, dim, k);
   THCudaTensor_resize(state, topK, topKSize, NULL);
-  THCudaTensor_resize(state, indices, topKSize, NULL);
+  THCudaLongTensor_resize(state, indices, topKSize, NULL);
   THLongStorage_free(topKSize);
 
-#define RUN_K(T, DIM, DIR)                                              \
-  gatherTopK<T, DIM, DIR>                                               \
+#define RUN_K(INDEX_T, DIM, DIR)                                        \
+  gatherTopK<INDEX_T, DIM, DIR>                                         \
     <<<grid, block, 0, THCState_getCurrentStream(state)>>>(             \
       inputInfo,                                                        \
       sliceSize,                                                        \
@@ -430,70 +422,73 @@ THC_API void THCudaTensor_topk(THCState* state,
       indicesInfo,                                                      \
       indicesInfo.strides[collapseIndicesDim])
 
-#define RUN_DIR(T, DIM)                         \
+#define RUN_DIR(INDEX_T, DIM)                   \
   if (dir) {                                    \
-    RUN_K(T, DIM, true);                        \
+    RUN_K(INDEX_T, DIM, true);                  \
   } else {                                      \
-    RUN_K(T, DIM, false);                       \
+    RUN_K(INDEX_T, DIM, false);                 \
   }
 
-#define RUN_DIM(T)                              \
+#define RUN_DIM(INDEX_T)                        \
   if (allDims == 1) {                           \
-    RUN_DIR(T, 1);                              \
+    RUN_DIR(INDEX_T, 1);                        \
   } else if (allDims == 2) {                    \
-    RUN_DIR(T, 2);                              \
+    RUN_DIR(INDEX_T, 2);                        \
   } else if (allDims == 3) {                    \
-    RUN_DIR(T, 3);                              \
+    RUN_DIR(INDEX_T, 3);                        \
   } else {                                      \
-    RUN_DIR(T, -1);                             \
+    RUN_DIR(INDEX_T, -1);                       \
   }
 
-#define RUN_T(T)                                                        \
-    TensorInfo<T> inputInfo(state, input);                              \
-    TensorInfo<T> topKInfo(state, topK);                                \
-    TensorInfo<T> indicesInfo(state, indices);                          \
+#define RUN_T(INDEX_T)                                                  \
+  TensorInfo<float, INDEX_T> inputInfo =                                \
+    getTensorInfo<THCudaTensor, INDEX_T>(state, input);                 \
+  TensorInfo<float, INDEX_T> topKInfo =                                 \
+    getTensorInfo<THCudaTensor, INDEX_T>(state, topK);                  \
+  TensorInfo<long, INDEX_T> indicesInfo =                               \
+    getTensorInfo<THCudaLongTensor, INDEX_T>(state, indices);           \
                                                                         \
-    /* We use these structures solely to find the offset to */          \
-    /* each slice we are operating on */                                \
-    inputInfo.sizes[dim] = 1;                                           \
-    topKInfo.sizes[dim] = 1;                                            \
-    indicesInfo.sizes[dim] = 1;                                         \
+  /* We use these structures solely to find the offset to */            \
+  /* each slice we are operating on */                                  \
+  inputInfo.sizes[dim] = 1;                                             \
+  topKInfo.sizes[dim] = 1;                                              \
+  indicesInfo.sizes[dim] = 1;                                           \
                                                                         \
-    /* Collapse all other dims */                                       \
-    int collapseInputDim = inputInfo.collapseDims(dim);                 \
-    int collapseTopKDim = topKInfo.collapseDims(dim);                   \
-    int collapseIndicesDim = indicesInfo.collapseDims(dim);             \
+  /* Collapse all other dims */                                         \
+  int collapseInputDim = inputInfo.collapseDims(dim);                   \
+  int collapseTopKDim = topKInfo.collapseDims(dim);                     \
+  int collapseIndicesDim = indicesInfo.collapseDims(dim);               \
                                                                         \
-    long inputSlices = 1;                                               \
-    long topKSlices = 1;                                                \
-    for (int i = 0; i < numDims; ++i) {                                 \
-      inputSlices *= inputInfo.sizes[i];                                \
-      topKSlices *= topKInfo.sizes[i];                                  \
-    }                                                                   \
+  long inputSlices = 1;                                                 \
+  long topKSlices = 1;                                                  \
+  for (int i = 0; i < numDims; ++i) {                                   \
+    inputSlices *= inputInfo.sizes[i];                                  \
+    topKSlices *= topKInfo.sizes[i];                                    \
+  }                                                                     \
                                                                         \
-    dim3 grid;                                                          \
-    if (!THC_getGridFromTiles(inputSlices, grid)) {                     \
-      THError("Slice to sort is too large");                            \
-    }                                                                   \
+  dim3 grid;                                                            \
+  if (!THC_getGridFromTiles(inputSlices, grid)) {                       \
+    THError("Slice to sort is too large");                              \
+  }                                                                     \
                                                                         \
-    dim3 block(std::min(THCRoundUp(sliceSize, 32L), 1024L));            \
+  dim3 block(std::min(THCRoundUp(sliceSize, 32L), 1024L));              \
                                                                         \
-    /* This is used as a template parameter to calculate indices. */    \
-    /* We only specialize it if all collapsed dim sizes are the */      \
-    /* same; otherwise, we use -1 which is the specialization */        \
-    /* parameter for arbitrary dimensions */                            \
-    int allDims = inputInfo.dims;                                       \
-    if (topKInfo.dims != allDims || indicesInfo.dims != allDims) {      \
-      allDims = -1;                                                     \
-    }                                                                   \
+  /* This is used as a template parameter to calculate indices. */      \
+  /* We only specialize it if all collapsed dim sizes are the */        \
+  /* same; otherwise, we use -1 which is the specialization */          \
+  /* parameter for arbitrary dimensions */                              \
+  int allDims = inputInfo.dims;                                         \
+  if (topKInfo.dims != allDims || indicesInfo.dims != allDims) {        \
+    allDims = -1;                                                       \
+  }                                                                     \
                                                                         \
-    RUN_DIM(T);
+  RUN_DIM(INDEX_T);
 
   // Based on required index size, run the algorithm with the
   // appropriate index type
-  if (THC_canUse32BitIndexMath(state, input) &&
-      THC_canUse32BitIndexMath(state, topK) &&
-      THC_canUse32BitIndexMath(state, indices)) {
+  if (TensorUtils<THCudaTensor>::canUse32BitIndexMath(state, input) &&
+      TensorUtils<THCudaTensor>::canUse32BitIndexMath(state, topK) &&
+      TensorUtils<THCudaLongTensor>::canUse32BitIndexMath(state, indices)) {
     RUN_T(unsigned int);
   } else {
     RUN_T(unsigned long);
@@ -522,17 +517,17 @@ THC_API void THCudaTensor_topk(THCState* state,
       // themselves using the reported indices, providing previously
       // allocated tensors to receive the results.
       THCudaTensor* sortedTopK = THCudaTensor_new(state);
-      THCudaTensor* sortedIndices = THCudaTensor_new(state);
+      THCudaLongTensor* sortedIndices = THCudaLongTensor_new(state);
       THCudaTensor_sort(state, sortedTopK, sortedIndices, topK, dim, dir);
 
-      THCudaTensor* sortedTopKIndices = THCudaTensor_new(state);
+      THCudaLongTensor* sortedTopKIndices = THCudaLongTensor_new(state);
 
-      THCudaTensor_resizeAs(state, sortedTopKIndices, indices);
-      THCudaTensor_gather(state, sortedTopKIndices, indices, dim, sortedIndices);
+      THCudaLongTensor_resizeAs(state, sortedTopKIndices, indices);
+      THCudaLongTensor_gather(state, sortedTopKIndices, indices, dim, sortedIndices);
 
       THCudaTensor_freeCopyTo(state, sortedTopK, topK);
-      THCudaTensor_freeCopyTo(state, sortedTopKIndices, indices);
-      THCudaTensor_free(state, sortedIndices);
+      THCudaLongTensor_freeCopyTo(state, sortedTopKIndices, indices);
+      THCudaLongTensor_free(state, sortedIndices);
     }
   }
 

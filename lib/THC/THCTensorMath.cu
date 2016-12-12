@@ -1,402 +1,111 @@
 #include "THCTensorMath.h"
 #include "THCGeneral.h"
 #include "THCTensorCopy.h"
-#include "THCTensorRandom.h"
 #include "THCApply.cuh"
-#include "THCReduce.cuh"
-#include "THCReduceAll.cuh"
+#include "THCNumerics.cuh"
+#include "THCTensorMath.cuh"
 
+#include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
 #include <thrust/functional.h>
+#include <thrust/sequence.h>
+#include <thrust/iterator/transform_iterator.h>
+#include <thrust/transform.h>
+#if CUDA_VERSION >= 7000
+#include <thrust/system/cuda/execution_policy.h>
+#endif
 #include <cfloat>
 
+template <typename T>
 struct TensorFillOp {
-  TensorFillOp(float v) : val(v) {}
-  __device__ __forceinline__ void operator()(float* v) { *v = val; }
+  TensorFillOp(T v) : val(v) {}
+  __device__ __forceinline__ void operator()(T* v) { *v = val; }
 
-  const float val;
+  const T val;
 };
 
-void THCudaTensor_fill(THCState* state, THCudaTensor *self_, float value)
+// copypasta from https://github.com/thrust/thrust/blob/master/examples/strided_range.cu
+template <typename Iterator>
+class strided_range
 {
-  THAssert(THCudaTensor_checkGPU(state, 1, self_));
-  if (!THCudaTensor_pointwiseApply1(state, self_, TensorFillOp(value))) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
+ public:
 
-  THCudaCheck(cudaGetLastError());
-}
+  typedef typename thrust::iterator_difference<Iterator>::type difference_type;
 
-void THCudaTensor_zero(THCState *state, THCudaTensor *self_)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, self_));
-  if (THCudaTensor_isContiguous(state, self_)) {
-    THCudaCheck(cudaMemsetAsync(THCudaTensor_data(state, self_),
-                                0,
-                                sizeof(float) * THCudaTensor_nElement(state, self_),
-                                THCState_getCurrentStream(state)));
-  } else {
-    if (!THCudaTensor_pointwiseApply1(state, self_, TensorFillOp(0))) {
-      THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-    }
-  }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-void THCudaTensor_zeros(THCState *state, THCudaTensor *r_, THLongStorage *size)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, r_));
-  THCudaTensor_resize(state, r_, size, NULL);
-  THCudaTensor_zero(state, r_);
-}
-
-void THCudaTensor_ones(THCState *state, THCudaTensor *r_, THLongStorage *size)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, r_));
-  THCudaTensor_resize(state, r_, size, NULL);
-  THCudaTensor_fill(state, r_, 1);
-}
-
-void THCudaTensor_reshape(THCState *state, THCudaTensor *r_, THCudaTensor *t, THLongStorage *size)
-{
-  THAssert(THCudaTensor_checkGPU(state, 2, r_, t));
-  THCudaTensor_resize(state, r_, size, NULL);
-  THCudaTensor_copy(state, r_, t);
-}
-
-long THCudaTensor_numel(THCState *state, THCudaTensor *t)
-{
-  return THCudaTensor_nElement(state, t);
-}
-
-void THCudaTensor_cat(THCState *state, THCudaTensor *result, THCudaTensor *ta, THCudaTensor *tb, int dimension)
-{
-  THCudaTensor* inputs[2];
-  inputs[0] = ta;
-  inputs[1] = tb;
-  THCudaTensor_catArray(state, result, inputs, 2, dimension);
-}
-
-void THCudaTensor_catArray(THCState *state, THCudaTensor *result, THCudaTensor **inputs, int numInputs, int dimension)
-{
-  THLongStorage *size;
-  int i, j;
-  long offset;
-  int ndim = dimension + 1;
-  for (i = 0; i < numInputs; i++)
+  struct stride_functor : public thrust::unary_function<difference_type,
+                                                        difference_type>
   {
-    ndim = THMax(ndim, THCudaTensor_nDimension(state, inputs[i]));
-  }
+    difference_type stride;
 
-  THArgCheck(numInputs > 0, 3, "invalid number of inputs %d", numInputs);
-  THArgCheck(dimension >= 0, 4, "invalid dimension %d", dimension+1);
+    stride_functor(difference_type stride)
+        : stride(stride) {}
 
-  size = THLongStorage_newWithSize(ndim);
-  for(i = 0; i < ndim; i++)
-  {
-    long dimSize = i < THCudaTensor_nDimension(state, inputs[0])
-                       ? THCudaTensor_size(state, inputs[0], i)
-                       : 1;
-    if (i == dimension)
-    {
-      for (j = 1; j < numInputs; j++)
+    __host__ __device__
+    difference_type operator()(const difference_type& i) const
       {
-        dimSize += i < THCudaTensor_nDimension(state, inputs[j])
-                       ? THCudaTensor_size(state, inputs[j], i)
-                       : 1;
+        return stride * i;
       }
-    }
-    else
+  };
+
+  typedef typename thrust::counting_iterator<difference_type>                   CountingIterator;
+  typedef typename thrust::transform_iterator<stride_functor, CountingIterator> TransformIterator;
+  typedef typename thrust::permutation_iterator<Iterator,TransformIterator>     PermutationIterator;
+
+  // type of the strided_range iterator
+  typedef PermutationIterator iterator;
+
+  // construct strided_range for the range [first,last)
+  strided_range(Iterator first, Iterator last, difference_type stride)
+      : first(first), last(last), stride(stride) {}
+
+  iterator begin(void) const
     {
-      for (j = 1; j < numInputs; j++)
-      {
-        if (dimSize != (i < THCudaTensor_nDimension(state, inputs[j])
-                            ? THCudaTensor_size(state, inputs[j], i)
-                            : 1)) {
-          THLongStorage_free(size);
-          THError("inconsistent tensor sizes");
-        }
-      }
+      return PermutationIterator(first,
+                                 TransformIterator(CountingIterator(0),
+                                                   stride_functor(stride)));
     }
-    size->data[i] = dimSize;
-  }
 
-  THCudaTensor_resize(state, result, size, NULL);
-  THLongStorage_free(size);
+  iterator end(void) const
+    {
+      return begin() + ((last - first) + (stride - 1)) / stride;
+    }
 
-  offset = 0;
-  for (j = 0; j < numInputs; j++)
-  {
-    long dimSize = dimension < THCudaTensor_nDimension(state, inputs[j])
-                       ? THCudaTensor_size(state, inputs[j], dimension)
-                       : 1;
-    THCudaTensor *nt = THCudaTensor_newWithTensor(state, result);
-    THCudaTensor_narrow(state, nt, NULL, dimension, offset, dimSize);
-    THCudaTensor_copy(state, nt, inputs[j]);
-    THCudaTensor_free(state, nt);
-    offset += dimSize;
-  }
-}
+ protected:
+  Iterator first;
+  Iterator last;
+  difference_type stride;
+};
 
-struct TensorCPowOp {
-  __device__ __forceinline__ void operator()(float* out, float* in) {
-    *out = powf(*out, *in);
-  }
+struct idx_functor
+{
+  long div;
+  long size;
 
-  __device__ __forceinline__ void operator()(float* out, float* in1, float* in2) {
-    *out = powf(*in1, *in2);
+  __host__ __device__
+  idx_functor(long div, long size) : div(div), size(size) {}
+
+  __host__ __device__
+  long operator()(long val) {
+    return (val / div) % size + TH_INDEX_BASE;
   }
 };
 
-void THCudaTensor_cpow(THCState *state, THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
+template <typename T>
+struct NonZeroOp
 {
-  THAssert(THCudaTensor_checkGPU(state, 3, self_, src1, src2));
-  THArgCheck(THCudaTensor_nElement(state, src1) ==
-             THCudaTensor_nElement(state, src2), 3, "sizes do not match");
-
-  if (self_ == src1) {
-    // self = pow(self, src2)
-    if (!THCudaTensor_pointwiseApply2(state, self_, src2, TensorCPowOp())) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  } else {
-    THCudaTensor_resizeAs(state, self_, src1);
-
-    // self = pow(src1, src2)
-    if (!THCudaTensor_pointwiseApply3(state, self_, src1, src2, TensorCPowOp())) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  NonZeroOp() {}
+  __host__ __device__ bool operator()(T lhs) const {
+    if (THCNumerics<T>::ne(lhs, ScalarConvert<float, T>::to(0.0))) {
+      return true;
+    } else {
+      return false;
     }
   }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-struct TensorDivOp {
-  __device__ __forceinline__ void
-  operator()(float* out, float* in) {
-    *out /= *in;
-  }
-
-  __device__ __forceinline__ void
-  operator()(float* out, float* in1, float* in2) {
-    *out = *in1 / *in2;
-  }
 };
 
-void THCudaTensor_cdiv(THCState* state, THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
-{
-  THAssert(THCudaTensor_checkGPU(state, 3, self_, src1, src2));
-  THArgCheck(THCudaTensor_nElement(state, src1) ==
-             THCudaTensor_nElement(state, src2), 3, "sizes do not match");
 
-  if (self_ == src1) {
-    // self *= src2
-    if (!THCudaTensor_pointwiseApply2(state, self_, src2, TensorDivOp())) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  } else {
-    THCudaTensor_resizeAs(state, self_, src1);
-
-    // self = src1 * src2
-    if (!THCudaTensor_pointwiseApply3(state, self_, src1, src2, TensorDivOp())) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-struct TensorAddCMulOp {
-  TensorAddCMulOp(float v) : val(v) {}
-
-  __device__ __forceinline__ void
-  operator()(float* out, float* in1, float* in2) {
-    *out += val * *in1 * *in2;
-  }
-
-  float val;
-};
-
-void THCudaTensor_addcmul(THCState *state, THCudaTensor *self_, THCudaTensor *t, float value, THCudaTensor *src1, THCudaTensor *src2)
-{
-  THAssert(THCudaTensor_checkGPU(state, 4, self_, t, src1, src2));
-  if(self_ != t)
-  {
-    THCudaTensor_resizeAs(state, self_, t);
-    THCudaTensor_copy(state, self_, t);
-  }
-  else
-  {
-    THArgCheck(THCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, src1),
-               1, "sizes do not match");
-  }
-
-  THArgCheck(THCudaTensor_nElement(state, src1) == THCudaTensor_nElement(state, src2),
-             3, "sizes do not match");
-
-  if (!THCudaTensor_pointwiseApply3(state, self_, src1, src2, TensorAddCMulOp(value))) {
-    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-struct TensorAddCDivOp {
-  TensorAddCDivOp(float v) : val(v) {}
-
-  __device__ __forceinline__ void
-  operator()(float* out, float* in1, float* in2) {
-    *out += val * *in1 / *in2;
-  }
-
-  float val;
-};
-
-void THCudaTensor_addcdiv(THCState *state, THCudaTensor *self_, THCudaTensor *t, float value, THCudaTensor *src1, THCudaTensor *src2)
-{
-  THAssert(THCudaTensor_checkGPU(state, 4, self_, t, src1, src2));
-  if(self_ != t)
-  {
-    THCudaTensor_resizeAs(state, self_, t);
-    THCudaTensor_copy(state, self_, t);
-  }
-  else
-  {
-    THArgCheck(THCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, src1),
-               1, "sizes do not match");
-  }
-  THArgCheck(THCudaTensor_nElement(state, src1) == THCudaTensor_nElement(state, src2),
-             3, "sizes do not match");
-
-  if (!THCudaTensor_pointwiseApply3(state, self_, src1, src2, TensorAddCDivOp(value))) {
-    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-float THCudaTensor_minall(THCState *state, THCudaTensor *self)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, self));
-  float val = FLT_MAX;
-  if (!THCudaTensor_reduceAll(state, self,
-                              thrust::identity<float>(),
-                              thrust::minimum<float>(),
-                              FLT_MAX, &val, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-  return val;
-}
-
-float THCudaTensor_maxall(THCState *state, THCudaTensor *self)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, self));
-  float val = -FLT_MAX;
-  if (!THCudaTensor_reduceAll(state, self,
-                              thrust::identity<float>(),
-                              thrust::maximum<float>(),
-                              -FLT_MAX, &val, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-  return val;
-}
-
-float THCudaTensor_sumall(THCState *state, THCudaTensor *self)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, self));
-  float val = 0.0f;
-  if (!THCudaTensor_reduceAll(state, self,
-                              thrust::identity<float>(),
-                              thrust::plus<float>(),
-                              0.0f, &val, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-  return val;
-}
-
-float THCudaTensor_prodall(THCState *state, THCudaTensor *self)
-{
-  THAssert(THCudaTensor_checkGPU(state, 1, self));
-  float val = 1.0f;
-  if (!THCudaTensor_reduceAll(state, self,
-                              thrust::identity<float>(),
-                              thrust::multiplies<float>(),
-                              1.0f, &val, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-  return val;
-}
-
-void THCudaTensor_sum(THCState* state, THCudaTensor *self, THCudaTensor *src, long dimension)
-{
-  THAssert(THCudaTensor_checkGPU(state, 2, self, src));
-  if (!THCudaTensor_reduceDim(
-        state, self, src,
-        thrust::identity<float>(), thrust::plus<float>(), 0.0f, dimension)) {
-    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-void THCudaTensor_prod(THCState* state, THCudaTensor *self, THCudaTensor *src, long dimension)
-{
-  THAssert(THCudaTensor_checkGPU(state, 2, self, src));
-  if (!THCudaTensor_reduceDim(
-        state, self, src,
-        thrust::identity<float>(), thrust::multiplies<float>(), 1.0f, dimension)) {
-    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-}
-
-struct logicalall_functor
-{
-  __device__ inline float operator()(float x, float y) const
-  {
-    return x && y;
-  }
-};
-
-struct logicalany_functor
-{
-  __device__ float operator()(float x, float y) const
-  {
-    return x || y;
-  }
-};
-
-int THCudaTensor_logicalall(THCState *state, THCudaTensor *self) {
-  THAssert(THCudaTensor_checkGPU(state, 1, self));
-  float result = 0.0f;
-  if (!THCudaTensor_reduceAll(state, self,
-                              thrust::identity<float>(),
-                              logicalall_functor(),
-                              1.0f, &result, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  return (int) result;
-}
-
-int THCudaTensor_logicalany(THCState *state, THCudaTensor *self) {
-  THAssert(THCudaTensor_checkGPU(state, 1, self));
-  float result = 0.0f;
-  if (!THCudaTensor_reduceAll(state, self,
-                              thrust::identity<float>(),
-                              logicalany_functor(),
-                              0.0f, &result, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  return (int) result;
-}
+#include "generic/THCTensorMath.cu"
+#include "THCGenerateAllTypes.h"

@@ -18,24 +18,32 @@
 #define THC_TWO_PASS_REDUCTION_SIZE 2048L
 
 // Kernel that handles an entire reduction of a tensor in one pass
-template <typename ModifyOp, typename ReduceOp, typename IndexType, int ADims>
+template <typename ModifyOp,
+          typename ReduceOp,
+          typename ReduceAccOp,
+          typename InT,
+          typename AccT,
+          typename IndexType,
+          int ADims>
 __global__ void
-THCudaTensor_reduceAll(TensorInfo<IndexType> in,
-                       IndexType totalElements,
-                       float init,
-                       ModifyOp modifyOp,
-                       ReduceOp reduceOp,
-                       float* out) {
+kernelReduceAll(TensorInfo<InT, IndexType> in,
+                IndexType totalElements,
+                AccT init,
+                ModifyOp modifyOp,
+                ReduceOp reduceOp,
+                ReduceAccOp reduceAccOp,
+                AccT* out) {
   // With a block-wide stride, have each thread perform its own reduction.
-  float r = init;
+  AccT r = init;
   for (IndexType i = threadIdx.x; i < totalElements; i += blockDim.x) {
-    const IndexType inOffset = IndexToOffset<IndexType, ADims>::get(i, in);
+    const IndexType inOffset = IndexToOffset<InT, IndexType, ADims>::get(i, in);
     r = reduceOp(r, modifyOp(in.data[inOffset]));
   }
 
   // Reduce within the block
-  extern __shared__ float smem[];
-  r = reduceBlock<float, ReduceOp>(smem, blockDim.x, r, reduceOp, init);
+  extern __shared__ char smemChar[];
+  AccT* smem = (AccT*) smemChar;
+  r = reduceBlock<AccT, ReduceAccOp>(smem, blockDim.x, r, reduceAccOp, init);
 
   if (threadIdx.x == 0) {
     // Write out reduced value
@@ -56,27 +64,35 @@ __device__ __forceinline__ IndexType getEndIndex(IndexType totalSize) {
 }
 
 // Kernel that handles an entire reduction of a tensor in two passes
-template <typename ModifyOp, typename ReduceOp, typename IndexType, int ADims>
+template <typename ModifyOp,
+          typename ReduceOp,
+          typename ReduceAccOp,
+          typename InT,
+          typename AccT,
+          typename IndexType,
+          int ADims>
 __global__ void
-THCudaTensor_reduceAllPass1(TensorInfo<IndexType> in,
-                            IndexType totalElements,
-                            float init,
-                            ModifyOp modifyOp,
-                            ReduceOp reduceOp,
-                            float* scratchSpace) {
+kernelReduceAllPass1(TensorInfo<InT, IndexType> in,
+                     IndexType totalElements,
+                     AccT init,
+                     ModifyOp modifyOp,
+                     ReduceOp reduceOp,
+                     ReduceAccOp reduceAccOp,
+                     AccT* scratchSpace) {
   const IndexType startIndex = getStartIndex<IndexType>(totalElements);
   const IndexType endIndex = getEndIndex<IndexType>(totalElements);
 
   // With a block-wide stride, have each thread perform its own reduction.
-  float r = init;
+  AccT r = init;
   for (IndexType i = startIndex + threadIdx.x; i < endIndex; i += blockDim.x) {
-    const IndexType inOffset = IndexToOffset<IndexType, ADims>::get(i, in);
+    const IndexType inOffset = IndexToOffset<InT, IndexType, ADims>::get(i, in);
     r = reduceOp(r, modifyOp(in.data[inOffset]));
   }
 
   // Reduce within the block
-  extern __shared__ float smem[];
-  r = reduceBlock<float, ReduceOp>(smem, blockDim.x, r, reduceOp, init);
+  extern __shared__ char smemChar[];
+  AccT* smem = (AccT*) smemChar;
+  r = reduceBlock<AccT, ReduceAccOp>(smem, blockDim.x, r, reduceAccOp, init);
 
   if (threadIdx.x == 0) {
     // Write out block-wide reduced value
@@ -84,21 +100,22 @@ THCudaTensor_reduceAllPass1(TensorInfo<IndexType> in,
   }
 }
 
-template <typename ReduceOp, typename IndexType>
+template <typename ReduceOp, typename T, typename IndexType>
 __global__ void
-THCudaTensor_reduceAllPass2(int numPass1Blocks,
-                            float init,
-                            ReduceOp reduceOp,
-                            float* scratchSpace,
-                            float* out) {
-  float r = init;
+kernelReduceAllPass2(int numPass1Blocks,
+                     T init,
+                     ReduceOp reduceOp,
+                     T* scratchSpace,
+                     T* out) {
+  T r = init;
   if (threadIdx.x < numPass1Blocks) {
     r = scratchSpace[threadIdx.x];
   }
 
   // Reduce within the block
-  extern __shared__ float smem[];
-  r = reduceBlock<float, ReduceOp>(smem, numPass1Blocks, r, reduceOp, init);
+  extern __shared__ char smemChar[];
+  T* smem = (T*) smemChar;
+  r = reduceBlock<T, ReduceOp>(smem, numPass1Blocks, r, reduceOp, init);
 
   if (threadIdx.x == 0) {
     *out = r;
@@ -107,16 +124,17 @@ THCudaTensor_reduceAllPass2(int numPass1Blocks,
 
 // Perform a two-pass reduction if the tensor is large enough to
 // warrant it.
-inline bool isTwoPassReductionSize(long elements) {
+inline bool isTwoPassReductionSize(ptrdiff_t elements) {
   return (elements > THC_TWO_PASS_REDUCTION_SIZE);
 }
 
-inline long getTwoPassBlocks(THCState* state, long elements) {
-  long numBlocks = THCCeilDiv(elements, THC_REDUCE_ALL_BLOCK_SIZE);
+template <typename InT, typename AccT>
+inline ptrdiff_t getTwoPassBlocks(THCState* state, ptrdiff_t elements) {
+  ptrdiff_t numBlocks = THCCeilDiv(elements, (ptrdiff_t)THC_REDUCE_ALL_BLOCK_SIZE);
 
   // We can only have as many blocks as there is scratch space
-  long scratchSpace =
-    THCState_getCurrentDeviceScratchSpaceSize(state) / sizeof(float);
+  ptrdiff_t scratchSpace =
+    THCState_getCurrentDeviceScratchSpaceSize(state) / sizeof(AccT);
   THAssert(scratchSpace > 0);
 
   if (numBlocks > scratchSpace) {
@@ -127,92 +145,123 @@ inline long getTwoPassBlocks(THCState* state, long elements) {
 }
 
 // Get the block/grid size that we want
-inline void getPass1ReduceBlockGrid(THCState* state, long elements,
+template <typename InT, typename AccT>
+inline void getPass1ReduceBlockGrid(THCState* state, ptrdiff_t elements,
                                     dim3& grid, dim3& block) {
-  grid = dim3(getTwoPassBlocks(state, elements));
+  grid = dim3(getTwoPassBlocks<InT, AccT>(state, elements));
   block = dim3(THC_REDUCE_ALL_BLOCK_SIZE);
 }
 
-inline void getPass2ReduceBlockGrid(THCState* state, long elements,
+template <typename InT, typename AccT>
+inline void getPass2ReduceBlockGrid(THCState* state, ptrdiff_t elements,
                                     dim3& grid, dim3& block) {
   grid = dim3(1);
   // We only need as many threads as there were blocks originally
-  block = dim3(getTwoPassBlocks(state, elements));
+  block = dim3(getTwoPassBlocks<InT, AccT>(state, elements));
 }
 
-inline void getSinglePassReduceBlockGrid(long elements,
+template <typename InT, typename AccT>
+inline void getSinglePassReduceBlockGrid(ptrdiff_t elements,
                                          dim3& grid, dim3& block) {
   grid = dim3(1);
   block = dim3(THC_REDUCE_ALL_BLOCK_SIZE);
 }
 
-template <typename ModifyOp, typename ReduceOp, typename IndexType, int ADims>
+template <typename ModifyOp,
+          typename ReduceOp,
+          typename ReduceAccOp,
+          typename InT,
+          typename AccT,
+          typename IndexType,
+          int ADims>
 void callReduceAll(THCState* state,
-                   const TensorInfo<IndexType>& in,
-                   long totalElements,
-                   float init,
+                   const TensorInfo<InT, IndexType>& in,
+                   ptrdiff_t totalElements,
+                   AccT init,
                    const ModifyOp& modifyOp,
                    const ReduceOp& reduceOp,
-                   float* devOut) {
+                   const ReduceAccOp& reduceAccOp,
+                   AccT* devOut) {
   dim3 grid;
   dim3 block;
 
   if (isTwoPassReductionSize(totalElements)) {
-    getPass1ReduceBlockGrid(state, totalElements, grid, block);
-    size_t smemSize = block.x * sizeof(float);
+    bool freeScratchSpace = false;
+    void* scratchSpace = THCState_getCurrentDeviceScratchSpace(state);
+    if (!scratchSpace) {
+      THCudaCheck(THCudaMalloc(state, &scratchSpace,
+          THCState_getCurrentDeviceScratchSpaceSize(state)));
+      freeScratchSpace = true;
+    }
 
-    THCudaTensor_reduceAllPass1<ModifyOp, ReduceOp, IndexType, ADims>
+    getPass1ReduceBlockGrid<InT, AccT>(state, totalElements, grid, block);
+    size_t smemSize = block.x * sizeof(AccT);
+
+    kernelReduceAllPass1<ModifyOp, ReduceOp, ReduceAccOp, InT, AccT, IndexType, ADims>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
-        in, (IndexType) totalElements, init, modifyOp, reduceOp,
-        (float*) THCState_getCurrentDeviceScratchSpace(state));
+        in, (IndexType) totalElements, init, modifyOp, reduceOp, reduceAccOp,
+        (AccT*) scratchSpace);
 
     int numPass1Blocks = grid.x;
-    getPass2ReduceBlockGrid(state, totalElements, grid, block);
-    smemSize = block.x * sizeof(float);
+    getPass2ReduceBlockGrid<InT, AccT>(state, totalElements, grid, block);
+    smemSize = block.x * sizeof(AccT);
 
-    THCudaTensor_reduceAllPass2<ReduceOp, IndexType>
+    kernelReduceAllPass2<ReduceAccOp, AccT, IndexType>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
-        numPass1Blocks, init, reduceOp,
-        (float*) THCState_getCurrentDeviceScratchSpace(state),
-        devOut);
+        numPass1Blocks, init, reduceAccOp,
+        (AccT*) scratchSpace, devOut);
 
+    if (freeScratchSpace) {
+      THCudaCheck(THCudaFree(state, scratchSpace));
+    }
   } else {
-    getSinglePassReduceBlockGrid(totalElements, grid, block);
-    size_t smemSize = block.x * sizeof(float);
+    getSinglePassReduceBlockGrid<InT, AccT>(totalElements, grid, block);
+    size_t smemSize = block.x * sizeof(AccT);
 
-    THCudaTensor_reduceAll<ModifyOp, ReduceOp, IndexType, ADims>
+    kernelReduceAll<ModifyOp, ReduceOp, ReduceAccOp, InT, AccT, IndexType, ADims>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
-        in, (IndexType) totalElements, init, modifyOp, reduceOp, devOut);
+        in, (IndexType) totalElements, init, modifyOp, reduceOp, reduceAccOp, devOut);
   }
 }
 
-// Reduces the entire tensor to one floating-point value. `out` points
-// to host-resident memory.
-template <typename ModifyOp, typename ReduceOp>
-bool THCudaTensor_reduceAll(THCState* state,
-                            THCudaTensor* in,
-                            const ModifyOp& modifyOp,
-                            const ReduceOp& reduceOp,
-                            float init,
-                            float* out,
-                            int outOnDevice) {
-  long inElements = THCudaTensor_nElement(state, in);
+// Reduces the entire tensor to one value. `out` points to
+// host-resident memory.
+template <typename TensorType,
+          typename ModifyOp,
+          typename ReduceOp,
+          typename ReduceAccOp,
+          typename AccT>
+bool THC_reduceAll(THCState* state,
+                   TensorType* in,
+                   const ModifyOp& modifyOp,
+                   const ReduceOp& reduceOp,
+                   const ReduceAccOp& reduceAccOp,
+                   AccT init,
+                   AccT* out,
+                   int outOnDevice) {
+  ptrdiff_t inElements = TensorUtils<TensorType>::getNumElements(state, in);
 
-  if (THCudaTensor_nDimension(state, in) > MAX_CUTORCH_DIMS) {
+  if (TensorUtils<TensorType>::getDims(state, in) > MAX_CUTORCH_DIMS) {
     return false;
   }
 
-  if (THCudaTensor_nDimension(state, in) == 0) {
+  if (TensorUtils<TensorType>::getDims(state, in) == 0) {
     // Zero-dim tensor; do nothing
     *out = init;
     return true;
   }
 
-  float* devOut = out;
+  bool freeDevOut = false;
+  AccT* devOut = out;
   if (!outOnDevice) {
     // Use the stream-specific scratch space for the reduction kernel
     // to write out its value
-    devOut = (float*) THCState_getCurrentDeviceScratchSpace(state);
+    devOut = (AccT*) THCState_getCurrentDeviceScratchSpace(state);
+    if (!devOut) {
+      THCudaCheck(THCudaMalloc(state, (void**)&devOut,
+          THCState_getCurrentDeviceScratchSpaceSize(state)));
+      freeDevOut = true;
+    }
   }
 
   // It is possible that the tensor dimensions are able to be collapsed,
@@ -224,8 +273,12 @@ bool THCudaTensor_reduceAll(THCState* state,
   // dimension, and the loop to translate the linear index to the array
   // index can be similarly collapsed. That is what this unrolling is for.
 #define HANDLE_CASE(TYPE, IN)                                           \
-  callReduceAll<ModifyOp, ReduceOp, TYPE, IN>(                          \
-    state, inInfo, inElements, init, modifyOp, reduceOp, devOut);
+  callReduceAll<ModifyOp, ReduceOp, ReduceAccOp,                        \
+                typename TensorUtils<TensorType>::DataType,             \
+                AccT,                                                   \
+                TYPE, IN>(                                              \
+                  state, inInfo, inElements, init, modifyOp,            \
+                  reduceOp, reduceAccOp, devOut);
 
 #define HANDLE_IN_CASE(TYPE, IN)                    \
   {                                                 \
@@ -239,9 +292,6 @@ bool THCudaTensor_reduceAll(THCState* state,
         case 2:                                     \
           HANDLE_CASE(TYPE, 2);                     \
           break;                                    \
-        case 3:                                     \
-          HANDLE_CASE(TYPE, 3);                     \
-          break;                                    \
         default:                                    \
           HANDLE_CASE(TYPE, -1);                    \
           break;                                    \
@@ -249,13 +299,16 @@ bool THCudaTensor_reduceAll(THCState* state,
     }                                               \
   }
 
-  if (THC_canUse32BitIndexMath(state, in)) {
-    TensorInfo<unsigned int> inInfo(state, in);
+  if (TensorUtils<TensorType>::canUse32BitIndexMath(state, in)) {
+    TensorInfo<typename TensorUtils<TensorType>::DataType, unsigned int> inInfo =
+      getTensorInfo<TensorType, unsigned int>(state, in);
     inInfo.collapseDims();
 
     HANDLE_IN_CASE(unsigned int, inInfo.dims);
   } else {
-    TensorInfo<unsigned long long> inInfo(state, in);
+    TensorInfo<typename TensorUtils<TensorType>::DataType,
+               unsigned long long> inInfo =
+      getTensorInfo<TensorType, unsigned long long>(state, in);
     inInfo.collapseDims();
 
     // For large tensors, we only compile the completely contiguous
@@ -273,7 +326,11 @@ bool THCudaTensor_reduceAll(THCState* state,
   // If our destination is not on the device, copy the value back to
   // the host (synchronous!)
   if (!outOnDevice) {
-    cudaMemcpy(out, devOut, sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(out, devOut, sizeof(AccT), cudaMemcpyDeviceToHost);
+  }
+
+  if (freeDevOut) {
+    THCudaCheck(THCudaFree(state, devOut));
   }
 
   return true;

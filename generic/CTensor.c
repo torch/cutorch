@@ -2,6 +2,8 @@
 #define THC_GENERIC_FILE "generic/CTensor.c"
 #else
 
+#include "THCHalf.h"
+
 /* everything is as the generic Storage.c, except few things (see below) */
 
 #define TH_GENERIC_FILE "generic/Tensor.c"
@@ -28,7 +30,7 @@ static int cutorch_Tensor_(copy)(lua_State *L)
     THCTensor_(copyCudaLong)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THCTensor_(copyCudaDouble)(state, tensor, src);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THCTensor_(copyCudaHalf)(state, tensor, src);
 #endif
@@ -110,7 +112,7 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
     THTensor_(copyCudaFloat)(cutorch_getstate(L), tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THTensor_(copyCudaDouble)(cutorch_getstate(L), tensor, src);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THTensor_(copyCudaHalf)(cutorch_getstate(L), tensor, src);
 #endif
@@ -171,16 +173,16 @@ void THFloatTensor_kernel_copy(float *dst,
                                          long *dst_sz, long *dst_st, int dst_dim,
                                          float *src,
                                          long *src_sz, long *src_st, int src_dim,
-                                         long n_elem)
+                                         ptrdiff_t n_elem)
 {
-  long k;
+  ptrdiff_t k;
 
   for(k = 0; k < n_elem; k++)
   {
-    long src_idx = 0;
-    long src_rest = k;
-    long dst_idx = 0;
-    long dst_rest = k;
+    ptrdiff_t src_idx = 0;
+    ptrdiff_t src_rest = k;
+    ptrdiff_t dst_idx = 0;
+    ptrdiff_t dst_rest = k;
     int dim;
 
     for(dim = 0; dim < dst_dim; dim++)
@@ -204,7 +206,7 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
   THFloatTensor *self = luaT_checkudata(L, 1, "torch.FloatTensor");
   THFloatTensor *src = luaT_checkudata(L, 2, "torch.FloatTensor");
   long *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
-  long nElement = THFloatTensor_nElement(self);
+  ptrdiff_t nElement = THFloatTensor_nElement(self);
 
   THArgCheck(THFloatTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
 

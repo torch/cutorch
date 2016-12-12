@@ -1,7 +1,11 @@
 #include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
+#include "THCCachingAllocator.h"
+#include "THCCachingHostAllocator.h"
+#include "THCSleep.h"
 #include "THCTensorRandom.h"
+#include "THCHalf.h" // for CUDA_HALF_TENSOR
 
 extern void cutorch_CudaByteStorage_init(lua_State* L);
 extern void cutorch_CudaCharStorage_init(lua_State* L);
@@ -10,7 +14,7 @@ extern void cutorch_CudaIntStorage_init(lua_State* L);
 extern void cutorch_CudaLongStorage_init(lua_State* L);
 extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaDoubleStorage_init(lua_State* L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
 extern void cutorch_CudaHalfStorage_init(lua_State* L);
 #endif
 
@@ -21,12 +25,32 @@ extern void cutorch_CudaIntTensor_init(lua_State* L);
 extern void cutorch_CudaLongTensor_init(lua_State* L);
 extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaDoubleTensor_init(lua_State* L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
 extern void cutorch_CudaHalfTensor_init(lua_State* L);
 #endif
 
-extern void cutorch_CudaTensorMath_init(lua_State* L);
+extern void cutorch_CudaByteTensorOperator_init(lua_State* L);
+extern void cutorch_CudaCharTensorOperator_init(lua_State* L);
+extern void cutorch_CudaShortTensorOperator_init(lua_State* L);
+extern void cutorch_CudaIntTensorOperator_init(lua_State* L);
+extern void cutorch_CudaLongTensorOperator_init(lua_State* L);
 extern void cutorch_CudaTensorOperator_init(lua_State* L);
+extern void cutorch_CudaDoubleTensorOperator_init(lua_State* L);
+#ifdef CUDA_HALF_TENSOR
+extern void cutorch_CudaHalfTensorOperator_init(lua_State* L);
+#endif
+
+extern void cutorch_CudaByteTensorMath_init(lua_State* L);
+extern void cutorch_CudaCharTensorMath_init(lua_State* L);
+extern void cutorch_CudaShortTensorMath_init(lua_State* L);
+extern void cutorch_CudaIntTensorMath_init(lua_State* L);
+extern void cutorch_CudaLongTensorMath_init(lua_State* L);
+extern void cutorch_CudaTensorMath_init(lua_State* L);
+extern void cutorch_CudaDoubleTensorMath_init(lua_State* L);
+#ifdef CUDA_HALF_TENSOR
+extern void cutorch_CudaHalfTensorMath_init(lua_State* L);
+#endif
+
 
 /*
    Iteration utilities for lists of streams and lists of gpus with streams
@@ -322,7 +346,7 @@ static int cutorch_setStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   int stream = (int) luaL_checknumber(L, 1);
-  THCState_setStreamForCurrentDevice(state, stream);
+  THCState_setCurrentStreamIndex(state, stream);
 
   return 0;
 }
@@ -344,7 +368,7 @@ static int cutorch_setBlasHandle(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   int handle = (int) luaL_checknumber(L, 1);
-  THCState_setBlasHandleForCurrentDevice(state, handle);
+  THCState_setCurrentBlasHandleIndex(state, handle);
 
   return 0;
 }
@@ -386,8 +410,7 @@ static int cutorch_getBlasHandle(lua_State *L)
 static int cutorch_setDefaultStream(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
-  THCState_setStreamForCurrentDevice(state, 0);
-
+  THCState_setStream(state, NULL);
   return 0;
 }
 
@@ -677,13 +700,14 @@ static int cutorch_getMemoryUsage(lua_State *L) {
   size_t totalBytes = 0;
   int curDevice;
   THCudaCheck(cudaGetDevice(&curDevice));
+  THCState *state = cutorch_getstate(L);
 
   int device = luaL_optint(L, 1, -10);
   if (device == -10) { /* no argument passed, current device mem usage */
-    THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+    THCudaCheck(THCudaMemGetInfo(state, &freeBytes, &totalBytes));
   } else { /* argument was given, particular device's memory usage */
     THCudaCheck(cudaSetDevice(device-1)); /* zero indexed */
-    THCudaCheck(cudaMemGetInfo(&freeBytes, &totalBytes));
+    THCudaCheck(THCudaMemGetInfo(state, &freeBytes, &totalBytes));
     THCudaCheck(cudaSetDevice(curDevice));
   }
   lua_pushnumber(L, freeBytes);
@@ -696,12 +720,6 @@ static int cutorch_setDevice(lua_State *L)
   THCState *state = cutorch_getstate(L);
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
-  THCRandom_setGenerator(state, device);
-
-  /* The stream is per device, so update the stream as well */
-  THCState_setStream(state, device, THCState_getCurrentStreamIndex(state));
-  THCState_setBlasHandle(state, device, THCState_getCurrentBlasHandleIndex(state));
-
   return 0;
 }
 
@@ -760,35 +778,35 @@ static int cutorch_getDeviceProperties(lua_State *L)
 
 static int cutorch_seed(lua_State *L)
 {
-  unsigned long seed = THCRandom_seed(cutorch_getstate(L));
+  unsigned long long seed = THCRandom_seed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_seedAll(lua_State *L)
 {
-  unsigned long seed = THCRandom_seedAll(cutorch_getstate(L));
+  unsigned long long seed = THCRandom_seedAll(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_initialSeed(lua_State *L)
 {
-  unsigned long seed = THCRandom_initialSeed(cutorch_getstate(L));
+  unsigned long long seed = THCRandom_initialSeed(cutorch_getstate(L));
   lua_pushnumber(L, seed);
   return 1;
 }
 
 static int cutorch_manualSeed(lua_State *L)
 {
-  unsigned long seed = luaL_checknumber(L, 1);
+  unsigned long long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeed(cutorch_getstate(L), seed);
   return 0;
 }
 
 static int cutorch_manualSeedAll(lua_State* L)
 {
-  unsigned long seed = luaL_checknumber(L, 1);
+  unsigned long long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeedAll(cutorch_getstate(L), seed);
   return 0;
 }
@@ -876,11 +894,58 @@ static int cutorch_setHeapTracking(lua_State *L)
   return 0;
 }
 
+static int cutorch_isManagedPtr(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  if(lua_type(L, 1) != LUA_TNUMBER) {
+    THError("Must receive a ptr cast as a number");
+  }
+  void* ptr = (void* )luaL_optinteger(L, 1, 0);
+  struct cudaPointerAttributes attributes;
+  cudaError_t res = cudaPointerGetAttributes(&attributes, ptr);
+  if (res == cudaErrorInvalidValue) {
+    lua_pushboolean(L, 0);
+  } else {
+    THCudaCheck(res);
+    lua_pushboolean(L, attributes.isManaged);
+  }
+  return 1;
+}
+
 static int cutorch_shutdown(lua_State *L)
 {
   THCState **state = (THCState **) lua_topointer(L, 1);
   THCudaShutdown(*state);
-  free(*state);
+  THCState_free(*state);
+  return 0;
+}
+
+static int cutorch_hasHalfInstructions(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+#ifdef CUDA_HALF_TENSOR
+  lua_pushboolean(L, THC_nativeHalfInstructions(state));
+#else
+  lua_pushboolean(L, 0);
+#endif
+  return 1;
+}
+
+static int cutorch_hasFastHalfInstructions(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+#ifdef CUDA_HALF_TENSOR
+  lua_pushboolean(L, THC_fastHalfInstructions(state));
+#else
+  lua_pushboolean(L, 0);
+#endif
+  return 1;
+}
+
+static int cutorch_sleep(lua_State *L) {
+  THCState *state = cutorch_getstate(L);
+  if (!luaT_checklong(L, 1)) {
+      THError("expected number 'cycles'");
+  }
+  THC_sleep(state, luaT_tolong(L, 1));
   return 0;
 }
 
@@ -910,16 +975,20 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"getMemoryUsage", cutorch_getMemoryUsage},
+  {"hasHalfInstructions", cutorch_hasHalfInstructions},
+  {"hasFastHalfInstructions", cutorch_hasFastHalfInstructions},
   {"setDevice", cutorch_setDevice},
   {"seed", cutorch_seed},
   {"seedAll", cutorch_seedAll},
   {"initialSeed", cutorch_initialSeed},
   {"manualSeed", cutorch_manualSeed},
   {"manualSeedAll", cutorch_manualSeedAll},
+  {"_sleep", cutorch_sleep},
   {"getRNGState", cutorch_getRNGState},
   {"setRNGState", cutorch_setRNGState},
   {"getState", cutorch_getState},
   {"setHeapTracking", cutorch_setHeapTracking},
+  {"isManagedPtr", cutorch_isManagedPtr},
   {NULL, NULL}
 };
 
@@ -932,12 +1001,23 @@ int luaopen_libcutorch(lua_State *L)
   lua_setglobal(L, "cutorch");
   luaL_setfuncs(L, cutorch_stuff__, 0);
 
-  THCState* state = (THCState*)malloc(sizeof(THCState));
+  THCState* state = THCState_alloc();
+
+  char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
+  if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
+    THCState_setDeviceAllocator(state, THCCachingAllocator_get());
+    state->cudaHostAllocator = &THCCachingHostAllocator;
+  }
+
   THCudaInit(state);
 
   /* Register torch.CudaHostAllocator. */
-  luaT_pushudata(L, state->cudaHostAllocator, "torch.Allocator");
+  luaT_pushudata(L, THCState_getCudaHostAllocator(state), "torch.Allocator");
   lua_setfield(L, -2, "CudaHostAllocator");
+
+  /* Register torch.CudaUVAHostAllocator. */
+  luaT_pushudata(L, THCState_getCudaUVAAllocator(state), "torch.Allocator");
+  lua_setfield(L, -2, "CudaUVAAllocator");
 
 #ifdef USE_MAGMA
   THCMagma_init(state);
@@ -952,7 +1032,7 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongStorage_init(L);
   cutorch_CudaStorage_init(L);
   cutorch_CudaDoubleStorage_init(L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfStorage_init(L);
 #endif
 
@@ -963,24 +1043,50 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaLongTensor_init(L);
   cutorch_CudaTensor_init(L);
   cutorch_CudaDoubleTensor_init(L);
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensor_init(L);
 #endif
 
-  cutorch_CudaTensorMath_init(L);
+  cutorch_CudaByteTensorOperator_init(L);
+  cutorch_CudaCharTensorOperator_init(L);
+  cutorch_CudaShortTensorOperator_init(L);
+  cutorch_CudaIntTensorOperator_init(L);
+  cutorch_CudaLongTensorOperator_init(L);
   cutorch_CudaTensorOperator_init(L);
+  cutorch_CudaDoubleTensorOperator_init(L);
+#ifdef CUDA_HALF_TENSOR
+  cutorch_CudaHalfTensorOperator_init(L);
+#endif
+
+  cutorch_CudaByteTensorMath_init(L);
+  cutorch_CudaCharTensorMath_init(L);
+  cutorch_CudaShortTensorMath_init(L);
+  cutorch_CudaIntTensorMath_init(L);
+  cutorch_CudaLongTensorMath_init(L);
+  cutorch_CudaTensorMath_init(L);
+  cutorch_CudaDoubleTensorMath_init(L);
+#ifdef CUDA_HALF_TENSOR
+  cutorch_CudaHalfTensorMath_init(L);
+#endif
+
   cutorch_Event_init(L);
 
   /* Store state in cutorch table. */
   lua_pushlightuserdata(L, state);
   lua_setfield(L, -2, "_state");
 
-#if CUDA_VERSION >= 7050
+#ifdef CUDA_HALF_TENSOR
   lua_pushboolean(L, 1);
 #else
   lua_pushboolean(L, 0);
 #endif
   lua_setfield(L, -2, "hasHalf");
+
+  /* store gpu driver version in field */
+  int driverVersion;
+  THCudaCheck(cudaDriverGetVersion(&driverVersion));
+  lua_pushinteger(L, driverVersion);
+  lua_setfield(L, -2, "driverVersion");
 
   /* when cutorch goes out of scope, we need to make sure THCState is properly
      shut down (so that memory doesn not leak. Since _state is a lightuserdata

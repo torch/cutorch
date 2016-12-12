@@ -2,19 +2,21 @@
 #define THC_SORT_UTILS_INC
 
 #include "THCReduceApplyUtils.cuh"
+#include "THCTensorTypeUtils.cuh"
+#include "THCNumerics.cuh"
 
 // Collection of kernel sort routines
 template <typename T>
 struct LTComp {
   __device__ inline bool operator()(const T& a, const T& b) const {
-    return (a < b);
+    return THCNumerics<T>::lt(a, b);
   }
 };
 
 template <typename T>
 struct GTComp {
   __device__ inline bool operator()(const T& a, const T& b) const {
-    return (a > b);
+    return THCNumerics<T>::gt(a, b);
   }
 };
 
@@ -91,11 +93,11 @@ template <typename K, typename V,
           int KeyDims, int ValueDims,
           typename Comparator, typename IndexType, int Power2SortSize>
 __global__ void
-bitonicSortKVInPlace(TensorInfo<IndexType> keys,
+bitonicSortKVInPlace(TensorInfo<K, IndexType> keys,
                      IndexType keySlices,
                      IndexType keySliceSize,
                      IndexType keySliceStride,
-                     TensorInfo<IndexType> values,
+                     TensorInfo<V, IndexType> values,
                      IndexType valueSliceStride,
                      const Comparator& comp) {
   // Find the slice of the tensor that we are sorting
@@ -111,9 +113,9 @@ bitonicSortKVInPlace(TensorInfo<IndexType> keys,
   __shared__ bool sharedValid[Power2SortSize];
 
   const IndexType keyStartOffset =
-    IndexToOffset<IndexType, KeyDims>::get(linearIndex, keys);
+    IndexToOffset<K, IndexType, KeyDims>::get(linearIndex, keys);
   const IndexType valueStartOffset =
-    IndexToOffset<IndexType, ValueDims>::get(linearIndex, values);
+    IndexToOffset<V, IndexType, ValueDims>::get(linearIndex, values);
 
   // If the sort size is 1, the data is already sorted
   if (Power2SortSize == 1) {
@@ -126,9 +128,9 @@ bitonicSortKVInPlace(TensorInfo<IndexType> keys,
 
     bool valid1 = (elem1 < keySliceSize);
     K k1 = valid1 ?
-      keys.data[keyStartOffset + elem1 * keySliceStride] : (K) 0;
+      keys.data[keyStartOffset + elem1 * keySliceStride] : ScalarConvert<int, K>::to(0);
     V v1 = valid1 ?
-      values.data[valueStartOffset + elem1 * valueSliceStride] : (V) 0;
+      values.data[valueStartOffset + elem1 * valueSliceStride] : ScalarConvert<int, V>::to(0);
 
     sharedKeys[elem1] = k1;
     sharedValues[elem1] = v1;
@@ -136,9 +138,9 @@ bitonicSortKVInPlace(TensorInfo<IndexType> keys,
 
     bool valid2 = (elem2 < keySliceSize);
     K k2 = valid2 ?
-      keys.data[keyStartOffset + elem2 * keySliceStride] : (K) 0;
+      keys.data[keyStartOffset + elem2 * keySliceStride] : ScalarConvert<int, K>::to(0);
     V v2 = valid2 ?
-      values.data[valueStartOffset + elem2 * valueSliceStride] : (V) 0;
+      values.data[valueStartOffset + elem2 * valueSliceStride] : ScalarConvert<int, V>::to(0);
 
     sharedKeys[elem2] = k2;
     sharedValues[elem2] = v2;
@@ -148,16 +150,16 @@ bitonicSortKVInPlace(TensorInfo<IndexType> keys,
     bitonicSort<Comparator, K, V, IndexType, Power2SortSize>(
       sharedKeys, sharedValues, sharedValid, comp);
 
-    // elem1 values are always valid, since otherwise we would have
-    // chosen the next smallest power-of-2 for sorting
-    keys.data[keyStartOffset + elem1 * keySliceStride] =
-      sharedKeys[elem1];
-    values.data[valueStartOffset + elem1 * valueSliceStride] =
-      sharedValues[elem1];
+    // elem1 and elem2 values might be out-of-range, if the data size we are
+    // sorting is smaller than half the power2 size
+    if (valid1) {
+      keys.data[keyStartOffset + elem1 * keySliceStride] =
+        sharedKeys[elem1];
+      values.data[valueStartOffset + elem1 * valueSliceStride] =
+        sharedValues[elem1];
+    }
 
     if (valid2) {
-      // elem2 values might be out-of-range, if the data size we are
-      // sorting is not a power-of-2
       keys.data[keyStartOffset + elem2 * keySliceStride] =
         sharedKeys[elem2];
       values.data[valueStartOffset + elem2 * valueSliceStride] =

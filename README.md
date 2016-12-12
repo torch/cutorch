@@ -1,5 +1,6 @@
 cutorch
 =======
+** [NOTE on API changes and versioning](#api-changes-and-versioning) **
 
 Cutorch provides a CUDA backend for torch7.
 
@@ -25,6 +26,13 @@ Most other (besides float) CPU torch tensor types now have a cutorch equivalent,
 - and `torch.CudaHalfTensor` when supported as indicated by `cutorch.hasHalf`; these are half-precision (16-bit) floats.
 
 **Note:** these are currently limited to copying/conversion, and several indexing and shaping operations (e.g. `narrow`, `select`, `unfold`, `transpose`).
+
+### CUDA memory allocation
+Set the environment variable `THC_CACHING_ALLOCATOR=1` to enable the caching CUDA memory allocator.
+
+By default, cutorch calls `cudaMalloc` and `cudaFree` when CUDA tensors are allocated and freed. This is expensive because `cudaFree` synchronizes the CPU with the GPU. Setting `THC_CACHING_ALLOCATOR=1` will cause cutorch to cache and re-use CUDA device and pinned memory allocations to avoid synchronizations.
+
+With the caching memory allocator, device allocations and frees should logically be considered "usages" of the memory segment associated with streams, just like kernel launches. The programmer must insert the proper synchronization if memory segments are used from multiple streams.
 
 ###`cutorch.*` API
 - `cutorch.synchronize()` : All of the CUDA API is asynchronous (barring a few functions), which means that you can queue up operations. To wait for the operations to finish, you can issue `cutorch.synchronize()` in your code, when the code waits for all GPU operations on the current GPU to finish. WARNING: synchronizes the CPU host with respect to the current device (as per `cutorch.getDevice()`) only.
@@ -87,3 +95,20 @@ OR
 local dest
 cutorch.withDevice(2, function() dest = src:clone() end)
 ```
+
+## API changes and Versioning
+
+Version 1.0 can be installed via: `luarocks install cutorch 1.0-0`
+Compared to version 1.0, these are the following API changes:
+
+| operators | 1.0 | master |
+|---|---|---|
+| `lt`, `le`, `gt`, `ge`, `eq`, `ne` return type | torch.CudaTensor | torch.CudaByteTensor |
+| `min`,`max` (2nd return value)                 | torch.CudaTensor | torch.CudaLongTensor |
+| `maskedFill`, `maskedCopy` (mask input)        | torch.CudaTensor | torch.CudaByteTensor |
+| `topk`, `sort` (2nd return value)              | torch.CudaTensor | torch.CudaLongTensor |
+
+## Inconsistencies with CPU API
+
+| operators | CPU | CUDA |
+|---|---|---|

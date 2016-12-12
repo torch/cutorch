@@ -8,8 +8,15 @@ struct cublasContext;
 typedef struct cublasContext *cublasHandle_t;
 typedef struct CUhandle_st *cublasHandle_t;
 
+typedef struct _THCStream {
+   cudaStream_t stream;
+   int device;
+   int refcount;
+} THCStream;
+
+
 typedef struct _THCCudaResourcesPerDevice {
-  cudaStream_t* streams;
+  THCStream** streams;
   cublasHandle_t* blasHandles;
   size_t scratchSpacePerStream;
   void** devScratchSpacePerStream;
@@ -20,14 +27,10 @@ typedef struct THCState
 {
   struct THCRNGState* rngState;
   struct cudaDeviceProp* deviceProperties;
-  cudaStream_t currentStream;
-  cublasHandle_t currentBlasHandle;
   THCCudaResourcesPerDevice* resourcesPerDevice;
   int numDevices;
   int numUserStreams;
   int numUserBlasHandles;
-  int currentPerDeviceStream;
-  int currentPerDeviceBlasHandle;
   struct THAllocator* cudaHostAllocator;
 } THCState;
 
@@ -54,12 +57,13 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
 typedef struct THCStorage
 {
     real *data;
-    long size;
+    ptrdiff_t size;
     int refcount;
     char flag;
     THAllocator *allocator;
     void *allocatorContext;
     struct THCStorage *view;
+    int device;
 } THCStorage;
 
 typedef struct THCTensor
@@ -69,7 +73,7 @@ typedef struct THCTensor
     int nDimension;
 
     THCStorage *storage;
-    long storageOffset;
+    ptrdiff_t storageOffset;
     int refcount;
 
     char flag;

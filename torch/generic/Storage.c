@@ -10,13 +10,13 @@ static int torch_Storage_(new)(lua_State *L)
   {
     const char *fileName = luaL_checkstring(L, 1);
     int isShared = luaT_optboolean(L, 2, 0);
-    long size = luaL_optlong(L, 3, 0);
+    ptrdiff_t size = luaL_optinteger(L, 3, 0);
     storage = THCStorage_(newWithMapping)(state, fileName, size, isShared);
   }
   else if(lua_type(L, 1) == LUA_TTABLE)
   {
-    long size = lua_objlen(L, 1);
-    long i;
+    ptrdiff_t size = lua_objlen(L, 1);
+    ptrdiff_t i;
     storage = THCStorage_(newWithSize)(state, size);
     for(i = 1; i <= size; i++)
     {
@@ -26,7 +26,12 @@ static int torch_Storage_(new)(lua_State *L)
         THCStorage_(free)(state, storage);
         luaL_error(L, "element at index %d is not a number", i);
       }
-      THCStorage_(set)(state, storage, i-1, (hostreal)lua_tonumber(L, -1));
+#ifdef THC_REAL_IS_HALF
+      half v = THC_float2half((float) lua_tonumber(L, -1));
+      THCStorage_(set)(state, storage, i-1, v);
+#else
+      THCStorage_(set)(state, storage, i-1, (real)lua_tonumber(L, -1));
+#endif
       lua_pop(L, 1);
     }
   }
@@ -34,11 +39,11 @@ static int torch_Storage_(new)(lua_State *L)
   {
     THCStorage *src = luaT_checkudata(L, 1, torch_Storage);
     real *ptr = src->data;
-    long offset = luaL_optlong(L, 2, 1) - 1;
+    ptrdiff_t offset = luaL_optinteger(L, 2, 1) - 1;
     if (offset < 0 || offset >= src->size) {
       luaL_error(L, "offset out of bounds");
     }
-    long size = luaL_optlong(L, 3, src->size - offset);
+    ptrdiff_t size = luaL_optinteger(L, 3, src->size - offset);
     if (size < 1 || size > (src->size - offset)) {
       luaL_error(L, "size out of bounds");
     }
@@ -49,14 +54,14 @@ static int torch_Storage_(new)(lua_State *L)
   }
   else if(lua_type(L, 2) == LUA_TNUMBER)
   {
-    long size = luaL_optlong(L, 1, 0);
-    real *ptr = (real *)luaL_optlong(L, 2, 0);
+    ptrdiff_t size = luaL_optinteger(L, 1, 0);
+    real *ptr = (real *)luaL_optinteger(L, 2, 0);
     storage = THCStorage_(newWithData)(state, ptr, size);
     storage->flag = TH_STORAGE_REFCOUNTED;
   }
   else
   {
-    long size = luaL_optlong(L, 1, 0);
+    ptrdiff_t size = luaL_optinteger(L, 1, 0);
     storage = THCStorage_(newWithSize)(state, size);
   }
   luaT_pushudata(L, storage, torch_Storage);
@@ -80,7 +85,7 @@ static int torch_Storage_(free)(lua_State *L)
 static int torch_Storage_(resize)(lua_State *L)
 {
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  long size = luaL_checklong(L, 2);
+  ptrdiff_t size = luaL_checkinteger(L, 2);
 /*  int keepContent = luaT_optboolean(L, 3, 0); */
   THCStorage_(resize)(cutorch_getstate(L), storage, size);/*, keepContent); */
   lua_settop(L, 1);
@@ -117,8 +122,12 @@ static int torch_Storage_(copy)(lua_State *L)
 static int torch_Storage_(fill)(lua_State *L)
 {
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  double value = luaL_checknumber(L, 2);
-  THCStorage_(fill)(cutorch_getstate(L), storage, (hostreal)value);
+#ifdef THC_REAL_IS_HALF
+  half value = THC_float2half((float) luaL_checknumber(L, 2));
+#else
+  real value = (real) luaL_checknumber(L, 2);
+#endif
+  THCStorage_(fill)(cutorch_getstate(L), storage, value);
   lua_settop(L, 1);
   return 1;
 }
@@ -132,7 +141,7 @@ static int torch_Storage_(elementSize)(lua_State *L)
 static int torch_Storage_(__len__)(lua_State *L)
 {
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  lua_pushnumber(L, storage->size);
+  lua_pushinteger(L, storage->size);
   return 1;
 }
 
@@ -141,9 +150,15 @@ static int torch_Storage_(__newindex__)(lua_State *L)
   if(lua_isnumber(L, 2))
   {
     THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-    long index = luaL_checklong(L, 2) - 1;
+    ptrdiff_t index = luaL_checkinteger(L, 2) - 1;
     double number = luaL_checknumber(L, 3);
-    THCStorage_(set)(cutorch_getstate(L), storage, index, (hostreal)number);
+
+#ifdef THC_REAL_IS_HALF
+    half value = THC_float2half((float) number);
+#else
+    real value = (real) number;
+#endif
+    THCStorage_(set)(cutorch_getstate(L), storage, index, value);
     lua_pushboolean(L, 1);
   }
   else
@@ -157,8 +172,16 @@ static int torch_Storage_(__index__)(lua_State *L)
   if(lua_isnumber(L, 2))
   {
     THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-    long index = luaL_checklong(L, 2) - 1;
-    lua_pushnumber(L, THCStorage_(get)(cutorch_getstate(L), storage, index));
+    ptrdiff_t index = luaL_checkinteger(L, 2) - 1;
+    real v = THCStorage_(get)(cutorch_getstate(L), storage, index);
+
+#ifdef THC_REAL_IS_HALF
+    double value = THC_half2float(v);
+#else
+    double value = (double) v;
+#endif
+
+    lua_pushnumber(L, value);
     lua_pushboolean(L, 1);
     return 2;
   }
@@ -173,7 +196,7 @@ static int torch_Storage_(totable)(lua_State *L)
 {
   THCState *state = cutorch_getstate(L);
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  long i;
+  ptrdiff_t i;
 
   /* Copy storage from device to host. */
 #ifndef THC_REAL_IS_HALF
@@ -212,6 +235,9 @@ static int torch_Storage_(write)(lua_State *L)
   THCStorage *storage = luaT_checkudata(L, 1, torch_Storage);
   THFile *file = luaT_checkudata(L, 2, "torch.File");
 
+#ifdef _MSC_VER
+  THAssert(storage->size < LONG_MAX);
+#endif
   THFile_writeLongScalar(file, storage->size);
   THFile_writeRealRaw(file, storage->data, storage->size);
 

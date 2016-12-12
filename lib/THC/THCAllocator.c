@@ -1,6 +1,6 @@
 #include "THCAllocator.h"
 
-static void *THCudaHostAllocator_alloc(void* ctx, long size) {
+static void *THCudaHostAllocator_malloc(void* ctx, ptrdiff_t size) {
   void* ptr;
 
   if (size < 0) THError("Invalid memory size: %ld", size);
@@ -18,25 +18,50 @@ static void THCudaHostAllocator_free(void* ctx, void* ptr) {
   THCudaCheck(cudaFreeHost(ptr));
 }
 
-static void *THCudaHostAllocator_realloc(void* ctx, void* ptr, long size) {
-  if (size < 0) THError("Invalid memory size: %ld", size);
+THAllocator THCudaHostAllocator = {
+  &THCudaHostAllocator_malloc,
+  NULL,
+  &THCudaHostAllocator_free
+};
 
-  THCudaHostAllocator_free(ctx, ptr);
+static cudaError_t THCIpcAllocator_malloc(void* ctx, void** devPtr, size_t size, cudaStream_t stream)
+{
+  THError("THCIpcAllocator.malloc() not supported");
+  return cudaSuccess;
+}
+
+static cudaError_t THCIpcAllocator_free(void* ctx, void* devPtr)
+{
+  return cudaIpcCloseMemHandle(devPtr);
+}
+
+THCDeviceAllocator THCIpcAllocator = {
+  &THCIpcAllocator_malloc,
+  NULL,
+  &THCIpcAllocator_free,
+  NULL,
+  NULL
+};
+
+static void *THCUVAAllocator_alloc(void* ctx, ptrdiff_t size) {
+  if (size < 0) THError("Invalid memory size: %ld", size);
 
   if (size == 0) return NULL;
 
-  THCudaCheck(cudaMallocHost(&ptr, size));
-
+  // See J.1.1 of the CUDA_C_Programming_Guide.pdf for UVA and coherence rules
+  // on various compute capabilities.
+  void* ptr;
+  THCudaCheck(cudaMallocManaged(&ptr, size, cudaMemAttachGlobal));
   return ptr;
 }
 
-void THCAllocator_init(THCState *state) {
-  state->cudaHostAllocator = (THAllocator*)malloc(sizeof(THAllocator));
-  state->cudaHostAllocator->malloc = &THCudaHostAllocator_alloc;
-  state->cudaHostAllocator->realloc = &THCudaHostAllocator_realloc;
-  state->cudaHostAllocator->free = &THCudaHostAllocator_free;
+static void THCUVAAllocator_free(void* ctx, void* ptr) {
+  if (!ptr) return;
+  THCudaCheck(cudaFree(ptr));
 }
 
-void THCAllocator_shutdown(THCState *state) {
-  free(state->cudaHostAllocator);
-}
+THAllocator THCUVAAllocator = {
+  &THCUVAAllocator_alloc,
+  NULL,
+  &THCUVAAllocator_free
+};

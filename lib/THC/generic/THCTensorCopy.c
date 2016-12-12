@@ -126,7 +126,6 @@ IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Long)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Float)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Double)
 
-// FIXME: add within-CUDA conversions
 void THCTensor_(copyCuda)(THCState *state, THCTensor *self, THCTensor *src)
 {
   THCTensor_(copy)(state, self, src);
@@ -150,12 +149,14 @@ void THCTensor_(copyAsyncCPU)(THCState *state, THCTensor *self, struct THTensor 
     THCudaCheck(cudaSetDevice(tensorDevice));
   }
 
+  cudaStream_t stream = THCState_getCurrentStream(state);
   THCudaCheck(cudaMemcpyAsync(THCTensor_(data)(state, self),
                               THTensor_(data)(src),
                               THTensor_(nElement)(src) * sizeof(real),
                               cudaMemcpyHostToDevice,
-                              THCState_getDeviceStream(state, tensorDevice,
-                                                       THCState_getCurrentStreamIndex(state))));
+                              stream));
+
+  THCudaCheck(THCCachingHostAllocator_recordEvent(src->storage->data, stream));
 
   if (currentDevice != tensorDevice) {
     THCudaCheck(cudaSetDevice(currentDevice));
@@ -179,12 +180,14 @@ void THTensor_(copyAsyncCuda)(THCState *state, THTensor *self, struct THCTensor 
     THCudaCheck(cudaSetDevice(tensorDevice));
   }
 
+  cudaStream_t stream = THCState_getCurrentStream(state);
   THCudaCheck(cudaMemcpyAsync(THTensor_(data)(self),
                               THCTensor_(data)(state, src),
                               THCTensor_(nElement)(state, src) * sizeof(real),
                               cudaMemcpyDeviceToHost,
-                              THCState_getDeviceStream(state, tensorDevice,
-                                                       THCState_getCurrentStreamIndex(state))));
+                              stream));
+
+  THCudaCheck(THCCachingHostAllocator_recordEvent(src->storage->data, stream));
 
   if (currentDevice != tensorDevice) {
     THCudaCheck(cudaSetDevice(currentDevice));

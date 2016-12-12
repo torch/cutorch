@@ -10,7 +10,7 @@ struct __float2halfOp {
   __device__ half operator()(float v) { return __float2half(v); }
 };
 
-void THCFloat2Half(THCState *state, half *out, float *in, long len) {
+void THCFloat2Half(THCState *state, half *out, float *in, ptrdiff_t len) {
   thrust::transform(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par.on(THCState_getCurrentStream(state)),
@@ -20,7 +20,7 @@ void THCFloat2Half(THCState *state, half *out, float *in, long len) {
     in, in + len, out, __float2halfOp());
 }
 
-void THCHalf2Float(THCState *state, float *out, half *in, long len) {
+void THCHalf2Float(THCState *state, float *out, half *in, ptrdiff_t len) {
   thrust::transform(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par.on(THCState_getCurrentStream(state)),
@@ -32,8 +32,25 @@ void THCHalf2Float(THCState *state, float *out, half *in, long len) {
 
 float THC_half2float(half a)
 {
-  THError("half2float not implemented yet");
-  return 0;
+  unsigned int bits = a.x & 0x7fff;
+  unsigned int sign = a.x & 0x8000;
+  unsigned int exp = a.x & 0x7c00;
+
+  bits <<= 13;
+  sign <<= 16;
+
+  bits += 0x38000000U;
+
+  // flush denormals to 0
+  bits = (exp == 0 ? 0 : bits) | sign;
+
+  union {
+    float f;
+    unsigned int v;
+  } conv;
+  conv.v = bits;
+
+  return conv.f;
 }
 
 /*
@@ -101,4 +118,21 @@ half THC_float2half(float a)
   half ret;
   memcpy(&ret, &ir, sizeof(half));
   return ret;
+}
+
+THC_EXTERNC int THC_nativeHalfInstructions(THCState *state) {
+  cudaDeviceProp* prop =
+    THCState_getCurrentDeviceProperties(state);
+
+  // CC 5.3+
+  return (prop->major > 5 ||
+          (prop->major == 5 && prop->minor == 3));
+}
+
+THC_EXTERNC int THC_fastHalfInstructions(THCState *state) {
+  cudaDeviceProp* prop =
+    THCState_getCurrentDeviceProperties(state);
+
+  // Check for CC 6.0 only (corresponds to P100)
+  return (prop->major == 6 && prop->minor == 0);
 }
