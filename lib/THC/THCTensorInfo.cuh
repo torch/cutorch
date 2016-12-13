@@ -43,6 +43,8 @@ struct TensorInfo {
     return (dims == 1 && strides[0] == 1);
   }
 
+  __host__ __device__ TensorInfo<T, IndexType> newNarrow(int dimension, IndexType firstIndex, IndexType size) const;
+
   T* data;
   IndexType sizes[MAX_CUTORCH_DIMS];
   IndexType strides[MAX_CUTORCH_DIMS];
@@ -221,6 +223,23 @@ TensorInfo<T, IndexType>::collapseDims(int excludeDim) {
   // renumbered to this new `returnDim`, since some dimensions could
   // have been collapsed.
   return returnDim;
+}
+
+template <typename T, typename IndexType>
+TensorInfo<T, IndexType>
+TensorInfo<T, IndexType>::newNarrow(int dimension, IndexType firstIndex, IndexType size) const {
+  IndexType sz[MAX_CUTORCH_DIMS];
+  IndexType st[MAX_CUTORCH_DIMS];
+
+  for (int i = 0; i < dims; ++i) {
+    sz[i] = sizes[i];
+    st[i] = strides[i];
+  }
+
+  T* newData = data + (firstIndex * strides[dimension]);
+  st[dimension] = size;
+
+  return TensorInfo<T, IndexType>(newData, dims, sz, st);
 }
 
 // Translate a linear index for the apply to a T* offset;
