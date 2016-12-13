@@ -2652,18 +2652,28 @@ function test.bernoulli()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local p = torch.uniform()
+   local p_fl = torch.rand(sz1, sz2):cuda()
+   local p_dbl = torch.rand(sz1, sz2):cudaDouble()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(typenames) do
        local x = t:type(typename)
-       x:bernoulli(p)
-       local mean = x:sum() / (sz1 * sz2)
-       tester:assertalmosteq(mean, p, 0.1, "mean is not equal to p")
-       local f = x:float()
-       tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
-                             torch.FloatTensor(sz1, sz2):fill(1),
-                             1e-6,
-                             "each value must be either 0 or 1")
+       local expected_mean
+       for i, p in ipairs({p, p_fl, p_dbl}) do
+          x:bernoulli(p)
+          local mean = x:sum() / (sz1 * sz2)
+          if torch.type(p) == 'number' then
+             expected_mean = p
+          else
+             expected_mean = p:mean()
+          end
+          tester:assertalmosteq(mean, expected_mean, 0.1, "mean is not equal to the expected value")
+          local f = x:float()
+          tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
+                                torch.FloatTensor(sz1, sz2):fill(1),
+                                1e-6,
+                                "each value must be either 0 or 1")
+       end
    end
    checkMultiDevice(t, 'bernoulli', p)
 end
