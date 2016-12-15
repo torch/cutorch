@@ -355,7 +355,7 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
    local cuda_args = tranform_args({...})
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
-		      string.format("Missing function %s.%s", torch.type(x_cuda), fn))
+                     string.format("Missing function %s.%s", torch.type(x_cuda), fn))
       rcpu[1], rcpu[2], rcpu[3], rcpu[4]  = x_cpu[fn](x_cpu, unpack(cpu_args))
       rcuda[1], rcuda[2], rcuda[3], rcuda[4] = x_cuda[fn](x_cuda, unpack(cuda_args))
    elseif type(fn) == 'function' then
@@ -1846,7 +1846,7 @@ function test.indexFill()
 
    local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
-   local val = torch.randn(1)[1]
+   local val = torch.random(10)
    for k, typename in ipairs(typenames) do
        local x = x:type(t2cpu[typename])
        compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
@@ -1858,7 +1858,7 @@ function test.indexFill()
    end
    index = 2
    longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
-   val = torch.randn(1)[1]
+   val = torch.random(10)
    for k, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
@@ -1872,7 +1872,7 @@ function test.indexFill()
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
-   val = torch.randn(1)[1]
+   val = torch.random(10)
    for k, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
@@ -2649,6 +2649,8 @@ function test.uniform()
 end
 
 function test.bernoulli()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local p = torch.uniform()
@@ -2679,6 +2681,8 @@ function test.bernoulli()
 end
 
 function test.normal()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), 0.1 * torch.uniform()
@@ -2696,6 +2700,8 @@ function test.normal()
 end
 
 function test.logNormal()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), 0.1 * torch.uniform()
@@ -2713,6 +2719,8 @@ function test.logNormal()
 end
 
 function test.geometric()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
 
@@ -2734,6 +2742,8 @@ function test.geometric()
 end
 
 function test.exponential()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local lambda = torch.uniform()
@@ -2750,6 +2760,8 @@ function test.exponential()
 end
 
 function test.cauchy()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local median, sigma = torch.uniform(), torch.uniform()
