@@ -78,7 +78,7 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
 			  THCTensor **inputs, int numInputs, int dimension)
 {
   THLongStorage *size;
-  int i, j;
+  int i, j, index, cohortMax;
   long offset;
 
   // Even in the case where dimension is negative (i.e. when we want
@@ -149,21 +149,75 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
   THCTensor_(resize)(state, result, size, NULL);
   THLongStorage_free(size);
 
-  offset = 0;
-  for (j = 0; j < numInputs; j++)
-  {
-    // No reason to copy when input is empty
-    if (!THCTensor_(nDimension)(state, inputs[j])) continue;
+  // We parallelize the copy if all 3 conditions pass:
+  //
+  // 1. There is more than one input tensor
+  // 2. All input tensors can use 32-bit indexing
+  // 3. All input tensors are on the same device
 
-    long dimSize = ldimension < THCTensor_(nDimension)(state, inputs[j])
-			       ? THCTensor_(size)(state, inputs[j], ldimension)
-			       : 1;
+  if (numInputs > 1 &&
+      TensorUtils<THCTensor>::all32BitIndexable(state, inputs, numInputs) &&
+      TensorUtils<THCTensor>::allSameDevice(state, inputs, numInputs)) {
 
-    THCTensor *nt = THCTensor_(newWithTensor)(state, result);
-    THCTensor_(narrow)(state, nt, NULL, ldimension, offset, dimSize);
-    THCTensor_(copy)(state, nt, inputs[j]);
-    THCTensor_(free)(state, nt);
-    offset += dimSize;
+    // First, define a TensorInfo for the result tensor to pass to the kernel
+    TensorInfo<real, unsigned int> rst = getTensorInfo<THCTensor, unsigned int>(state, result);
+
+    // The basic strategy is as follows: We batch copies of the remaining input
+    // tensors by passing a struct to the kernel containing TensorInfos for a fixed
+    // number of inputs, along with information to handle the narrow, copy within the kernel call
+    index = 0;
+    for (i = 0; i < numInputs; i += CAT_ARRAY_KERNEL_BATCH_SIZE) {
+    /* for (i = 0; i < 1; ++i) { */
+      CatArrayKernelParam<real> param;
+      cohortMax = 0;
+      for (j = 0; j < CAT_ARRAY_KERNEL_BATCH_SIZE && (i+j) < numInputs; ++j) {
+      /* for (j = 0; j < 1 && (i+j) < numInputs; ++j) { */
+        param.inputs[j] = getTensorInfo<THCTensor, unsigned int>(state, inputs[i+j]);
+        param.offsets[j] = index;
+        param.dimSizes[j] = dimension < THCTensor_(nDimension)(state, inputs[i+j])
+               ? THCTensor_(size)(state, inputs[i+j], dimension)
+               : 1;
+        index += param.dimSizes[j];
+        param.nElements[j] = THCTensor_(nElement)(state, inputs[i+j]);
+        cohortMax = cohortMax > param.nElements[j] ? cohortMax : param.nElements[j];
+      }
+      param.count = j;
+
+      // Next, let's consider how we set our kernel launch parameters.
+      // We borrow from THCApply, which the kernel's internal indexing
+      // is based on.
+      dim3 applyBlock = getApplyBlock();
+
+      // We also re-use the applyGrid - but note that we use the maximum number of
+      // elements for a given tensor in this grouping to determine the count
+      dim3 applyGrid;
+      getApplyGrid(state, cohortMax, applyGrid);
+
+      // Next, we set our grid's y component to be the number of tensors in
+      // the batch. This will allow the kernel to determine which input
+      // tensor it is responsible for copying
+      applyGrid.y = j;
+
+      // Actually launch the kernel
+      catArrayBatchedCopy<real><<<applyGrid, applyBlock, 0, THCState_getCurrentStream(state)>>>(rst, param, dimension);
+    }
+  } else {
+    offset = 0;
+    for (j = 0; j < numInputs; j++)
+    {
+      // No reason to copy when input is empty
+      if (!THCTensor_(nDimension)(state, inputs[j])) continue;
+
+      long dimSize = ldimension < THCTensor_(nDimension)(state, inputs[j])
+               ? THCTensor_(size)(state, inputs[j], ldimension)
+               : 1;
+
+      THCTensor *nt = THCTensor_(newWithTensor)(state, result);
+      THCTensor_(narrow)(state, nt, NULL, ldimension, offset, dimSize);
+      THCTensor_(copy)(state, nt, inputs[j]);
+      THCTensor_(free)(state, nt);
+      offset += dimSize;
+    }
   }
 }
 

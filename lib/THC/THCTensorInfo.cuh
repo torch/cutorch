@@ -18,10 +18,15 @@
 // CUDA kernel argument that defines tensor layout
 template <typename T, typename IndexType>
 struct TensorInfo {
-  TensorInfo(T* p,
+  __host__ __device__ TensorInfo(T* p,
              int dim,
              IndexType sz[MAX_CUTORCH_DIMS],
              IndexType st[MAX_CUTORCH_DIMS]);
+
+  // Default constructor so that we can use TensorInfos as fields in other structs.
+  // In general, TensorInfo's should be created via getTensorInfo(...) and not by
+  // manually setting the fields
+  TensorInfo();
 
   // Set the size of the given dimension to 1, as if it were a
   // reduction dim (allows you to calculate offsets of the reduction
@@ -65,6 +70,9 @@ TensorInfo<T, IndexType>::TensorInfo(T* p,
     strides[i] = st[i];
   }
 }
+
+template <typename T, typename IndexType>
+TensorInfo<T, IndexType>::TensorInfo() {}
 
 template <typename T, typename IndexType>
 void
@@ -237,7 +245,7 @@ TensorInfo<T, IndexType>::newNarrow(int dimension, IndexType firstIndex, IndexTy
   }
 
   T* newData = data + (firstIndex * strides[dimension]);
-  st[dimension] = size;
+  sz[dimension] = size;
 
   return TensorInfo<T, IndexType>(newData, dims, sz, st);
 }
