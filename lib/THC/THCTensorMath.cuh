@@ -23,14 +23,28 @@ __global__ void THCTensor_copyToDiagonal(T* a, T* b, ptrdiff_t start, ptrdiff_t 
   }
 }
 
-#define CAT_ARRAY_KERNEL_BATCH_SIZE 2
+// Limited by the maximum size of kernel arguments (4kb)
+#define CAT_ARRAY_KERNEL_BATCH_SIZE 16
 
 template <typename T>
 struct CatArrayKernelParam {
+  // Tensors to copy into the output parameter
   TensorInfo<T, unsigned int> inputs[CAT_ARRAY_KERNEL_BATCH_SIZE];
+
+  // The offsets along the dimension in the output tensor where we
+  // should begin the copy, for each tensor
   int offsets[CAT_ARRAY_KERNEL_BATCH_SIZE];
+
+  // The of the dimension for each input tensor, used to specify
+  // how to narrow the output tensor
   int dimSizes[CAT_ARRAY_KERNEL_BATCH_SIZE];
+
+  // Number of elements in each tensor, for the grid-stride loop
+  // bound
   int nElements[CAT_ARRAY_KERNEL_BATCH_SIZE];
+
+  // Actual number of tensors in this param (may be less than the
+  // batch size)
   int count;
 };
 

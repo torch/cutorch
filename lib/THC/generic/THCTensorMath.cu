@@ -167,11 +167,9 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
     // number of inputs, along with information to handle the narrow, copy within the kernel call
     index = 0;
     for (i = 0; i < numInputs; i += CAT_ARRAY_KERNEL_BATCH_SIZE) {
-    /* for (i = 0; i < 1; ++i) { */
       CatArrayKernelParam<real> param;
       cohortMax = 0;
       for (j = 0; j < CAT_ARRAY_KERNEL_BATCH_SIZE && (i+j) < numInputs; ++j) {
-      /* for (j = 0; j < 1 && (i+j) < numInputs; ++j) { */
         param.inputs[j] = getTensorInfo<THCTensor, unsigned int>(state, inputs[i+j]);
         param.offsets[j] = index;
         param.dimSizes[j] = dimension < THCTensor_(nDimension)(state, inputs[i+j])
