@@ -679,7 +679,7 @@ for k, Tensor_ in pairs(handledTypenames) do
           {name=Tensor},
           {name="boolean", creturned=true}})
 
-    for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
+    for _, name in ipairs({"cmul", "cpow", "cdiv", "cremainder", "cfmod"}) do
        wrap(name,
             cname(name),
             {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -1457,7 +1457,7 @@ wrap("equal",
       {name=Tensor},
       {name="boolean", creturned=true}})
 
-for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
+for _, name in ipairs({"cmul", "cpow", "cdiv", "cremainder", "cfmod"}) do
   wrap(name,
        cname(name),
        {{name=Tensor, default=true, returned=true, method={default='nil'}},
