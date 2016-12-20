@@ -162,22 +162,48 @@ local function createTestTensor(maxSize)
    return createTestTensorMaxSize(holes, tr, maxSize)
 end
 
-local function isEqual(a, b, tolerance, ...)
+local function isEqual(x, y, tolerance, ...)
    if a == nil and b == nil then return true end
    if a == nil and b ~= nil then return false end
    if a ~= nil and b == nil then return false end
+
+   -- clone the tensors so we can modify the contents if necessary for testing
+   local a = x:clone()
+   local b = y:clone()
+
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
    end
    local diff = a-b
    tolerance = tolerance or 0.000001
+
    if type(a) == 'number' then
+      -- NaN Check:
+      if a ~= a and b ~= b then
+          return true
+      end
       return math.abs(diff) < tolerance
    else
       if torch.type(diff) ~= 'torch.FloatTensor' then
          diff = diff:float() -- TODO: remove the need for this (byteTensor and abs)
       end
-      return diff:abs():max() < tolerance
+      -- NaN Check:
+      local hasNaN = false
+      diff:apply(function(elt) if elt ~= elt then hasNaN = true end end)
+      if hasNaN then
+         -- check if NaN in equal positions
+         local nea = torch.ne(a, a)
+         local neb = torch.ne(b, b)
+         if not nea:equal(neb) then
+            return false
+         end
+         -- check diff of all other elements less than tolerance
+         local ea = a:apply(function(elt) if elt ~= elt then return 0 else return elt end end)
+         local eb = b:apply(function(elt) if elt ~= elt then return 0 else return elt end end)
+         return (ea-eb):abs():max() < tolerance
+      else
+         return diff:abs():max() < tolerance
+      end
    end
 end
 
@@ -335,6 +361,7 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
    assert(baseType, 'Cannot find baseType for ' .. cudaType)
    local x_cpu = x:type(baseType)
    local x_cuda = cloneExactlyToGPUType(x_cpu, nil, gpu2cpu_map)
+   -- print('x_cpu_initial', x_cpu, 'x_cuda_initial', x_cuda)
 
    local rcpu = {}
    local rcuda = {}
@@ -351,6 +378,7 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
       end
       return t
    end
+
    local cpu_args = {...}
    local cuda_args = tranform_args({...})
    if type(fn) == 'string' then
@@ -894,6 +922,52 @@ function test.cpow()
        compareCPUAndCUDATypeTensorArgs(typename, nil, x, 'cpow', y)
    end
    checkMultiDevice(x, 'cpow', y)
+end
+
+function test.cremainder()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   local y = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   for k, typename in ipairs(typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cremainder', b)
+   end
+   checkMultiDevice(x, 'cremainder', y)
+
+   -- ensure we test divide by zero
+   local x = torch.FloatTensor(1):fill(1)
+   local y = torch.FloatTensor(1):zero()
+   for k, typename in ipairs(typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cremainder', b)
+   end
+   checkMultiDevice(x, 'cremainder', y)
+end
+
+function test.cfmod()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   local y = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   for k, typename in ipairs(typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cfmod', b)
+   end
+   checkMultiDevice(x, 'cfmod', y)
+
+   -- ensure we test mod by zero
+   local x = torch.FloatTensor(1):fill(1)
+   local y = torch.FloatTensor(1):zero()
+   for k, typename in ipairs(typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cfmod', b)
+   end
+   checkMultiDevice(x, 'cfmod', y)
 end
 
 function test.nonzero()
