@@ -361,7 +361,6 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
    assert(baseType, 'Cannot find baseType for ' .. cudaType)
    local x_cpu = x:type(baseType)
    local x_cuda = cloneExactlyToGPUType(x_cpu, nil, gpu2cpu_map)
-   -- print('x_cpu_initial', x_cpu, 'x_cuda_initial', x_cuda)
 
    local rcpu = {}
    local rcuda = {}
