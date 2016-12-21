@@ -1003,8 +1003,9 @@ int luaopen_libcutorch(lua_State *L)
 
   THCState* state = THCState_alloc();
 
+  /* Enable the caching allocator unless THC_CACHING_ALLOCATOR=0 */
   char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
-  if (thc_caching_allocator && strcmp(thc_caching_allocator, "1") == 0) {
+  if (!thc_caching_allocator || strcmp(thc_caching_allocator, "0") != 0) {
     THCState_setDeviceAllocator(state, THCCachingAllocator_get());
     state->cudaHostAllocator = &THCCachingHostAllocator;
   }
