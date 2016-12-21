@@ -78,7 +78,9 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
 			  THCTensor **inputs, int numInputs, int dimension)
 {
   THLongStorage *size;
-  int i, j, index, cohortMax;
+  int i, j, k, cohortMax;
+  bool allContiguous;
+  /* int index; */
   long offset;
 
   // Even in the case where dimension is negative (i.e. when we want
@@ -162,23 +164,45 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
     // First, define a TensorInfo for the result tensor to pass to the kernel
     TensorInfo<real, unsigned int> rst = getTensorInfo<THCTensor, unsigned int>(state, result);
 
-    // The basic strategy is as follows: We batch copies of the remaining input
-    // tensors by passing a struct to the kernel containing TensorInfos for a fixed
-    // number of inputs, along with information to handle the narrow, copy within the kernel call
-    index = 0;
-    for (i = 0; i < numInputs; i += CAT_ARRAY_KERNEL_BATCH_SIZE) {
+    // Now, we need to set up our loop bounds. In particular, we want to stuff as many
+    // Tensors at once into the kernel call. We are bound by two conditions:
+    //
+    // 1. The maximum number of Tensors in the kernel param (CAT_ARRAY_KERNEL_MAX)
+    // 2. The maximum amount of stride information we can pass to the kernel param
+    // (CAT_ARRAY_STIRDE_BUFFER_SIZE / nDim)
+
+    int strideLimit = CAT_ARRAY_STRIDE_BUFFER_SIZE / ndim;
+    int batchSize = CAT_ARRAY_KERNEL_MAX <= strideLimit ? CAT_ARRAY_KERNEL_MAX : strideLimit;
+
+    // Now loop, handling this batchSize amount of Tensors in each kernel call. We need
+    // to prepare the kernel param for each batch.
+    offset = 0;
+    for (i = 0; i < numInputs; i += batchSize) {
       CatArrayKernelParam<real> param;
+      param.dims = ndim;
       cohortMax = 0;
-      for (j = 0; j < CAT_ARRAY_KERNEL_BATCH_SIZE && (i+j) < numInputs; ++j) {
-        param.inputs[j] = getTensorInfo<THCTensor, unsigned int>(state, inputs[i+j]);
-        param.offsets[j] = index;
-        param.dimSizes[j] = dimension < THCTensor_(nDimension)(state, inputs[i+j])
-               ? THCTensor_(size)(state, inputs[i+j], dimension)
-               : 1;
-        index += param.dimSizes[j];
+      allContiguous = true;
+      for (j = 0; j < batchSize && (i+j) < numInputs; ++j) {
+        // Copy over data pointer
+        param.data[j] = THCTensor_(data)(state, inputs[i+j]);
+
+        // Initialize strides for this Tensor, offset by the number of Tensors
+        // prior to this one * the number of dimensions
+        for (k = 0; k < ndim; ++k) {
+          param.strides[(j*ndim) + k] = THCTensor_(stride)(state, inputs[i+j], k);
+        }
+
+        param.offsets[j] = offset;
+        param.dimSizes[j] = THCTensor_(size)(state, inputs[i+j], dimension);
+        offset += param.dimSizes[j];
         param.nElements[j] = THCTensor_(nElement)(state, inputs[i+j]);
         cohortMax = cohortMax > param.nElements[j] ? cohortMax : param.nElements[j];
+
+        // Are we still all contiguous?
+        allContiguous &= THCTensor_(isContiguous)(state, inputs[i+j]);
       }
+
+      // Set the count
       param.count = j;
 
       // Next, let's consider how we set our kernel launch parameters.
@@ -196,8 +220,31 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
       // tensor it is responsible for copying
       applyGrid.y = j;
 
+      // See THCApply.cuh for reasoning for this specialization
+      #define HANDLE_CASE(DIMS) \
+        catArrayBatchedCopy<real, DIMS> \
+        <<<applyGrid, applyBlock, 0, THCState_getCurrentStream(state)>>>( \
+          rst, param, dimension);
+
       // Actually launch the kernel
-      catArrayBatchedCopy<real><<<applyGrid, applyBlock, 0, THCState_getCurrentStream(state)>>>(rst, param, dimension);
+      if (allContiguous) {
+        HANDLE_CASE(-2);
+      } else {
+        switch (ndim) {
+          case 1:
+            HANDLE_CASE(1);
+            break;
+          case 2:
+            HANDLE_CASE(2);
+            break;
+          default:
+            HANDLE_CASE(-1);
+            break;
+        }
+      }
+#undef HANDLE_CASE
+
+      THCudaCheck(cudaGetLastError());
     }
   } else {
     offset = 0;

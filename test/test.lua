@@ -3692,6 +3692,7 @@ function test.catArrayManyTensors()
     for dim = 1, 3 do
         local tensors = {}
         for i = 1, 10000 do
+        -- for i = 1, 129 do
             table.insert(
                 tensors,
                 torch.CudaTensor(torch.random(1, 25), minsize, minsize)
@@ -3700,6 +3701,7 @@ function test.catArrayManyTensors()
         end
         local mx = torch.cat(tensors, dim)
         local offset = 1
+        -- for i = 1, 129 do
         for i = 1, 10000 do
             tester:assertTensorEq(mx:narrow(dim, offset, tensors[i]:size(dim)), tensors[i], 0, 'torch.cat value')
             offset = offset + tensors[i]:size(dim)

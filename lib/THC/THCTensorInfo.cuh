@@ -48,7 +48,14 @@ struct TensorInfo {
     return (dims == 1 && strides[0] == 1);
   }
 
-  __host__ __device__ TensorInfo<T, IndexType> newNarrow(int dimension, IndexType firstIndex, IndexType size) const;
+  // Returns a TensorInfo that is narrowed along the specified dimension,
+  // at the specified offset/size. Equivalent to narrow in THCTensor, in
+  // terms of its effect on the data pointer, and size/stride values.
+  // newNarrow is a little bit of a misnomer, as we are not actually
+  // allocating memory, but returning a 'new' TensorInfo that is the input
+  // TensorInfo narrowed.
+  __host__ __device__ TensorInfo<T, IndexType> newNarrow(
+      int dimension, IndexType firstIndex, IndexType size) const;
 
   T* data;
   IndexType sizes[MAX_CUTORCH_DIMS];
@@ -234,6 +241,7 @@ TensorInfo<T, IndexType>::collapseDims(int excludeDim) {
 }
 
 template <typename T, typename IndexType>
+__host__ __device__
 TensorInfo<T, IndexType>
 TensorInfo<T, IndexType>::newNarrow(int dimension, IndexType firstIndex, IndexType size) const {
   IndexType sz[MAX_CUTORCH_DIMS];
