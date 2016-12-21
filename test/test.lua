@@ -60,6 +60,15 @@ local function checkHalf()
    end
 end
 
+local function isFloat(t)
+    for k, v in pairs(float_typenames) do
+        if t == k then
+            return true
+        end
+    end
+    return false
+end
+
 -- Picks an integer between a and b, inclusive of endpoints
 local function chooseInt(a, b)
    return math.floor(torch.uniform(a, b + 1))
@@ -931,6 +940,9 @@ function test.cremainder()
    for k, typename in ipairs(typenames) do
        local ctype = t2cpu[typename]
        local a, b = x:type(ctype), y:type(ctype)
+       if not isFloat(typename) then
+           b[b:eq(0)] = 1
+       end
        compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cremainder', b)
    end
    checkMultiDevice(x, 'cremainder', y)
@@ -938,7 +950,7 @@ function test.cremainder()
    -- ensure we test divide by zero
    local x = torch.FloatTensor(1):fill(1)
    local y = torch.FloatTensor(1):zero()
-   for k, typename in ipairs(typenames) do
+   for k, typename in ipairs(float_typenames) do
        local ctype = t2cpu[typename]
        local a, b = x:type(ctype), y:type(ctype)
        compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cremainder', b)
@@ -954,6 +966,9 @@ function test.cfmod()
    for k, typename in ipairs(typenames) do
        local ctype = t2cpu[typename]
        local a, b = x:type(ctype), y:type(ctype)
+       if not isFloat(typename) then
+           b[b:eq(0)] = 1
+       end
        compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cfmod', b)
    end
    checkMultiDevice(x, 'cfmod', y)
@@ -961,7 +976,7 @@ function test.cfmod()
    -- ensure we test mod by zero
    local x = torch.FloatTensor(1):fill(1)
    local y = torch.FloatTensor(1):zero()
-   for k, typename in ipairs(typenames) do
+   for k, typename in ipairs(float_typenames) do
        local ctype = t2cpu[typename]
        local a, b = x:type(ctype), y:type(ctype)
        compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cfmod', b)
