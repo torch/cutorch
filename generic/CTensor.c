@@ -2,8 +2,6 @@
 #define THC_GENERIC_FILE "generic/CTensor.c"
 #else
 
-#include "THCHalf.h"
-
 /* everything is as the generic Storage.c, except few things (see below) */
 
 #define TH_GENERIC_FILE "generic/Tensor.c"
@@ -49,6 +47,8 @@ static int cutorch_Tensor_(copy)(lua_State *L)
     THCTensor_(copyFloat)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
     THCTensor_(copyDouble)(state, tensor, src);
+  else if( (src = luaT_toudata(L, 2, "torch.HalfTensor")) )
+    THCTensor_(copyHalf)(state, tensor, src);
   else
     luaL_typerror(L, 2, "torch.*Tensor");
 
@@ -56,7 +56,6 @@ static int cutorch_Tensor_(copy)(lua_State *L)
   return 1;
 }
 
-#ifndef THC_REAL_IS_HALF
 static int cutorch_Tensor_(copyAsyncCPU)(lua_State *L)
 {
 #define STRINGIFY_TENSOR(x) TH_CONCAT_STRING_3(torch.,x,Tensor)
@@ -74,57 +73,7 @@ static int cutorch_Tensor_(copyAsyncCPU)(lua_State *L)
   return 1;
 #undef STRINGIFY_TENSOR
 }
-#endif
 
-
-#ifndef THC_REAL_IS_HALF
-static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
-{
-  THTensor *tensor = luaT_checkudata(L, 1, TH_CONCAT_STRING_3(torch.,Real,Tensor));
-  void *src;
-  if( (src = luaT_toudata(L, 2, TH_CONCAT_STRING_3(torch.,Real,Tensor)) ))
-    THTensor_(copy)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
-    THTensor_(copyByte)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
-    THTensor_(copyChar)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
-    THTensor_(copyShort)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
-    THTensor_(copyInt)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
-    THTensor_(copyLong)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
-    THTensor_(copyFloat)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
-    THTensor_(copyDouble)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaByteTensor")) )
-    THTensor_(copyCudaByte)(cutorch_getstate(L), tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaCharTensor")) )
-    THTensor_(copyCudaChar)(cutorch_getstate(L), tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaShortTensor")) )
-    THTensor_(copyCudaShort)(cutorch_getstate(L), tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaIntTensor")) )
-    THTensor_(copyCudaInt)(cutorch_getstate(L), tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaLongTensor")) )
-    THTensor_(copyCudaLong)(cutorch_getstate(L), tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )
-    THTensor_(copyCudaFloat)(cutorch_getstate(L), tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
-    THTensor_(copyCudaDouble)(cutorch_getstate(L), tensor, src);
-#ifdef CUDA_HALF_TENSOR
-  else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
-    THTensor_(copyCudaHalf)(cutorch_getstate(L), tensor, src);
-#endif
-  else
-    luaL_typerror(L, 2, "torch.*Tensor");
-
-  lua_settop(L, 1);
-  return 1;
-}
-#endif
-
-#ifndef THC_REAL_IS_HALF
 static int TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda)(lua_State *L)
 {
 #define STRINGIFY_TENSOR(x) TH_CONCAT_STRING_3(torch.,x,Tensor)
@@ -139,9 +88,6 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda)(lua_State *L)
   return 1;
 #undef STRINGIFY_TENSOR
 }
-#endif
-
-
 
 #ifdef THC_REAL_IS_FLOAT
 static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
@@ -248,11 +194,8 @@ void cutorch_Tensor_(init)(lua_State* L)
   lua_pop(L, 1);
 #endif
 
-#ifndef THC_REAL_IS_HALF
-  luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
-  lua_pushcfunction(L, TH_CONCAT_3(cutorch_,Real,Tensor_copy));
-  lua_setfield(L, -2, "copy");
-  lua_pop(L, 1);
+  // Register this even though it is generated elsewhere.
+  cutorch_TensorCopy_(init)(L);
 
   // Register async copy methods.
   luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
@@ -264,7 +207,6 @@ void cutorch_Tensor_(init)(lua_State* L)
   lua_pushcfunction(L, cutorch_Tensor_(copyAsyncCPU));
   lua_setfield(L, -2, "copyAsync");
   lua_pop(L, 1);
-#endif
 
   luaT_pushmetatable(L, torch_Tensor);
   lua_pushcfunction(L, cutorch_Tensor_(copy));

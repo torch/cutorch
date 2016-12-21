@@ -16,6 +16,8 @@ extern void cutorch_CudaStorage_init(lua_State* L);
 extern void cutorch_CudaDoubleStorage_init(lua_State* L);
 #ifdef CUDA_HALF_TENSOR
 extern void cutorch_CudaHalfStorage_init(lua_State* L);
+#else
+extern void cutorch_HalfStorageCopy_init(lua_State *L);
 #endif
 
 extern void cutorch_CudaByteTensor_init(lua_State* L);
@@ -27,6 +29,8 @@ extern void cutorch_CudaTensor_init(lua_State* L);
 extern void cutorch_CudaDoubleTensor_init(lua_State* L);
 #ifdef CUDA_HALF_TENSOR
 extern void cutorch_CudaHalfTensor_init(lua_State* L);
+#else
+extern void cutorch_HalfTensorCopy_init(lua_State *L);
 #endif
 
 extern void cutorch_CudaByteTensorOperator_init(lua_State* L);
@@ -1034,6 +1038,8 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaDoubleStorage_init(L);
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfStorage_init(L);
+#else
+  cutorch_HalfStorageCopy_init(L);
 #endif
 
   cutorch_CudaByteTensor_init(L);
@@ -1045,6 +1051,8 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaDoubleTensor_init(L);
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensor_init(L);
+#else
+  cutorch_HalfTensorCopy_init(L);
 #endif
 
   cutorch_CudaByteTensorOperator_init(L);
