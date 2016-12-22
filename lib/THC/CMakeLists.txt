@@ -89,6 +89,13 @@ IF(APPLE)
   # CUDA 7 supports clang and libc++ so no need to change anything
 ENDIF(APPLE)
 
+# Flags
+# When using MSVC
+IF(MSVC)
+  # we want to respect the standard, and we are bored of those **** .
+  ADD_DEFINITIONS(-DTHC_EXPORTS=1)
+ENDIF(MSVC)
+
 # Detect CUDA architecture and get best NVCC flags
 IF(NOT COMMAND CUDA_SELECT_NVCC_ARCH_FLAGS OR MSVC)
   INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/cmake/select_compute_arch.cmake)
