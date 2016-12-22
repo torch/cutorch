@@ -89,10 +89,9 @@ IF(APPLE)
   # CUDA 7 supports clang and libc++ so no need to change anything
 ENDIF(APPLE)
 
-# Flags
 # When using MSVC
 IF(MSVC)
-  # we want to respect the standard, and we are bored of those **** .
+  # dll export flag
   ADD_DEFINITIONS(-DTHC_EXPORTS=1)
 ENDIF(MSVC)
 
