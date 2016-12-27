@@ -2989,7 +2989,7 @@ function test.multinomial_without_replacement_gets_all()
          t[dist] = linear
       end
 
-      local orig = t:clone():long()
+      local orig = t:cudaLong()
 
       for _, typename in ipairs(float_typenames) do
           -- Half tensors have precision errors for the binary search causing this test
@@ -3005,7 +3005,7 @@ function test.multinomial_without_replacement_gets_all()
               -- Sort, and we should have the original results, since without replacement
               -- sampling everything, we should have chosen every value uniquely
               result = result:sort(2)
-              tester:assertTensorEq(orig:type(typename), result, 0, "error in multinomial_without_replacement_gets_all")
+              tester:assertTensorEq(orig, result, 0, "error in multinomial_without_replacement_gets_all")
           end
       end
    end
