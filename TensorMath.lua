@@ -971,7 +971,7 @@ for k, Tensor_ in pairs(handledTypenames) do
 
      wrap("multinomial",
           cname("multinomial"),
-          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+          {{name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
            {name=Tensor},
            {name="int"},
            {name="boolean", default=false}})
@@ -1827,7 +1827,7 @@ wrap("randn",
 
 wrap("multinomial",
      cname("multinomial"),
-     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+     {{name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
         {name=Tensor},
         {name="int"},
         {name="boolean", default=false}})
