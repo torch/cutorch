@@ -1,3 +1,4 @@
+#include "cuda_profiler_api.h"
 #include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
@@ -953,6 +954,10 @@ static int cutorch_sleep(lua_State *L) {
   return 0;
 }
 
+static void cutorch_profilerStop(lua_State *L) {
+  THCudaCheck(cudaProfilerStop());
+}
+
 static const struct luaL_Reg cutorch_stuff__ [] = {
   {"synchronize", cutorch_synchronize},
   {"synchronizeAll", cutorch_synchronizeAll},
@@ -993,6 +998,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"getState", cutorch_getState},
   {"setHeapTracking", cutorch_setHeapTracking},
   {"isManagedPtr", cutorch_isManagedPtr},
+  {"profilerStop", cutorch_profilerStop},
   {NULL, NULL}
 };
 
