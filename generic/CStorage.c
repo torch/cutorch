@@ -24,12 +24,12 @@
   }
 #else
 // FixMe: Requires an unsafe conversion in that we convert from cutorch's 'half'
-// to torch's TH_HALF.  These types are required to be defined in the same way
+// to torch's THHalf.  These types are required to be defined in the same way
 // (is there some way to enforce this?)
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
     real *fdata = (real*)THAlloc(sizeof(real)*size);                    \
-    THFile_readHalfRaw(file, (TH_HALF *)fdata, sizeof(real) * size);       \
+    THFile_readHalfRaw(file, (THHalf *)fdata, sizeof(real) * size);       \
     THCudaCheck(cudaMemcpy(data, fdata, size * sizeof(real), cudaMemcpyHostToDevice)); \
     THFree(fdata);                                                      \
   }
@@ -38,7 +38,7 @@
   {                                                                     \
     real *fdata = (real*)THAlloc(sizeof(real)*size);                    \
     THCudaCheck(cudaMemcpy(fdata, data, size * sizeof(real), cudaMemcpyDeviceToHost)); \
-    THFile_writeHalfRaw(file, (TH_HALF *)fdata, size * sizeof(real));      \
+    THFile_writeHalfRaw(file, (THHalf *)fdata, size * sizeof(real));      \
     THFree(fdata);                                                      \
   }
 #endif
