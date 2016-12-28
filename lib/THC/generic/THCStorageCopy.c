@@ -2,13 +2,11 @@
 #define THC_GENERIC_FILE "generic/THCStorageCopy.c"
 #else
 
-#ifndef THC_REAL_IS_HALF
 void THCStorage_(copyCPU)(THCState *state, THCStorage *self, struct THStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
   THCudaCheck(cudaMemcpy(self->data, src->data, self->size * sizeof(real), cudaMemcpyHostToDevice));
 }
-#endif
 
 #define TH_CUDA_STORAGE_IMPLEMENT_COPY(TYPEC)                          \
 void THCStorage_(copy##TYPEC)(THCState *state, THCStorage *self, struct TH##TYPEC##Storage *src)  \
@@ -27,15 +25,16 @@ TH_CUDA_STORAGE_IMPLEMENT_COPY(Short)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Int)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Long)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Float)
+#ifdef CUDA_HALF_TENSOR
+TH_CUDA_STORAGE_IMPLEMENT_COPY(Half)
+#endif
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
 
-#ifndef THC_REAL_IS_HALF
 void THStorage_(copyCuda)(THCState *state, THStorage *self, struct THCStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
   THCudaCheck(cudaMemcpy(self->data, src->data, self->size * sizeof(real), cudaMemcpyDeviceToHost));
 }
-#endif
 
 #define TH_CUDA_STORAGE_IMPLEMENT_COPYTO(TYPEC)                             \
 void TH_CONCAT_4(TH,TYPEC,Storage_copyCuda,Real)(THCState *state, TH##TYPEC##Storage *self, struct THCStorage *src) \
@@ -54,9 +53,14 @@ TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Short)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Int)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Long)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Float)
+#ifdef CUDA_HALF_TENSOR
+TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Half)
+#endif
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
 
 #undef TH_CUDA_STORAGE_IMPLEMENT_COPY
 #undef TH_CUDA_STORAGE_IMPLEMENT_COPYTO
+#undef TH_CUDA_STORAGE_IMPLEMENT_COPY_AUX
+#undef TH_CUDA_STORAGE_IMPLEMENT_COPYTO_AUX
 
 #endif

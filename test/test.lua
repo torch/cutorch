@@ -2793,7 +2793,7 @@ function test.logNormal()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), 0.1 * torch.uniform()
-   local tolerance = 0.01
+   local tolerance = 0.02
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(float_typenames) do

@@ -1,5 +1,7 @@
+#include "THCGeneral.h"
+#include "THCTensorCopy.h"
+
 #include "THCApply.cuh"
-#include "THCHalf.h"
 #include "THCNumerics.cuh"
 
 inline int curGPU() {

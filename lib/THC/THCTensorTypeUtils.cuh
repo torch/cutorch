@@ -4,7 +4,6 @@
 #include <cuda.h>
 #include <assert.h>
 #include "THCGeneral.h"
-#include "THCHalf.h"
 #include "THCTensor.h"
 #include "THCTensorInfo.cuh"
 

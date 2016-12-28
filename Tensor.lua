@@ -24,6 +24,7 @@ end
 
 local TensorTypes = {
    float  = 'torch.FloatTensor',
+   half   = 'torch.HalfTensor',
    double = 'torch.DoubleTensor',
    byte   = 'torch.ByteTensor',
    char   = 'torch.CharTensor',
@@ -85,11 +86,5 @@ for ValueType, CudaTensorType in pairs(CudaTensorTypes) do
 end
 
 if cutorch.hasHalf then
-   do
-      local function Tensor__totable(self)
-         local host_tensor = self:float()
-         return self:float():totable()
-      end
-      rawset(torch.getmetatable('torch.CudaHalfTensor'), 'totable', Tensor__totable)
-   end
+   CudaTensorTypes.half = 'torch.CudaHalfTensor'
 end

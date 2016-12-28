@@ -1,6 +1,8 @@
 #ifndef CUTORCH_UTILS_INC
 #define CUTORCH_UTILS_INC
 
+#include "THCGeneral.h"
+
 #include "luaT.h"
 #include "TH.h"
 
