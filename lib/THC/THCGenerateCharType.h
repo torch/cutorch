@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #error "You must define THC_GENERIC_FILE before including THGenerateCharType.h"
 #endif
-
+#ifndef THC_GENERIC_NO_CHAR
 #define real char
 #define accreal long
 #define Real Char
@@ -14,6 +14,7 @@
 #undef Real
 #undef CReal
 #undef THC_REAL_IS_CHAR
+#endif
 
 #ifndef THCGenerateAllTypes
 #undef THC_GENERIC_FILE

@@ -2,6 +2,7 @@
 #error "You must define THC_GENERIC_FILE before including THGenerateIntType.h"
 #endif
 
+#ifndef THC_GENERIC_NO_INT
 #define real int
 #define accreal long
 #define Real Int
@@ -14,6 +15,7 @@
 #undef Real
 #undef CReal
 #undef THC_REAL_IS_INT
+#endif
 
 #ifndef THCGenerateAllTypes
 #undef THC_GENERIC_FILE

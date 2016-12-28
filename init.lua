@@ -3,18 +3,26 @@ paths.require("libcutorch")
 
 torch.CudaByteStorage.__tostring__   = torch.ByteStorage.__tostring__
 torch.CudaByteTensor.__tostring__    = torch.ByteTensor.__tostring__
-torch.CudaCharStorage.__tostring__   = torch.CharStorage.__tostring__
-torch.CudaCharTensor.__tostring__    = torch.CharTensor.__tostring__
-torch.CudaShortStorage.__tostring__  = torch.ShortStorage.__tostring__
-torch.CudaShortTensor.__tostring__   = torch.ShortTensor.__tostring__
-torch.CudaIntStorage.__tostring__    = torch.IntStorage.__tostring__
-torch.CudaIntTensor.__tostring__     = torch.IntTensor.__tostring__
+
+if not cutorch.reducedTypeSet then
+ torch.CudaCharStorage.__tostring__   = torch.CharStorage.__tostring__
+ torch.CudaCharTensor.__tostring__    = torch.CharTensor.__tostring__
+ torch.CudaShortStorage.__tostring__  = torch.ShortStorage.__tostring__
+ torch.CudaShortTensor.__tostring__   = torch.ShortTensor.__tostring__
+ torch.CudaIntStorage.__tostring__    = torch.IntStorage.__tostring__
+ torch.CudaIntTensor.__tostring__     = torch.IntTensor.__tostring__
+end
+
 torch.CudaLongStorage.__tostring__   = torch.LongStorage.__tostring__
 torch.CudaLongTensor.__tostring__    = torch.LongTensor.__tostring__
 torch.CudaStorage.__tostring__       = torch.FloatStorage.__tostring__
 torch.CudaTensor.__tostring__        = torch.FloatTensor.__tostring__
-torch.CudaDoubleStorage.__tostring__ = torch.DoubleStorage.__tostring__
-torch.CudaDoubleTensor.__tostring__  = torch.DoubleTensor.__tostring__
+
+if not cutorch.reducedTypeSet then
+ torch.CudaDoubleStorage.__tostring__ = torch.DoubleStorage.__tostring__
+ torch.CudaDoubleTensor.__tostring__  = torch.DoubleTensor.__tostring__
+end
+
 if cutorch.hasHalf then
    torch.CudaHalfStorage.__tostring__  = torch.FloatStorage.__tostring__
    torch.CudaHalfTensor.__tostring__  = torch.FloatTensor.__tostring__

@@ -210,13 +210,20 @@ TensorUtils<TENSOR_TYPE>::canUse32BitIndexMath(THCState* state,         \
 }
 
 IMPL_TENSOR_UTILS(THCudaByteTensor, unsigned char)
+#ifndef THC_GENERIC_NO_CHAR
 IMPL_TENSOR_UTILS(THCudaCharTensor, char)
+#endif
+#ifndef THC_GENERIC_NO_SHORT
 IMPL_TENSOR_UTILS(THCudaShortTensor, short)
+#endif
+#ifndef THC_GENERIC_NO_INT
 IMPL_TENSOR_UTILS(THCudaIntTensor, int)
+#endif
 IMPL_TENSOR_UTILS(THCudaLongTensor, long)
 IMPL_TENSOR_UTILS(THCudaTensor, float)
+#ifndef THC_GENERIC_NO_DOUBLE
 IMPL_TENSOR_UTILS(THCudaDoubleTensor, double)
-
+#endif
 #ifdef CUDA_HALF_TENSOR
 IMPL_TENSOR_UTILS(THCudaHalfTensor, half);
 #endif

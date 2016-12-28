@@ -548,9 +548,20 @@ local handledTypeaccreals = {
    'double',
    'float'
 }
+local handledTypeGuards = {
+   'BYTE',
+   'CHAR',
+   'SHORT',
+   'INT',
+   'LONG',
+   'DOUBLE',
+   'FLOAT'
+}
+
 
 for k, Tensor_ in pairs(handledTypenames) do
     Tensor = Tensor_
+    interface:print("#ifndef THC_GENERIC_NO_" .. handledTypeGuards[k])
     if Tensor == 'CudaHalfTensor' then
         interface:print("#ifdef CUDA_HALF_TENSOR")
     end
@@ -1338,6 +1349,7 @@ void cutorch_%sMath_init(lua_State *L)
     if Tensor == 'CudaHalfTensor' then
         interface:print("#endif")
     end
+    interface:print("#endif")
 end
 
 

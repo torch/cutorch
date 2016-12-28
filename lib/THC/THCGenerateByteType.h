@@ -15,6 +15,7 @@
 #undef CReal
 #undef THC_REAL_IS_BYTE
 
+
 #ifndef THCGenerateAllTypes
 #undef THC_GENERIC_FILE
 #endif

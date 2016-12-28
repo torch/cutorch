@@ -22,7 +22,18 @@ local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
 
-local TensorTypes = {
+local TensorTypes
+if cutorch.reducedTypeSet then
+TensorTypes = {
+   float  = 'torch.FloatTensor',
+   byte   = 'torch.ByteTensor',
+   long   = 'torch.LongTensor',
+   cuda       = 'torch.CudaTensor',
+   cudaByte   = 'torch.CudaByteTensor',
+   cudaLong   = 'torch.CudaLongTensor'
+}
+else
+TensorTypes = {
    float  = 'torch.FloatTensor',
    double = 'torch.DoubleTensor',
    byte   = 'torch.ByteTensor',
@@ -38,6 +49,7 @@ local TensorTypes = {
    cudaShort  = 'torch.CudaShortTensor',
    cudaLong   = 'torch.CudaLongTensor'
 }
+end
 
 if cutorch.hasHalf then
     TensorTypes['cudaHalf'] = 'torch.CudaHalfTensor'
@@ -66,7 +78,16 @@ for _, CudaTensorType in pairs(TensorTypes) do
     end
 end
 
-local CudaTensorTypes = {
+local CudaTensorTypes
+
+if cutorch.reducedTypeSet then
+CudaTensorTypes = {
+   float  = 'torch.CudaTensor',
+   byte   = 'torch.CudaByteTensor',
+   long   = 'torch.CudaLongTensor'
+}
+else
+CudaTensorTypes = {
    float  = 'torch.CudaTensor',
    double = 'torch.CudaDoubleTensor',
    byte   = 'torch.CudaByteTensor',
@@ -75,6 +96,7 @@ local CudaTensorTypes = {
    short  = 'torch.CudaShortTensor',
    long   = 'torch.CudaLongTensor'
 }
+end
 
 for ValueType, CudaTensorType in pairs(CudaTensorTypes) do
   local function Tensor__totable(self)

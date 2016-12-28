@@ -18,37 +18,55 @@ static int cutorch_Tensor_(copy)(lua_State *L)
   void *src;
   if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )
     THCTensor_(copyCudaFloat)(state, tensor, src);
+
   else if( (src = luaT_toudata(L, 2, "torch.CudaByteTensor")) )
     THCTensor_(copyCudaByte)(state, tensor, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CudaCharTensor")) )
     THCTensor_(copyCudaChar)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.CudaShortTensor")) )
     THCTensor_(copyCudaShort)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.CudaIntTensor")) )
     THCTensor_(copyCudaInt)(state, tensor, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.CudaLongTensor")) )
     THCTensor_(copyCudaLong)(state, tensor, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THCTensor_(copyCudaDouble)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THCTensor_(copyCudaHalf)(state, tensor, src);
 #endif
-
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
     THCTensor_(copyByte)(state, tensor, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
     THCTensor_(copyChar)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
     THCTensor_(copyShort)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
     THCTensor_(copyInt)(state, tensor, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
     THCTensor_(copyLong)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
     THCTensor_(copyFloat)(state, tensor, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
     THCTensor_(copyDouble)(state, tensor, src);
+#endif
   else
     luaL_typerror(L, 2, "torch.*Tensor");
 
@@ -86,35 +104,53 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
     THTensor_(copy)(tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
     THTensor_(copyByte)(tensor, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
     THTensor_(copyChar)(tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
     THTensor_(copyShort)(tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
     THTensor_(copyInt)(tensor, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
     THTensor_(copyLong)(tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
     THTensor_(copyFloat)(tensor, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
     THTensor_(copyDouble)(tensor, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.CudaByteTensor")) )
     THTensor_(copyCudaByte)(cutorch_getstate(L), tensor, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CudaCharTensor")) )
     THTensor_(copyCudaChar)(cutorch_getstate(L), tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.CudaShortTensor")) )
     THTensor_(copyCudaShort)(cutorch_getstate(L), tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.CudaIntTensor")) )
     THTensor_(copyCudaInt)(cutorch_getstate(L), tensor, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.CudaLongTensor")) )
     THTensor_(copyCudaLong)(cutorch_getstate(L), tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )
     THTensor_(copyCudaFloat)(cutorch_getstate(L), tensor, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.CudaDoubleTensor")) )
     THTensor_(copyCudaDouble)(cutorch_getstate(L), tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_HALF
 #ifdef CUDA_HALF_TENSOR
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THTensor_(copyCudaHalf)(cutorch_getstate(L), tensor, src);
+#endif
 #endif
   else
     luaL_typerror(L, 2, "torch.*Tensor");

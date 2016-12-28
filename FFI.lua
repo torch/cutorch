@@ -38,7 +38,15 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
 
 ]]
 
-   local CudaTypes = {
+local CudaTypes 
+if cutorch.reducedTypeSet
+   CudaTypes = {
+      {'float', ''},
+      {'unsigned char', 'Byte'},
+      {'long','Long'},
+  }
+else
+   CudaTypes = {
       {'float', ''},
       {'unsigned char', 'Byte'},
       {'char', 'Char'},
@@ -47,6 +55,8 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
       {'long','Long'},
       {'double','Double'},
   }
+end
+
   if cutorch.hasHalf then
       table.insert(CudaTypes, {'half','Half'})
   end

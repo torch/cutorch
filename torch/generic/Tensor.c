@@ -704,18 +704,26 @@ static int torch_Tensor_(copy)(lua_State *L)
     THCTensor_(copy)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
     THCTensor_(copyByte)(state, tensor, src);
+#ifndef THC_GENERIC_NO_CHAR
   else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
     THCTensor_(copyChar)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
   else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
     THCTensor_(copyShort)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
   else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
     THCTensor_(copyInt)(state, tensor, src);
+#endif
   else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
     THCTensor_(copyLong)(state, tensor, src);
   else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
     THCTensor_(copyFloat)(state, tensor, src);
+#ifndef THC_GENERIC_NO_DOUBLE
   else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
     THCTensor_(copyDouble)(state, tensor, src);
+#endif
   else
     luaL_typerror(L, 2, "torch.*Tensor");
   lua_settop(L, 1);
@@ -764,21 +772,27 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
       THCTensor_(copyByte)(state, tensor, src);
       THCTensor_(free)(state, tensor);
+#ifndef THC_GENERIC_NO_CHAR
     } else if( (src = luaT_toudata(L, 3, "torch.CharTensor")) ) {
       tensor = THCTensor_(newWithTensor)(state, tensor);
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
       THCTensor_(copyChar)(state, tensor, src);
       THCTensor_(free)(state, tensor);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
     } else if( (src = luaT_toudata(L, 3, "torch.ShortTensor")) ) {
       tensor = THCTensor_(newWithTensor)(state, tensor);
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
       THCTensor_(copyShort)(state, tensor, src);
       THCTensor_(free)(state, tensor);
+#endif
+#ifndef THC_GENERIC_NO_INT
     } else if( (src = luaT_toudata(L, 3, "torch.IntTensor")) ) {
       tensor = THCTensor_(newWithTensor)(state, tensor);
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
       THCTensor_(copyInt)(state, tensor, src);
       THCTensor_(free)(state, tensor);
+#endif
     } else if( (src = luaT_toudata(L, 3, "torch.LongTensor")) ) {
       tensor = THCTensor_(newWithTensor)(state, tensor);
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
@@ -789,11 +803,13 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
       THCTensor_(copyFloat)(state, tensor, src);
       THCTensor_(free)(state, tensor);
+#ifndef THC_GENERIC_NO_DOUBLE
     } else if( (src = luaT_toudata(L, 3, "torch.DoubleTensor")) ) {
       tensor = THCTensor_(newWithTensor)(state, tensor);
       THCTensor_(narrow)(state, tensor, NULL, 0, index, 1);
       THCTensor_(copyDouble)(state, tensor, src);
       THCTensor_(free)(state, tensor);
+#endif
     } else {
       luaL_typerror(L, 3, "torch.*Tensor");
     }
@@ -901,18 +917,26 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
         THCTensor_(copy)(state, tensor, src);
       } else if( (src = luaT_toudata(L, 3, "torch.ByteTensor")) ) {
         THCTensor_(copyByte)(state, tensor, src);
+#ifndef THC_GENERIC_NO_CHAR
       } else if( (src = luaT_toudata(L, 3, "torch.CharTensor")) ) {
         THCTensor_(copyChar)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_SHORT
       } else if( (src = luaT_toudata(L, 3, "torch.ShortTensor")) ) {
         THCTensor_(copyShort)(state, tensor, src);
+#endif
+#ifndef THC_GENERIC_NO_INT
       } else if( (src = luaT_toudata(L, 3, "torch.IntTensor")) ) {
         THCTensor_(copyInt)(state, tensor, src);
+#endif
       } else if( (src = luaT_toudata(L, 3, "torch.LongTensor")) ) {
         THCTensor_(copyLong)(state, tensor, src);
       } else if( (src = luaT_toudata(L, 3, "torch.FloatTensor")) ) {
         THCTensor_(copyFloat)(state, tensor, src);
+#ifndef THC_GENERIC_NO_DOUBLE
       } else if( (src = luaT_toudata(L, 3, "torch.DoubleTensor")) ) {
         THCTensor_(copyDouble)(state, tensor, src);
+#endif
       } else {
         luaL_typerror(L, 3, "torch.*Tensor");
       }
