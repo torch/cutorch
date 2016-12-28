@@ -116,8 +116,14 @@ static int TH_CONCAT_3(cutorch_,Real,Tensor_copy)(lua_State *L)
   else if( (src = luaT_toudata(L, 2, "torch.CudaHalfTensor")) )
     THTensor_(copyCudaHalf)(cutorch_getstate(L), tensor, src);
 #endif
-  else
-    luaL_typerror(L, 2, "torch.*Tensor");
+  else {  // call underlying copy, which might have been monkey-patched previously, or might be default
+    luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
+    lua_getfield(L, -1, "__torch_copy");
+    lua_remove(L, -2);
+    lua_insert(L, -3);
+    lua_call(L, 2, 1);
+    return 1;
+  }
 
   lua_settop(L, 1);
   return 1;
@@ -250,12 +256,17 @@ void cutorch_Tensor_(init)(lua_State* L)
 
 #ifndef THC_REAL_IS_HALF
   luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
+  lua_getfield(L, -1, "copy");  // first store the old function
+  lua_setfield(L, -2, "__torch_copy");
+
   lua_pushcfunction(L, TH_CONCAT_3(cutorch_,Real,Tensor_copy));
   lua_setfield(L, -2, "copy");
   lua_pop(L, 1);
 
   // Register async copy methods.
   luaT_pushmetatable(L, TH_CONCAT_STRING_3(torch.,Real,Tensor));
+  lua_getfield(L, -1, "copyAsync");  // first store the old function
+  lua_setfield(L, -2, "__torch_copyAsync");
   lua_pushcfunction(L, TH_CONCAT_3(cutorch_,Real,Tensor_copyAsyncCuda));
   lua_setfield(L, -2, "copyAsync");
   lua_pop(L, 1);
