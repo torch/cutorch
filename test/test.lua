@@ -57,6 +57,7 @@ local function checkHalf()
        table.insert(typenames, 'torch.CudaHalfTensor')
        table.insert(float_typenames, 'torch.CudaHalfTensor')
        t2cpu['torch.CudaHalfTensor'] = 'torch.FloatTensor'
+       t2gpu['torch.HalfTensor'] = 'torch.CudaHalfTensor'
    end
 end
 
@@ -786,18 +787,34 @@ end
 
 function test.copyAsync()
    local sz = chooseInt(maxsize, 2 * maxsize)
-   local host_tensor = cutorch.createCudaHostTensor(sz):uniform()
-   local device_tensor = torch.CudaTensor(sz)
-   device_tensor:copyAsync(host_tensor)
-   cutorch.streamSynchronize(cutorch.getStream())
-   tester:assertTensorEq(host_tensor, device_tensor:float(), 0,
-                         "Async copy to device failed.")
+   local host_tensors = {
+     cutorch.createCudaHostTensor(sz),
+     cutorch.createCudaHostDoubleTensor(sz)
+   }
+   if cutorch.hasHalf then
+     table.insert(host_tensors, cutorch.createCudaHostHalfTensor(sz))
+   end
+   for k,host_tensor in ipairs(host_tensors) do
+      local device_type = t2gpu[torch.type(host_tensor)]:match(('torch.(%a+)'))
+      if torch.type(host_tensor) ~= 'torch.HalfTensor' then
+         host_tensor = host_tensor:uniform()
+      else
+         -- HalfTensor doesn't have math functions defined.
+         local copy_tensor = torch[device_type](sz):uniform()
+         host_tensor:copy(copy_tensor)
+      end
+      local device_tensor = torch[device_type](sz)
+      device_tensor:copyAsync(host_tensor)
+      cutorch.streamSynchronize(cutorch.getStream())
+      tester:assertTensorEq(host_tensor:double(), device_tensor:double(), 0,
+                            "Async copy to device failed.")
 
-   device_tensor:uniform()
-   host_tensor:copyAsync(device_tensor)
-   cutorch.streamSynchronize(cutorch.getStream())
-   tester:assertTensorEq(device_tensor:float(), host_tensor, 0,
-                         "Async copy to host failed.")
+      device_tensor:uniform()
+      host_tensor:copyAsync(device_tensor)
+      cutorch.streamSynchronize(cutorch.getStream())
+      tester:assertTensorEq(device_tensor:double(), host_tensor:double(), 0,
+                            "Async copy to host failed.")
+  end
 end
 
 function test.largeNoncontiguous()
@@ -3101,7 +3118,7 @@ function test.cudaTypeCopy()
       {'int',   'IntTensor'},
       {'long',  'LongTensor'},
       {'double','DoubleTensor'},
-
+      {'half', 'HalfTensor'},
       {'cuda',      'CudaTensor'},
       {'cudaByte',  'CudaByteTensor'},
       {'cudaChar',  'CudaCharTensor'},
@@ -3165,7 +3182,7 @@ function test.cudaStorageTypeCopy()
       {'int',   'IntStorage'},
       {'long',  'LongStorage'},
       {'double','DoubleStorage'},
-
+      {'half',   'HalfStorage'},
       {'cuda',      'CudaStorage'},
       {'cudaByte',  'CudaByteStorage'},
       {'cudaChar',  'CudaCharStorage'},
@@ -3175,7 +3192,7 @@ function test.cudaStorageTypeCopy()
       {'cudaDouble','CudaDoubleStorage'},
    }
    if cutorch.hasHalf then
-      table.insert(types, {'cudaHalf', 'CudaStorage'})
+      table.insert(types, {'cudaHalf', 'CudaHalfStorage'})
    end
 
    local N = 100
@@ -3211,13 +3228,23 @@ function test.tensorToTable()
       {'CudaLongTensor',   'LongTensor'},
       {'CudaDoubleTensor', 'DoubleTensor'},
    }
-
+   if cutorch.hasHalf then
+      table.insert(types, {'CudaHalfTensor', 'HalfTensor'})
+   end
    for _, types in ipairs(types) do
       local cudaType, hostType = unpack(types)
       local dim = torch.random(5)
       local size = torch.LongTensor(dim):random(5):totable()
-      hostTensor = torch[hostType](size):random()
-      cudaTensor = torch[cudaType](size):copy(hostTensor)
+      local hostTensor = nil
+      if hostType ~= 'HalfTensor' then
+          hostTensor = torch[hostType](size):random()
+      else
+          -- work around HalfTensor not having random functions and reduced range
+          local copyTensor = torch['FloatTensor'](size):random(128)
+          hostTensor = torch[hostType](size)
+          hostTensor:copy(copyTensor)
+      end
+      local cudaTensor = torch[cudaType](size):copy(hostTensor)
       tester:assertTableEq(hostTensor:totable(), cudaTensor:totable(),
                            'wrong result for ' .. cudaType .. ':totable()')
    end
@@ -3233,6 +3260,9 @@ function test.storageToTable()
       {'CudaLongStorage',   'LongTensor'},
       {'CudaDoubleStorage', 'DoubleTensor'},
    }
+   if cutorch.hasHalf then
+     types['CudaHalfStorage'] = 'HalfTensor'
+   end
 
    for _, types in ipairs(types) do
       local cudaStorageType, hostTensorType = unpack(types)

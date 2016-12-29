@@ -113,6 +113,8 @@ static int torch_Storage_(copy)(lua_State *L)
     THCStorage_(copyFloat)(state, storage, src);
   else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )
     THCStorage_(copyDouble)(state, storage, src);
+  else if( (src = luaT_toudata(L, 2, "torch.HalfStorage")) )
+    THCStorage_(copyHalf)(state, storage, src);
   else
     luaL_typerror(L, 2, "torch.*Storage");
   lua_settop(L, 1);
@@ -199,27 +201,21 @@ static int torch_Storage_(totable)(lua_State *L)
   ptrdiff_t i;
 
   /* Copy storage from device to host. */
-#ifndef THC_REAL_IS_HALF
   THStorage *host_storage =
       THStorage_(newWithSize)(THCStorage_(size)(state, storage));
   THStorage_(copyCuda)(state, host_storage, storage);
-#else
-  THFloatStorage *host_storage =
-      THFloatStorage_newWithSize(THCStorage_(size)(state, storage));
-  THFloatStorage_copyCudaHalf(state, host_storage, storage);
-#endif
 
   lua_newtable(L);
   for(i = 0; i < storage->size; i++)
   {
+#ifndef THC_REAL_IS_HALF
     lua_pushnumber(L, (lua_Number)host_storage->data[i]);
+#else
+    lua_pushnumber(L, (lua_Number)TH_half2float(host_storage->data[i]));
+#endif
     lua_rawseti(L, -2, i+1);
   }
-#ifndef THC_REAL_IS_HALF
   THStorage_(free)(host_storage);
-#else
-  THFloatStorage_free(host_storage);
-#endif
   return 1;
 }
 
