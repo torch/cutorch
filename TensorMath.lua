@@ -906,11 +906,11 @@ for k, Tensor_ in pairs(handledTypenames) do
 	 {{name=Tensor, default=true, returned=true},
 	    {name=Tensor},
 	    {name=Tensor},
-	    {name="index", default=lastdim(2)}},
+	    {name="index", default=-1}},
 	 cname("catArray"),
 	 {{name=Tensor, default=true, returned=true},
 	    {name=Tensor .. "Array"},
-	    {name="index", default=lastdimarray(2)}})
+	    {name="index", default=-1}})
 
     wrap("geometric",
         cname("geometric"),
@@ -1864,11 +1864,11 @@ wrap("cat",
      {{name=Tensor, default=true, returned=true},
       {name=Tensor},
       {name=Tensor},
-      {name="index", default=lastdim(2)}},
+      {name="index", default=-1}},
      cname("catArray"),
      {{name=Tensor, default=true, returned=true},
       {name=Tensor .. "Array"},
-      {name="index", default=lastdimarray(2)}})
+      {name="index", default=-1}})
 
 wrap("nonzero",
      cname("nonzero"),
