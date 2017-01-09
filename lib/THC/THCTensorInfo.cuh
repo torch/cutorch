@@ -18,15 +18,10 @@
 // CUDA kernel argument that defines tensor layout
 template <typename T, typename IndexType>
 struct TensorInfo {
-  __host__ __device__ TensorInfo(T* p,
+  TensorInfo(T* p,
              int dim,
              IndexType sz[MAX_CUTORCH_DIMS],
              IndexType st[MAX_CUTORCH_DIMS]);
-
-  // Default constructor so that we can use TensorInfos as fields in other structs.
-  // In general, TensorInfo's should be created via getTensorInfo(...) and not by
-  // manually setting the fields
-  TensorInfo();
 
   // Set the size of the given dimension to 1, as if it were a
   // reduction dim (allows you to calculate offsets of the reduction
@@ -48,15 +43,6 @@ struct TensorInfo {
     return (dims == 1 && strides[0] == 1);
   }
 
-  // Returns a TensorInfo that is narrowed along the specified dimension,
-  // at the specified offset/size. Equivalent to narrow in THCTensor, in
-  // terms of its effect on the data pointer, and size/stride values.
-  // newNarrow is a little bit of a misnomer, as we are not actually
-  // allocating memory, but returning a 'new' TensorInfo that is the input
-  // TensorInfo narrowed.
-  __host__ __device__ TensorInfo<T, IndexType> newNarrow(
-      int dimension, IndexType firstIndex, IndexType size) const;
-
   T* data;
   IndexType sizes[MAX_CUTORCH_DIMS];
   IndexType strides[MAX_CUTORCH_DIMS];
@@ -77,9 +63,6 @@ TensorInfo<T, IndexType>::TensorInfo(T* p,
     strides[i] = st[i];
   }
 }
-
-template <typename T, typename IndexType>
-TensorInfo<T, IndexType>::TensorInfo() {}
 
 template <typename T, typename IndexType>
 void
@@ -238,24 +221,6 @@ TensorInfo<T, IndexType>::collapseDims(int excludeDim) {
   // renumbered to this new `returnDim`, since some dimensions could
   // have been collapsed.
   return returnDim;
-}
-
-template <typename T, typename IndexType>
-__host__ __device__
-TensorInfo<T, IndexType>
-TensorInfo<T, IndexType>::newNarrow(int dimension, IndexType firstIndex, IndexType size) const {
-  IndexType sz[MAX_CUTORCH_DIMS];
-  IndexType st[MAX_CUTORCH_DIMS];
-
-  for (int i = 0; i < dims; ++i) {
-    sz[i] = sizes[i];
-    st[i] = strides[i];
-  }
-
-  T* newData = data + (firstIndex * strides[dimension]);
-  sz[dimension] = size;
-
-  return TensorInfo<T, IndexType>(newData, dims, sz, st);
 }
 
 // Translate a linear index for the apply to a T* offset;

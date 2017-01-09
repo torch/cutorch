@@ -112,6 +112,19 @@ TensorUtils<TENSOR_TYPE>::isContiguous(THCState* state,                 \
   return TENSOR_TYPE##_isContiguous(state, t);                          \
 }                                                                       \
                                                                         \
+bool                                                                    \
+TensorUtils<TENSOR_TYPE>::allContiguous(THCState* state,                \
+                                        TENSOR_TYPE** inputs,           \
+                                        int numInputs) {                \
+  assert(numInputs > 0);                                                \
+  for (int i = 0; i < numInputs; ++i) {                                 \
+    if (!TensorUtils<TENSOR_TYPE>::isContiguous(state, inputs[i])) {    \
+      return false;                                                     \
+    }                                                                   \
+  }                                                                     \
+  return true;                                                          \
+}                                                                       \
+                                                                        \
 int                                                                     \
 TensorUtils<TENSOR_TYPE>::getDevice(THCState* state,                    \
                                     TENSOR_TYPE* t) {                   \

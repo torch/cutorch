@@ -55,6 +55,7 @@ struct TensorUtils {
     static long getStride(THCState* state, TENSOR_TYPE* t, int dim);    \
     static int getDims(THCState* state, TENSOR_TYPE* t);                \
     static bool isContiguous(THCState* state, TENSOR_TYPE* t);          \
+    static bool allContiguous(THCState* state, TENSOR_TYPE** inputs, int numInputs); \
     static int getDevice(THCState* state, TENSOR_TYPE* t);              \
     static bool allSameDevice(THCState* state, TENSOR_TYPE** inputs, int numInputs); \
     static void copyIgnoringOverlaps(THCState* state,                   \

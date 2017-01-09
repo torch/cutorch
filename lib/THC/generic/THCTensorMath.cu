@@ -78,10 +78,9 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
 			  THCTensor **inputs, int numInputs, int dimension)
 {
   THLongStorage *size;
-  int i, j, k, cohortMax;
-  bool allContiguous;
-  /* int index; */
+  int i, j, cohortMax;
   long offset;
+  bool hasEmptyInput = false;
 
   // Even in the case where dimension is negative (i.e. when we want
   // to cat along the last dimension), this logic still works, as the
@@ -93,7 +92,9 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
 
   for (i = 0; i < numInputs; i++)
   {
-    maxDim = THMax(maxDim, THCTensor_(nDimension)(state, inputs[i]));
+    int inputDim = THCTensor_(nDimension)(state, inputs[i]);
+    hasEmptyInput |= !inputDim;
+    maxDim = THMax(maxDim, inputDim);
   }
 
   // In the event that the user specified -1 as the concat dimension, then
@@ -151,59 +152,66 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
   THCTensor_(resize)(state, result, size, NULL);
   THLongStorage_free(size);
 
-  // We parallelize the copy if all 3 conditions pass:
+  // We parallelize the copy if all 6 conditions pass:
   //
   // 1. There is more than one input tensor
-  // 2. All input tensors can use 32-bit indexing
-  // 3. All input tensors are on the same device
+  // 2. No empty inputs
+  // 3. The result tensor is 32-bit indexable
+  // 4. The number of dimensions is <= 4
+  // 5. All input tensors are contiguous (output tensor may be non-contig)
+  // 6. All input tensors can use 32-bit indexing
+  // 7. All input tensors are on the same device
 
   if (numInputs > 1 &&
+      !hasEmptyInput &&
+      THCTensor_(nDimension)(state, result) <= CAT_ARRAY_MAX_INPUT_DIMS &&
+      TensorUtils<THCTensor>::canUse32BitIndexMath(state, result) &&
+      TensorUtils<THCTensor>::allContiguous(state, inputs, numInputs) &&
       TensorUtils<THCTensor>::all32BitIndexable(state, inputs, numInputs) &&
       TensorUtils<THCTensor>::allSameDevice(state, inputs, numInputs)) {
 
-    // First, define a TensorInfo for the result tensor to pass to the kernel
-    TensorInfo<real, unsigned int> rst = getTensorInfo<THCTensor, unsigned int>(state, result);
+    printf("hit kernel!\n");
 
-    // Now, we need to set up our loop bounds. In particular, we want to stuff as many
-    // Tensors at once into the kernel call. We are bound by two conditions:
-    //
-    // 1. The maximum number of Tensors in the kernel param (CAT_ARRAY_KERNEL_MAX)
-    // 2. The maximum amount of stride information we can pass to the kernel param
-    // (CAT_ARRAY_STIRDE_BUFFER_SIZE / nDim)
+    // First, let's set up our kernel parameters. We start with a raw pointer to the storage
+    // for the output Tensor.
+    real *data = THCTensor_(data)(state, result);
 
-    int strideLimit = CAT_ARRAY_STRIDE_BUFFER_SIZE / ndim;
-    int batchSize = CAT_ARRAY_KERNEL_MAX <= strideLimit ? CAT_ARRAY_KERNEL_MAX : strideLimit;
+    // Kernel Parameter
+    CatArrInputTensor<real, unsigned int> stackInputs[CAT_ARRAY_BATCH_SIZE];
+    CatArrInputTensor<real, unsigned int> *d_inputs;
+      THCudaCheck(cudaMalloc(&d_inputs, sizeof(CatArrInputTensor<real, unsigned int>) * CAT_ARRAY_BATCH_SIZE));
 
-    // Now loop, handling this batchSize amount of Tensors in each kernel call. We need
-    // to prepare the kernel param for each batch.
+    OutputTensorSizeStride<unsigned int, CAT_ARRAY_MAX_INPUT_DIMS> param;
+
+    // Next, let's initialize the size, stride arrays for the output Tensor.
+    for (i = 0; i < maxDim; ++i) {
+      param.outputSize[i] = THCTensor_(size)(state, result, i);
+      param.outputStride[i] = THCTensor_(stride)(state, result, i);
+    }
+
+    // Template Declarations for dim = 1, 2, 3, 4
+#define HANDLE_CASE(DIMS) \
+  CatArrayBatchedCopy<real, unsigned int, DIMS><<<applyGrid, applyBlock>>>(data, d_inputs, param, ldimension, param.outputStride[dimension]);
+
+    // Now we loop
     offset = 0;
-    for (i = 0; i < numInputs; i += batchSize) {
-      CatArrayKernelParam<real> param;
-      param.dims = ndim;
+    for (i = 0; i < numInputs; i += CAT_ARRAY_BATCH_SIZE) {
       cohortMax = 0;
-      allContiguous = true;
-      for (j = 0; j < batchSize && (i+j) < numInputs; ++j) {
-        // Copy over data pointer
-        param.data[j] = THCTensor_(data)(state, inputs[i+j]);
+      for (j = 0; j < CAT_ARRAY_BATCH_SIZE && (i+j) < numInputs; ++j) {
+        long dimSize = ldimension < THCTensor_(nDimension)(state, inputs[i+j])
+          ? THCTensor_(size)(state, inputs[i+j], ldimension)
+          : 1;
 
-        // Initialize strides for this Tensor, offset by the number of Tensors
-        // prior to this one * the number of dimensions
-        for (k = 0; k < ndim; ++k) {
-          param.strides[(j*ndim) + k] = THCTensor_(stride)(state, inputs[i+j], k);
-        }
+        stackInputs[j].input = THCTensor_(data)(state, inputs[i+j]);
+        stackInputs[j].offset = offset;
+        stackInputs[j].dimSize = dimSize;
+        stackInputs[j].nElements = THCTensor_(nElement)(state, inputs[i+j]);
+        cohortMax = cohortMax > stackInputs[j].nElements ? cohortMax : stackInputs[j].nElements;
 
-        param.offsets[j] = offset;
-        param.dimSizes[j] = THCTensor_(size)(state, inputs[i+j], dimension);
-        offset += param.dimSizes[j];
-        param.nElements[j] = THCTensor_(nElement)(state, inputs[i+j]);
-        cohortMax = cohortMax > param.nElements[j] ? cohortMax : param.nElements[j];
-
-        // Are we still all contiguous?
-        allContiguous &= THCTensor_(isContiguous)(state, inputs[i+j]);
+        // update offset
+        offset += dimSize;
       }
-
-      // Set the count
-      param.count = j;
+      cudaMemcpy(d_inputs, stackInputs, j * sizeof(CatArrInputTensor<real, unsigned int>), cudaMemcpyHostToDevice);
 
       // Next, let's consider how we set our kernel launch parameters.
       // We borrow from THCApply, which the kernel's internal indexing
@@ -220,32 +228,24 @@ void THCTensor_(catArray)(THCState *state, THCTensor *result,
       // tensor it is responsible for copying
       applyGrid.y = j;
 
-      // See THCApply.cuh for reasoning for this specialization
-      #define HANDLE_CASE(DIMS) \
-        catArrayBatchedCopy<real, DIMS> \
-        <<<applyGrid, applyBlock, 0, THCState_getCurrentStream(state)>>>( \
-          rst, param, dimension);
-
-      // Actually launch the kernel
-      if (allContiguous) {
-        HANDLE_CASE(-2);
-      } else {
-        switch (ndim) {
-          case 1:
-            HANDLE_CASE(1);
-            break;
-          case 2:
-            HANDLE_CASE(2);
-            break;
-          default:
-            HANDLE_CASE(-1);
-            break;
-        }
+      switch (maxDim) {
+        case 1:
+          HANDLE_CASE(1);
+          break;
+        case 2:
+          HANDLE_CASE(2);
+          break;
+        case 3:
+          HANDLE_CASE(3);
+          break;
+        case 4:
+          HANDLE_CASE(4);
+          break;
       }
-#undef HANDLE_CASE
-
       THCudaCheck(cudaGetLastError());
     }
+    cudaFree(d_inputs);
+#undef HANDLE_CASE
   } else {
     offset = 0;
     for (j = 0; j < numInputs; j++)

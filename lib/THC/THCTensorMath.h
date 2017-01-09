@@ -3,7 +3,6 @@
 
 #include "THCTensor.h"
 #include "THCGeneral.h"
-#include "cuda_profiler_api.h"
 
 #include "generic/THCTensorMath.h"
 #include "THCGenerateAllTypes.h"

@@ -3688,25 +3688,53 @@ function test.catArray()
    end
 end
 
-function test.catArrayManyTensors()
-    for dim = 1, 3 do
+-- designed to specifically hit the batched kernel for catArray
+function test.catArrayBatched()
+    local batchSizes = {2, 16, 128, 1024, 4096}
+    for _, batchSize in ipairs(batchSizes) do
+        -- first, batches for 1D Tensors
         local tensors = {}
-        for i = 1, 10000 do
-        -- for i = 1, 129 do
-            table.insert(
-                tensors,
-                torch.CudaTensor(torch.random(1, 25), minsize, minsize)
-                    :uniform()
-                    :transpose(1, dim))
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(1024):uniform())
         end
-        local mx = torch.cat(tensors, dim)
+        local mx = torch.cat(tensors, 1)
         local offset = 1
-        -- for i = 1, 129 do
-        for i = 1, 10000 do
-            tester:assertTensorEq(mx:narrow(dim, offset, tensors[i]:size(dim)), tensors[i], 0, 'torch.cat value')
-            offset = offset + tensors[i]:size(dim)
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(1, offset, tensors[i]:size(1)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(1)
+        end
+
+        -- next, 2D Tensors
+        tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(1, 1024):uniform())
+        end
+        -- across dim = 1 (row-wise concatentation)
+        mx = torch.cat(tensors, 1)
+        offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(1, offset, tensors[i]:size(1)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(1)
+        end
+        tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(128, 128):uniform())
+        end
+        -- across dim = 2 (column-wise concatentation)
+        mx = torch.cat(tensors, 2)
+        offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(2, offset, tensors[i]:size(2)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(2)
         end
     end
+
+    -- one giant copy
+    local a = torch.CudaTensor(4096, 4096):uniform()
+    local b = torch.CudaTensor(4096, 4096):uniform()
+    local mx = torch.cat({a, b}, 1)
+    tester:assertTensorEq(mx:narrow(1, 1, 4096), a, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(mx:narrow(1, 4097, 4096), b, 0, 'torch.carArrayBatched value')
 end
 
 function test.streamWaitFor()
