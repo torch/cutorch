@@ -3735,6 +3735,17 @@ function test.catArrayBatched()
     local mx = torch.cat({a, b}, 1)
     tester:assertTensorEq(mx:narrow(1, 1, 4096), a, 0, 'torch.carArrayBatched value')
     tester:assertTensorEq(mx:narrow(1, 4097, 4096), b, 0, 'torch.carArrayBatched value')
+
+    -- output Tensor is non-contiguous
+    local notcontig = torch.CudaTensor(5, 4):t():uniform()
+    local a = torch.CudaTensor(2, 5):uniform()
+    local b = torch.CudaTensor(1, 5):uniform()
+    local c = torch.CudaTensor(1, 5):uniform()
+
+    torch.cat(notcontig, {a, b, c}, 1)
+    tester:assertTensorEq(notcontig:narrow(1, 1, 2), a, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(notcontig:narrow(1, 3, 1), b, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(notcontig:narrow(1, 4, 1), c, 0, 'torch.carArrayBatched value')
 end
 
 function test.streamWaitFor()

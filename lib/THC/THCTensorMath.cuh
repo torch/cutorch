@@ -30,9 +30,14 @@ __global__ void THCTensor_copyToDiagonal(T* a, T* b, ptrdiff_t start, ptrdiff_t 
 template <typename IndexType, int Dims>
 struct CatArrIndexToOffset {
   static inline __device__ IndexType compute(
-      const IndexType outputSize[Dims], const IndexType outputStride[Dims], const IndexType dimSize, const unsigned int concatDim, IndexType linearIndex) {
+      const IndexType outputSize[Dims],
+      const IndexType outputStride[Dims],
+      const IndexType dimSize,
+      const unsigned int concatDim,
+      IndexType linearIndex) {
     IndexType offset = 0;
 
+#pragma unroll
     for (int i = Dims - 1; i >= 0; --i) {
       IndexType curDimSize = i == concatDim ? dimSize : outputSize[i];
       IndexType curDimIndex = linearIndex % curDimSize;
@@ -88,7 +93,8 @@ __global__ void CatArrayBatchedCopy(
   for (IndexType linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
       linearIndex < nElements;
       linearIndex += gridDim.x * blockDim.x) {
-    IndexType elementOffset = CatArrIndexToOffset<IndexType, Dims>::compute(os.outputSize, os.outputStride, dimSize, concatDim, linearIndex);
+    IndexType elementOffset = CatArrIndexToOffset<IndexType, Dims>::compute(
+        os.outputSize, os.outputStride, dimSize, concatDim, linearIndex);
     output[dataOffset + elementOffset] = data[linearIndex];
   }
 }

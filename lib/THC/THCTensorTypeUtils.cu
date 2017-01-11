@@ -116,7 +116,7 @@ bool                                                                    \
 TensorUtils<TENSOR_TYPE>::allContiguous(THCState* state,                \
                                         TENSOR_TYPE** inputs,           \
                                         int numInputs) {                \
-  assert(numInputs > 0);                                                \
+  THAssert(numInputs > 0);                                                \
   for (int i = 0; i < numInputs; ++i) {                                 \
     if (!TensorUtils<TENSOR_TYPE>::isContiguous(state, inputs[i])) {    \
       return false;                                                     \
@@ -135,7 +135,7 @@ bool                                                                    \
 TensorUtils<TENSOR_TYPE>::allSameDevice(THCState* state,                \
                                         TENSOR_TYPE** inputs,           \
                                         int numInputs) {                \
-  assert(numInputs > 0);                                                \
+  THAssert(numInputs > 0);                                                \
   int device = TensorUtils<TENSOR_TYPE>::getDevice(state, inputs[0]);          \
   for (int i = 1; i < numInputs; ++i) {                                 \
     if (TensorUtils<TENSOR_TYPE>::getDevice(state, inputs[i]) != device) {     \
