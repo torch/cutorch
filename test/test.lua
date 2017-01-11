@@ -12,6 +12,7 @@ local maxvalue = 20
 local nloop = 100
 local test_tolerance = 1e-5
 local unpack = unpack or table.unpack
+local hasHalfChecked = false
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
 local typenames = {
@@ -53,12 +54,13 @@ for k,v in pairs(t2gpu) do
 end
 
 local function checkHalf()
-   if cutorch.hasHalf then
+   if cutorch.hasHalf and hasHalfChecked == false then
        table.insert(typenames, 'torch.CudaHalfTensor')
        table.insert(float_typenames, 'torch.CudaHalfTensor')
        t2cpu['torch.CudaHalfTensor'] = 'torch.FloatTensor'
        t2gpu['torch.HalfTensor'] = 'torch.CudaHalfTensor'
    end
+   hasHalfChecked = true
 end
 
 local function isFloat(t)
@@ -4122,6 +4124,7 @@ end
 -- It would be nice to fix torch.Tester() eventually.
 local function setUp()
   cutorch.setDevice(1)
+  checkHalf()
 end
 
 local test_ = torch.TestSuite()
@@ -4144,7 +4147,6 @@ end
 
 function cutorch.test(tests, seed)
    initSeed(seed)
-   checkHalf()
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)
