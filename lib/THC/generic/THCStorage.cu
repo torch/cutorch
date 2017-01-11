@@ -61,7 +61,21 @@ void THCStorage_(resize)(THCState *state, THCStorage *self, ptrdiff_t size)
                                  size * sizeof(real),
                                  THCState_getCurrentStream(state));
     if(err != cudaSuccess) {
-      THCHeapUpdate(state, -size * sizeof(real));
+      if(self->flag & TH_STORAGE_FREEMEM) {
+         // Try reallocating memory on failure
+         THCudaCheck(
+           (*self->allocator->free)(self->allocatorContext, self->data));
+         THCHeapUpdate(state, -self->size * sizeof(real));
+         self->data = NULL;
+         err = (*self->allocator->malloc)(self->allocatorContext,
+                                    (void**)&(data),
+                                    size * sizeof(real),
+                                    THCState_getCurrentStream(state));
+      }
+                                
+      if(err != cudaSuccess) {
+         THCHeapUpdate(state, -size * sizeof(real));
+      }
     }
     THCudaCheck(err);
 
