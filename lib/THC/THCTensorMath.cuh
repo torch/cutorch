@@ -38,16 +38,16 @@ struct CatArrIndexToOffset {
     IndexType offset = 0;
 
 #pragma unroll
-    for (int i = Dims - 1; i >= 0; --i) {
+    for (int i = Dims - 1; i >= 1; --i) {
       IndexType curDimSize = i == concatDim ? dimSize : outputSize[i];
-      IndexType curDimIndex = linearIndex % curDimSize;
+      IndexType nextDimIndex = linearIndex / curDimSize;
+      IndexType curDimIndex = linearIndex - curDimSize * nextDimIndex;
       IndexType curDimOffset = curDimIndex * outputStride[i];
       offset += curDimOffset;
-
-      linearIndex /= curDimSize;
+      linearIndex = nextDimIndex;
     }
 
-    return offset;
+    return offset + linearIndex * outputStride[0];
   }
 };
 
