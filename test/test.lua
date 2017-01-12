@@ -3690,6 +3690,66 @@ function test.catArray()
    end
 end
 
+-- designed to specifically hit the batched kernel for catArray
+function test.catArrayBatched()
+    local batchSizes = {2, 16, 128, 1024, 4096}
+    for _, batchSize in ipairs(batchSizes) do
+        -- first, batches for 1D Tensors
+        local tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(1024):uniform())
+        end
+        local mx = torch.cat(tensors, 1)
+        local offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(1, offset, tensors[i]:size(1)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(1)
+        end
+
+        -- next, 2D Tensors
+        tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(1, 1024):uniform())
+        end
+        -- across dim = 1 (row-wise concatentation)
+        mx = torch.cat(tensors, 1)
+        offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(1, offset, tensors[i]:size(1)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(1)
+        end
+        tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(128, 128):uniform())
+        end
+        -- across dim = 2 (column-wise concatentation)
+        mx = torch.cat(tensors, 2)
+        offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(2, offset, tensors[i]:size(2)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(2)
+        end
+    end
+
+    -- one giant copy
+    local a = torch.CudaTensor(4096, 4096):uniform()
+    local b = torch.CudaTensor(4096, 4096):uniform()
+    local mx = torch.cat({a, b}, 1)
+    tester:assertTensorEq(mx:narrow(1, 1, 4096), a, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(mx:narrow(1, 4097, 4096), b, 0, 'torch.carArrayBatched value')
+
+    -- output Tensor is non-contiguous
+    local notcontig = torch.CudaTensor(5, 4):t():uniform()
+    local a = torch.CudaTensor(2, 5):uniform()
+    local b = torch.CudaTensor(1, 5):uniform()
+    local c = torch.CudaTensor(1, 5):uniform()
+
+    torch.cat(notcontig, {a, b, c}, 1)
+    tester:assertTensorEq(notcontig:narrow(1, 1, 2), a, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(notcontig:narrow(1, 3, 1), b, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(notcontig:narrow(1, 4, 1), c, 0, 'torch.carArrayBatched value')
+end
+
 function test.streamWaitFor()
    local size = 2000000
    local iter = 20 + torch.random(10)
