@@ -53,11 +53,14 @@ typedef struct _THCDeviceAllocator {
 
 typedef struct _THCCudaResourcesPerDevice {
   THCStream** streams;
+  /* Number of materialized cuBLAS handles */
+  int numBlasHandles;
+  /* cuBLAS handes are lazily initialized */
   cublasHandle_t* blasHandles;
   /* Size of scratch space per each stream on this device available */
   size_t scratchSpacePerStream;
   /* Device-resident scratch space per stream, used for global memory
-     reduction kernels. */
+     reduction kernels. Lazily initialized. */
   void** devScratchSpacePerStream;
 } THCCudaResourcesPerDevice;
 
@@ -113,7 +116,6 @@ THC_API void THCState_free(THCState* state);
 
 THC_API void THCudaInit(THCState* state);
 THC_API void THCudaShutdown(THCState* state);
-THC_API void THCudaEnablePeerToPeerAccess(THCState* state);
 
 /* If device `dev` can access allocations on device `devToAccess`, this will return */
 /* 1; otherwise, 0. */
@@ -169,9 +171,11 @@ THC_API size_t THCState_getCurrentDeviceScratchSpaceSize(THCState* state);
 THC_API size_t THCState_getDeviceScratchSpaceSize(THCState* state, int device);
 
 #define THCudaCheck(err)  __THCudaCheck(err, __FILE__, __LINE__)
+#define THCudaCheckWarn(err)  __THCudaCheckWarn(err, __FILE__, __LINE__)
 #define THCublasCheck(err)  __THCublasCheck(err,  __FILE__, __LINE__)
 
 THC_API void __THCudaCheck(cudaError_t err, const char *file, const int line);
+THC_API void __THCudaCheckWarn(cudaError_t err, const char *file, const int line);
 THC_API void __THCublasCheck(cublasStatus_t status, const char *file, const int line);
 
 THC_API cudaError_t THCudaMalloc(THCState *state, void **ptr, size_t size);

@@ -679,7 +679,7 @@ for k, Tensor_ in pairs(handledTypenames) do
           {name=Tensor},
           {name="boolean", creturned=true}})
 
-    for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
+    for _, name in ipairs({"cmul", "cpow", "cdiv", "cremainder", "cfmod"}) do
        wrap(name,
             cname(name),
             {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -906,20 +906,27 @@ for k, Tensor_ in pairs(handledTypenames) do
 	 {{name=Tensor, default=true, returned=true},
 	    {name=Tensor},
 	    {name=Tensor},
-	    {name="index", default=lastdim(2)}},
+	    {name="index", default=-1}},
 	 cname("catArray"),
 	 {{name=Tensor, default=true, returned=true},
 	    {name=Tensor .. "Array"},
-	    {name="index", default=lastdimarray(2)}})
+	    {name="index", default=-1}})
 
-    for _,f in ipairs({{name='geometric'},
-                       {name='bernoulli', a=0.5}}) do
+    wrap("geometric",
+        cname("geometric"),
+        {{name=Tensor, returned=true},
+            {name='double'}})
 
-       wrap(f.name,
-            cname(f.name),
-            {{name=Tensor, returned=true},
-             {name='double', default=f.a}})
-    end
+    wrap("bernoulli",
+        cname("bernoulli"),
+        {{name=Tensor, returned=true},
+            {name='double', default=0.5}},
+        cname("bernoulli_FloatTensor"),
+        {{name=Tensor, returned=true},
+            {name="CudaTensor"}},
+        cname("bernoulli_DoubleTensor"),
+        {{name=Tensor, returned=true},
+            {name="CudaDoubleTensor"}})
 
     wrap("nonzero",
          cname("nonzero"),
@@ -964,7 +971,7 @@ for k, Tensor_ in pairs(handledTypenames) do
 
      wrap("multinomial",
           cname("multinomial"),
-          {{name=Tensor, default=true, returned=true, method={default='nil'}},
+          {{name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
            {name=Tensor},
            {name="int"},
            {name="boolean", default=false}})
@@ -1450,7 +1457,7 @@ wrap("equal",
       {name=Tensor},
       {name="boolean", creturned=true}})
 
-for _, name in ipairs({"cmul", "cpow", "cdiv"}) do
+for _, name in ipairs({"cmul", "cpow", "cdiv", "cremainder", "cfmod"}) do
   wrap(name,
        cname(name),
        {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -1820,7 +1827,7 @@ wrap("randn",
 
 wrap("multinomial",
      cname("multinomial"),
-     {{name=Tensor, default=true, returned=true, method={default='nil'}},
+     {{name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
         {name=Tensor},
         {name="int"},
         {name="boolean", default=false}})
@@ -1857,25 +1864,32 @@ wrap("cat",
      {{name=Tensor, default=true, returned=true},
       {name=Tensor},
       {name=Tensor},
-      {name="index", default=lastdim(2)}},
+      {name="index", default=-1}},
      cname("catArray"),
      {{name=Tensor, default=true, returned=true},
       {name=Tensor .. "Array"},
-      {name="index", default=lastdimarray(2)}})
+      {name="index", default=-1}})
 
 wrap("nonzero",
      cname("nonzero"),
      {{name="CudaLongTensor", default=true, returned=true},
          {name=Tensor}})
 
-for _,f in ipairs({{name='geometric'},
-                   {name='bernoulli', a=0.5}}) do
+wrap("geometric",
+    cname("geometric"),
+    {{name=Tensor, returned=true},
+        {name='double'}})
 
-   wrap(f.name,
-        cname(f.name),
-        {{name=Tensor, returned=true},
-         {name=real, default=f.a}})
-end
+wrap("bernoulli",
+    cname("bernoulli"),
+    {{name=Tensor, returned=true},
+        {name='double', default=0.5}},
+    cname("bernoulli_FloatTensor"),
+    {{name=Tensor, returned=true},
+        {name="CudaTensor"}},
+    cname("bernoulli_DoubleTensor"),
+    {{name=Tensor, returned=true},
+        {name="CudaDoubleTensor"}})
 
 for _,f in ipairs({{name='uniform', a=0, b=1},
                    {name='normal', a=0, b=1},

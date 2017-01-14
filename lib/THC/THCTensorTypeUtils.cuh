@@ -54,7 +54,9 @@ struct TensorUtils {
     static long getStride(THCState* state, TENSOR_TYPE* t, int dim);    \
     static int getDims(THCState* state, TENSOR_TYPE* t);                \
     static bool isContiguous(THCState* state, TENSOR_TYPE* t);          \
+    static bool allContiguous(THCState* state, TENSOR_TYPE** inputs, int numInputs); \
     static int getDevice(THCState* state, TENSOR_TYPE* t);              \
+    static bool allSameDevice(THCState* state, TENSOR_TYPE** inputs, int numInputs); \
     static void copyIgnoringOverlaps(THCState* state,                   \
                                      TENSOR_TYPE* dst, TENSOR_TYPE* src); \
     /* Determines if the given tensor has overlapping data points (i.e., */ \
@@ -63,6 +65,8 @@ struct TensorUtils {
     static bool overlappingIndices(THCState* state, TENSOR_TYPE* t);    \
     /* Can we use 32 bit math for indexing? */                          \
     static bool canUse32BitIndexMath(THCState* state, TENSOR_TYPE* t);  \
+    /* Are all tensors 32-bit indexable? */                             \
+    static bool all32BitIndexable(THCState* state, TENSOR_TYPE** inputs, int numInputs); \
   }
 
 TENSOR_UTILS(THCudaByteTensor, unsigned char, long);
@@ -79,6 +83,32 @@ TENSOR_UTILS(THCudaHalfTensor, half, float);
 
 #undef TENSOR_UTILS
 
+// Utility function for constructing TensorInfo structs. In this case, the
+// two template parameters are:
+//
+// 1. The TensorType, e.g. THCTensor in generic functions, or THCudaTensor,
+// THCudaLongTensor etc.
+//
+// 2. The IndexType. This is always going to be an unsigned integral value,
+// but depending on the size of the Tensor you may select unsigned int,
+// unsigned long, unsigned long long etc.
+//
+// Internally we use the TensorUtils static functions to get the necessary
+// dims, sizes, stride etc.
+//
+// For example, suppose we have a THCudaTensor t, with dim = 2, size = [3, 4],
+// stride = [4, 1], offset = 8, and we set our index type to be unsigned int.
+// Then we yield a TensorInfo struct templatized with float, unsigned int and
+// the following fields:
+//
+// data is a float* to the underlying storage at position 8
+// dims is 2
+// sizes is a MAX_CUTORCH_DIMS element array with [3, 4] in its first two positions
+// strides is a MAX_CUTORCH_DIMS element array with [4, 1] in its first two positions
+//
+// TensorInfos can then be passed to CUDA kernels, but we can use the static functions
+// defined above to perform Tensor Operations that are appropriate for each
+// TensorType.
 template <typename TensorType, typename IndexType>
 TensorInfo<typename TensorUtils<TensorType>::DataType, IndexType>
 getTensorInfo(THCState* state, TensorType* t) {

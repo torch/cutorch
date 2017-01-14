@@ -4,10 +4,11 @@
 
 void THCStorage_(fill)(THCState *state, THCStorage *self, real value)
 {
+  THCThrustAllocator thrustAlloc(state);
   thrust::device_ptr<real> self_data(self->data);
   thrust::fill(
 #if CUDA_VERSION >= 7000
-    thrust::cuda::par.on(THCState_getCurrentStream(state)),
+    thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #endif
     self_data, self_data+self->size, value);
 }
@@ -65,6 +66,9 @@ void THCStorage_(resize)(THCState *state, THCStorage *self, ptrdiff_t size)
     THCudaCheck(err);
 
     if (self->data) {
+      // Enable p2p access when the memcpy is across devices
+      THCState_getPeerToPeerAccess(state, device, self->device);
+
       THCudaCheck(cudaMemcpyAsync(data,
                                   self->data,
                                   THMin(self->size, size) * sizeof(real),

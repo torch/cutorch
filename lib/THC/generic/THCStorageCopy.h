@@ -34,9 +34,7 @@ THC_API void TH_CONCAT_2(THIntStorage_copyCuda   , Real)(THCState *state, THIntS
 THC_API void TH_CONCAT_2(THLongStorage_copyCuda  , Real)(THCState *state, THLongStorage *self, struct THCStorage *src);
 THC_API void TH_CONCAT_2(THFloatStorage_copyCuda , Real)(THCState *state, THFloatStorage *self, struct THCStorage *src);
 THC_API void TH_CONCAT_2(THDoubleStorage_copyCuda, Real)(THCState *state, THDoubleStorage *self, struct THCStorage *src);
-#ifdef CUDA_HALF_TENSOR
 THC_API void TH_CONCAT_2(THHalfStorage_copyCuda, Real)(THCState *state, THHalfStorage *self, struct THCStorage *src);
-#endif
 
 THC_API void THStorage_(copyCuda)(THCState *state, THStorage *self, THCStorage *src);
 THC_API void THCStorage_(copyCuda)(THCState *state, THCStorage *self, THCStorage *src);

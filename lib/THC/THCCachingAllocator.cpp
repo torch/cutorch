@@ -112,7 +112,7 @@ struct THCCachingAllocator
     } else {
       void* ptr;
       size_t alloc_size = small ? kSmallAlloc : size;
-      cudaError_t err = cuda_malloc_retry(device, &ptr, alloc_size);
+      err = cuda_malloc_retry(device, &ptr, alloc_size);
       if (err != cudaSuccess) {
         return err;
       }
@@ -213,18 +213,18 @@ struct THCCachingAllocator
     for (;it != blocks.end() && *it && (*it)->device == dev_id; ++it) {
       size_t blocksize = (*it)->size;
       *total += blocksize;
-      if (blocksize > *largest)
-	*largest = blocksize;
+      if (blocksize > *largest) {
+        *largest = blocksize;
+      }
     }
   }
-  
+
   void cacheInfo(int dev_id, size_t* total, size_t* largest)
   {
     std::lock_guard<std::mutex> lock(mutex);
     cacheInfoAux(large_blocks, dev_id, total, largest);
     cacheInfoAux(small_blocks, dev_id, total, largest);
   }
-
 
   /** combine previously split blocks */
   void try_merge_blocks(Block* dst, Block* src, FreeBlocks& free_blocks)
@@ -348,10 +348,10 @@ static cudaError_t THCCachingAllocator_emptyCache(void* ctx)
   return a->emptyCache();
 }
 
-static cudaError_t THCCachingAllocator_cacheInfo(void* ctx, int dev_id, size_t* totalCached, size_t* largestBlock)
+static cudaError_t THCCachingAllocator_cacheInfo(void* ctx, int dev_id, size_t* cachedAndFree, size_t* largestBlock)
 {
   THCCachingAllocator* a = (THCCachingAllocator*) ctx;
-  a->cacheInfo(dev_id, totalCached, largestBlock);
+  a->cacheInfo(dev_id, cachedAndFree, largestBlock);
   return cudaSuccess;
 }
 

@@ -12,6 +12,7 @@ local maxvalue = 20
 local nloop = 100
 local test_tolerance = 1e-5
 local unpack = unpack or table.unpack
+local hasHalfChecked = false
 --e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
 
 local typenames = {
@@ -53,11 +54,22 @@ for k,v in pairs(t2gpu) do
 end
 
 local function checkHalf()
-   if cutorch.hasHalf then
+   if cutorch.hasHalf and hasHalfChecked == false then
        table.insert(typenames, 'torch.CudaHalfTensor')
        table.insert(float_typenames, 'torch.CudaHalfTensor')
        t2cpu['torch.CudaHalfTensor'] = 'torch.FloatTensor'
+       t2gpu['torch.HalfTensor'] = 'torch.CudaHalfTensor'
    end
+   hasHalfChecked = true
+end
+
+local function isFloat(t)
+    for k, v in pairs(float_typenames) do
+        if t == k then
+            return true
+        end
+    end
+    return false
 end
 
 -- Picks an integer between a and b, inclusive of endpoints
@@ -162,22 +174,48 @@ local function createTestTensor(maxSize)
    return createTestTensorMaxSize(holes, tr, maxSize)
 end
 
-local function isEqual(a, b, tolerance, ...)
+local function isEqual(x, y, tolerance, ...)
    if a == nil and b == nil then return true end
    if a == nil and b ~= nil then return false end
    if a ~= nil and b == nil then return false end
+
+   -- clone the tensors so we can modify the contents if necessary for testing
+   local a = x:clone()
+   local b = y:clone()
+
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
    end
    local diff = a-b
    tolerance = tolerance or 0.000001
+
    if type(a) == 'number' then
+      -- NaN Check:
+      if a ~= a and b ~= b then
+          return true
+      end
       return math.abs(diff) < tolerance
    else
       if torch.type(diff) ~= 'torch.FloatTensor' then
          diff = diff:float() -- TODO: remove the need for this (byteTensor and abs)
       end
-      return diff:abs():max() < tolerance
+      -- NaN Check:
+      local hasNaN = false
+      diff:apply(function(elt) if elt ~= elt then hasNaN = true end end)
+      if hasNaN then
+         -- check if NaN in equal positions
+         local nea = torch.ne(a, a)
+         local neb = torch.ne(b, b)
+         if not nea:equal(neb) then
+            return false
+         end
+         -- check diff of all other elements less than tolerance
+         local ea = a:apply(function(elt) if elt ~= elt then return 0 else return elt end end)
+         local eb = b:apply(function(elt) if elt ~= elt then return 0 else return elt end end)
+         return (ea-eb):abs():max() < tolerance
+      else
+         return diff:abs():max() < tolerance
+      end
    end
 end
 
@@ -351,11 +389,12 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
       end
       return t
    end
+
    local cpu_args = {...}
    local cuda_args = tranform_args({...})
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
-		      string.format("Missing function %s.%s", torch.type(x_cuda), fn))
+                     string.format("Missing function %s.%s", torch.type(x_cuda), fn))
       rcpu[1], rcpu[2], rcpu[3], rcpu[4]  = x_cpu[fn](x_cpu, unpack(cpu_args))
       rcuda[1], rcuda[2], rcuda[3], rcuda[4] = x_cuda[fn](x_cuda, unpack(cuda_args))
    elseif type(fn) == 'function' then
@@ -750,18 +789,34 @@ end
 
 function test.copyAsync()
    local sz = chooseInt(maxsize, 2 * maxsize)
-   local host_tensor = cutorch.createCudaHostTensor(sz):uniform()
-   local device_tensor = torch.CudaTensor(sz)
-   device_tensor:copyAsync(host_tensor)
-   cutorch.streamSynchronize(cutorch.getStream())
-   tester:assertTensorEq(host_tensor, device_tensor:float(), 0,
-                         "Async copy to device failed.")
+   local host_tensors = {
+     cutorch.createCudaHostTensor(sz),
+     cutorch.createCudaHostDoubleTensor(sz)
+   }
+   if cutorch.hasHalf then
+     table.insert(host_tensors, cutorch.createCudaHostHalfTensor(sz))
+   end
+   for k,host_tensor in ipairs(host_tensors) do
+      local device_type = t2gpu[torch.type(host_tensor)]:match(('torch.(%a+)'))
+      if torch.type(host_tensor) ~= 'torch.HalfTensor' then
+         host_tensor = host_tensor:uniform()
+      else
+         -- HalfTensor doesn't have math functions defined.
+         local copy_tensor = torch[device_type](sz):uniform()
+         host_tensor:copy(copy_tensor)
+      end
+      local device_tensor = torch[device_type](sz)
+      device_tensor:copyAsync(host_tensor)
+      cutorch.streamSynchronize(cutorch.getStream())
+      tester:assertTensorEq(host_tensor:double(), device_tensor:double(), 0,
+                            "Async copy to device failed.")
 
-   device_tensor:uniform()
-   host_tensor:copyAsync(device_tensor)
-   cutorch.streamSynchronize(cutorch.getStream())
-   tester:assertTensorEq(device_tensor:float(), host_tensor, 0,
-                         "Async copy to host failed.")
+      device_tensor:uniform()
+      host_tensor:copyAsync(device_tensor)
+      cutorch.streamSynchronize(cutorch.getStream())
+      tester:assertTensorEq(device_tensor:double(), host_tensor:double(), 0,
+                            "Async copy to host failed.")
+  end
 end
 
 function test.largeNoncontiguous()
@@ -896,6 +951,58 @@ function test.cpow()
    checkMultiDevice(x, 'cpow', y)
 end
 
+function test.cremainder()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   local y = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   for k, typename in ipairs(typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       if not isFloat(typename) then
+           b[b:eq(0)] = 1
+       end
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cremainder', b)
+   end
+   checkMultiDevice(x, 'cremainder', y)
+
+   -- ensure we test divide by zero
+   local x = torch.FloatTensor(1):fill(1)
+   local y = torch.FloatTensor(1):zero()
+   for k, typename in ipairs(float_typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cremainder', b)
+   end
+   checkMultiDevice(x, 'cremainder', y)
+end
+
+function test.cfmod()
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   local y = torch.FloatTensor(sz1, sz2):uniform(-50, 50)
+   for k, typename in ipairs(typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       if not isFloat(typename) then
+           b[b:eq(0)] = 1
+       end
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cfmod', b)
+   end
+   checkMultiDevice(x, 'cfmod', y)
+
+   -- ensure we test mod by zero
+   local x = torch.FloatTensor(1):fill(1)
+   local y = torch.FloatTensor(1):zero()
+   for k, typename in ipairs(float_typenames) do
+       local ctype = t2cpu[typename]
+       local a, b = x:type(ctype), y:type(ctype)
+       compareCPUAndCUDATypeTensorArgs(typename, nil, a, 'cfmod', b)
+   end
+   checkMultiDevice(x, 'cfmod', y)
+end
+
 function test.nonzero()
     local minsize = 10
     local maxsize = 20
@@ -1010,7 +1117,6 @@ function test.fmod()
        return x
    end)
    local r = torch.normal(0, 25)
-   print(x, r)
 
    for _, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
@@ -1027,7 +1133,6 @@ function test.remainder()
        return x
    end)
    local r = torch.normal(0, 25)
-   print(x, r)
 
    for _, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
@@ -1848,7 +1953,7 @@ function test.indexFill()
 
    local longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
    local index = 1
-   local val = torch.randn(1)[1]
+   local val = torch.random(10)
    for k, typename in ipairs(typenames) do
        local x = x:type(t2cpu[typename])
        compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
@@ -1860,7 +1965,7 @@ function test.indexFill()
    end
    index = 2
    longIndex =  torch.LongTensor{chooseInt(1, sz2), chooseInt(1, sz2)}
-   val = torch.randn(1)[1]
+   val = torch.random(10)
    for k, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
@@ -1874,7 +1979,7 @@ function test.indexFill()
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{chooseInt(1, sz1), chooseInt(1, sz1)}
-   val = torch.randn(1)[1]
+   val = torch.random(10)
    for k, typename in ipairs(typenames) do
       local x = x:type(t2cpu[typename])
       compareCPUAndCUDATypeTensorArgs(typename, true, x, 'indexFill',
@@ -2651,26 +2756,40 @@ function test.uniform()
 end
 
 function test.bernoulli()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local p = torch.uniform()
+   local p_fl = torch.rand(sz1, sz2):cuda()
+   local p_dbl = torch.rand(sz1, sz2):cudaDouble()
    local t = torch.CudaTensor(sz1, sz2)
 
    for _, typename in ipairs(typenames) do
        local x = t:type(typename)
-       x:bernoulli(p)
-       local mean = x:sum() / (sz1 * sz2)
-       tester:assertalmosteq(mean, p, 0.1, "mean is not equal to p")
-       local f = x:float()
-       tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
-                             torch.FloatTensor(sz1, sz2):fill(1),
-                             1e-6,
-                             "each value must be either 0 or 1")
+       local expected_mean
+       for i, p in ipairs({p, p_fl, p_dbl}) do
+          x:bernoulli(p)
+          local mean = x:sum() / (sz1 * sz2)
+          if torch.type(p) == 'number' then
+             expected_mean = p
+          else
+             expected_mean = p:mean()
+          end
+          tester:assertalmosteq(mean, expected_mean, 0.1, "mean is not equal to the expected value")
+          local f = x:float()
+          tester:assertTensorEq(f:eq(1):add(f:eq(0)):float(),
+                                torch.FloatTensor(sz1, sz2):fill(1),
+                                1e-6,
+                                "each value must be either 0 or 1")
+       end
    end
    checkMultiDevice(t, 'bernoulli', p)
 end
 
 function test.normal()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), 0.1 * torch.uniform()
@@ -2688,6 +2807,8 @@ function test.normal()
 end
 
 function test.logNormal()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local mean, std = torch.uniform(), 0.1 * torch.uniform()
@@ -2705,6 +2826,8 @@ function test.logNormal()
 end
 
 function test.geometric()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
 
@@ -2726,6 +2849,8 @@ function test.geometric()
 end
 
 function test.exponential()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local lambda = torch.uniform()
@@ -2742,6 +2867,8 @@ function test.exponential()
 end
 
 function test.cauchy()
+   local minsize = 1000
+   local maxsize = 2000
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
    local median, sigma = torch.uniform(), torch.uniform()
@@ -2881,7 +3008,7 @@ function test.multinomial_without_replacement_gets_all()
          t[dist] = linear
       end
 
-      local orig = t:clone():long()
+      local orig = t:cudaLong()
 
       for _, typename in ipairs(float_typenames) do
           -- Half tensors have precision errors for the binary search causing this test
@@ -2897,7 +3024,7 @@ function test.multinomial_without_replacement_gets_all()
               -- Sort, and we should have the original results, since without replacement
               -- sampling everything, we should have chosen every value uniquely
               result = result:sort(2)
-              tester:assertTensorEq(orig:type(typename), result, 0, "error in multinomial_without_replacement_gets_all")
+              tester:assertTensorEq(orig, result, 0, "error in multinomial_without_replacement_gets_all")
           end
       end
    end
@@ -2993,7 +3120,7 @@ function test.cudaTypeCopy()
       {'int',   'IntTensor'},
       {'long',  'LongTensor'},
       {'double','DoubleTensor'},
-
+      {'half', 'HalfTensor'},
       {'cuda',      'CudaTensor'},
       {'cudaByte',  'CudaByteTensor'},
       {'cudaChar',  'CudaCharTensor'},
@@ -3057,7 +3184,7 @@ function test.cudaStorageTypeCopy()
       {'int',   'IntStorage'},
       {'long',  'LongStorage'},
       {'double','DoubleStorage'},
-
+      {'half',   'HalfStorage'},
       {'cuda',      'CudaStorage'},
       {'cudaByte',  'CudaByteStorage'},
       {'cudaChar',  'CudaCharStorage'},
@@ -3067,7 +3194,7 @@ function test.cudaStorageTypeCopy()
       {'cudaDouble','CudaDoubleStorage'},
    }
    if cutorch.hasHalf then
-      table.insert(types, {'cudaHalf', 'CudaStorage'})
+      table.insert(types, {'cudaHalf', 'CudaHalfStorage'})
    end
 
    local N = 100
@@ -3103,13 +3230,23 @@ function test.tensorToTable()
       {'CudaLongTensor',   'LongTensor'},
       {'CudaDoubleTensor', 'DoubleTensor'},
    }
-
+   if cutorch.hasHalf then
+      table.insert(types, {'CudaHalfTensor', 'HalfTensor'})
+   end
    for _, types in ipairs(types) do
       local cudaType, hostType = unpack(types)
       local dim = torch.random(5)
       local size = torch.LongTensor(dim):random(5):totable()
-      hostTensor = torch[hostType](size):random()
-      cudaTensor = torch[cudaType](size):copy(hostTensor)
+      local hostTensor = nil
+      if hostType ~= 'HalfTensor' then
+          hostTensor = torch[hostType](size):random()
+      else
+          -- work around HalfTensor not having random functions and reduced range
+          local copyTensor = torch['FloatTensor'](size):random(128)
+          hostTensor = torch[hostType](size)
+          hostTensor:copy(copyTensor)
+      end
+      local cudaTensor = torch[cudaType](size):copy(hostTensor)
       tester:assertTableEq(hostTensor:totable(), cudaTensor:totable(),
                            'wrong result for ' .. cudaType .. ':totable()')
    end
@@ -3125,6 +3262,9 @@ function test.storageToTable()
       {'CudaLongStorage',   'LongTensor'},
       {'CudaDoubleStorage', 'DoubleTensor'},
    }
+   if cutorch.hasHalf then
+     types['CudaHalfStorage'] = 'HalfTensor'
+   end
 
    for _, types in ipairs(types) do
       local cudaStorageType, hostTensorType = unpack(types)
@@ -3487,17 +3627,30 @@ end
 function test.cat()
    for k, typename in ipairs(typenames) do
       for dim = 1, 3 do
-	 local x = torch.Tensor(13, minsize, minsize):uniform()
-	    :type(typename):transpose(1, dim)
-	 local y = torch.Tensor(17, minsize, minsize):uniform()
-	    :type(typename):transpose(1, dim)
-	 local mx = torch.cat(x, y, dim)
-	 tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
-	 tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+         local x = torch.Tensor(13, minsize, minsize):uniform()
+            :type(typename):transpose(1, dim)
+         local y = torch.Tensor(17, minsize, minsize):uniform()
+            :type(typename):transpose(1, dim)
+         local mx = torch.cat(x, y, dim)
+         tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+         tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
 
-	 local mxx = torch.Tensor():type(typename)
-	 torch.cat(mxx, x, y, dim)
-	 tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+         local mxx = torch.Tensor():type(typename)
+         torch.cat(mxx, x, y, dim)
+         tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+
+         local x = torch.CudaTensor(1, 2, 3):uniform()
+         local y = torch.CudaTensor()
+         local mx = torch.cat(x,y,dim)
+         tester:asserteq(mx:size(1),1,'torch.cat size')
+         tester:asserteq(mx:size(2),2,'torch.cat size')
+         tester:asserteq(mx:size(3),3,'torch.cat size')
+         tester:assertTensorEq(mx, x, 0, 'torch.cat value')
+
+         local x = torch.CudaTensor()
+         local y = torch.CudaTensor()
+         local mx = torch.cat(x,y,dim)
+         tester:asserteq(mx:dim(),0,'torch.cat dim')
       end
    end
 end
@@ -3505,23 +3658,96 @@ end
 function test.catArray()
    for k, typename in ipairs(typenames) do
       for dim = 1, 3 do
-	 local x = torch.Tensor(13, minsize, minsize):uniform()
-	    :type(typename):transpose(1, dim)
-	 local y = torch.Tensor(17, minsize, minsize):uniform()
-	    :type(typename):transpose(1, dim)
-	 local z = torch.Tensor(19, minsize, minsize):uniform()
-	    :type(typename):transpose(1, dim)
+         local x = torch.Tensor(13, minsize, minsize):uniform()
+            :type(typename):transpose(1, dim)
+         local y = torch.Tensor(17, minsize, minsize):uniform()
+            :type(typename):transpose(1, dim)
+         local z = torch.Tensor(19, minsize, minsize):uniform()
+            :type(typename):transpose(1, dim)
 
-	 local mx = torch.cat({x, y, z}, dim)
-	 tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
-	 tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
-	 tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
+         local mx = torch.cat({x, y, z}, dim)
+         tester:assertTensorEq(mx:narrow(dim, 1, 13), x, 0, 'torch.cat value')
+         tester:assertTensorEq(mx:narrow(dim, 14, 17), y, 0, 'torch.cat value')
+         tester:assertTensorEq(mx:narrow(dim, 31, 19), z, 0, 'torch.cat value')
 
-	 local mxx = torch.Tensor():type(typename)
-	 torch.cat(mxx, {x, y, z}, dim)
-	 tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+         local mxx = torch.Tensor():type(typename)
+         torch.cat(mxx, {x, y, z}, dim)
+         tester:assertTensorEq(mx, mxx, 0, 'torch.cat value')
+
+         local x = torch.CudaTensor(1, 2, 3):uniform()
+         local y = torch.CudaTensor()
+         local mx = torch.cat({x,y},dim)
+         tester:asserteq(mx:size(1),1,'torch.cat size')
+         tester:asserteq(mx:size(2),2,'torch.cat size')
+         tester:asserteq(mx:size(3),3,'torch.cat size')
+         tester:assertTensorEq(mx, x, 0, 'torch.cat value')
+
+         local x = torch.CudaTensor()
+         local y = torch.CudaTensor()
+         local mx = torch.cat({x,y},dim)
+         tester:asserteq(mx:dim(),0,'torch.cat dim')
       end
    end
+end
+
+-- designed to specifically hit the batched kernel for catArray
+function test.catArrayBatched()
+    local batchSizes = {2, 16, 128, 1024, 4096}
+    for _, batchSize in ipairs(batchSizes) do
+        -- first, batches for 1D Tensors
+        local tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(1024):uniform())
+        end
+        local mx = torch.cat(tensors, 1)
+        local offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(1, offset, tensors[i]:size(1)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(1)
+        end
+
+        -- next, 2D Tensors
+        tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(1, 1024):uniform())
+        end
+        -- across dim = 1 (row-wise concatentation)
+        mx = torch.cat(tensors, 1)
+        offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(1, offset, tensors[i]:size(1)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(1)
+        end
+        tensors = {}
+        for i = 1, batchSize do
+            table.insert(tensors, torch.CudaTensor(128, 128):uniform())
+        end
+        -- across dim = 2 (column-wise concatentation)
+        mx = torch.cat(tensors, 2)
+        offset = 1
+        for i = 1, batchSize do
+            tester:assertTensorEq(mx:narrow(2, offset, tensors[i]:size(2)), tensors[i], 0, 'torch.carArrayBatched value')
+            offset = offset + tensors[i]:size(2)
+        end
+    end
+
+    -- one giant copy
+    local a = torch.CudaTensor(4096, 4096):uniform()
+    local b = torch.CudaTensor(4096, 4096):uniform()
+    local mx = torch.cat({a, b}, 1)
+    tester:assertTensorEq(mx:narrow(1, 1, 4096), a, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(mx:narrow(1, 4097, 4096), b, 0, 'torch.carArrayBatched value')
+
+    -- output Tensor is non-contiguous
+    local notcontig = torch.CudaTensor(5, 4):t():uniform()
+    local a = torch.CudaTensor(2, 5):uniform()
+    local b = torch.CudaTensor(1, 5):uniform()
+    local c = torch.CudaTensor(1, 5):uniform()
+
+    torch.cat(notcontig, {a, b, c}, 1)
+    tester:assertTensorEq(notcontig:narrow(1, 1, 2), a, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(notcontig:narrow(1, 3, 1), b, 0, 'torch.carArrayBatched value')
+    tester:assertTensorEq(notcontig:narrow(1, 4, 1), c, 0, 'torch.carArrayBatched value')
 end
 
 function test.streamWaitFor()
@@ -3925,10 +4151,40 @@ function test.kernelP2PAccess()
    end
 end
 
+if os.getenv('THC_CACHING_ALLOCATOR') == '1' then
+   local function getCyclesPerMs()
+      cutorch.synchronize()
+      local t = torch.Timer()
+      cutorch._sleep(1e6)
+      cutorch.synchronize()
+      return 1e6 / (t:time().real * 1000)
+   end
+
+   function test.cachedPinnedMemory()
+      local cyclesPerMs = getCyclesPerMs()
+
+      -- check that allocations are re-used after deletion
+      t = cutorch.createCudaHostTensor({1})
+      ptr = t:data()
+      t = nil; collectgarbage()
+      t = cutorch.createCudaHostTensor({1})
+      tester:asserteq(t:data(), ptr, 'allocation not reused')
+
+      -- check that the allocation is not re-used if it's in-use by a copy
+      gpuTensor = torch.CudaTensor({0})
+      cutorch._sleep(50 * cyclesPerMs)  -- delay the copy
+      gpuTensor:copyAsync(t)
+      t = nil; collectgarbage()
+      t = cutorch.createCudaHostTensor({1})
+      tester:assertne(t:data(), ptr, 'allocation re-used too soon')
+   end
+end
+
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
 -- It would be nice to fix torch.Tester() eventually.
 local function setUp()
   cutorch.setDevice(1)
+  checkHalf()
 end
 
 local test_ = torch.TestSuite()
@@ -3951,7 +4207,6 @@ end
 
 function cutorch.test(tests, seed)
    initSeed(seed)
-   checkHalf()
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)

@@ -102,7 +102,7 @@ void THCTensor_(renormRows)(struct THCState* state,
 }
 
 THC_API void THCTensor_(multinomial)(struct THCState *state,
-                                      THCTensor *self,
+                                      THCudaLongTensor *self,
                                       THCTensor *prob_dist,
                                       int n_sample,
                                       int with_replacement)
@@ -144,32 +144,30 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
     THCTensor_(resize2d)(state, probDistContig, 1, numCategories);
   }
 
-  THCTensor_(resize2d)(state, self, numDist, n_sample);
+  THCudaLongTensor_resize2d(state, self, numDist, n_sample);
 
   if (n_sample == 1) {
     // Optimized allocation-free implementation
-
     // To exploit greater parallelism for the sampling, generate the
-    // Uniform random samples in a separate kernel launch, into the
-    // result memory. The device RNG is thread-limited
-    THCTensor_(uniform)(state, self, 0.0, 1.0);
-
+    // Uniform random samples in a separate kernel launch, into
+    // temporarily allocated memory. The device RNG is thread-limited
+    THCTensor *sampled = THCTensor_(newWithSize2d)(state, numDist, n_sample);
+    THCTensor_(uniform)(state, sampled, 0.0, 1.0);
     cudaDeviceProp* props = THCState_getCurrentDeviceProperties(state);
     THAssert(props != NULL);
-
     int numSM = props->multiProcessorCount;
     int maxThreads = props->maxThreadsPerBlock;
-
     dim3 block(numCategories < maxThreads ? numCategories : maxThreads);
     dim3 grid(numDist < numSM * 4 ? numDist : numSM * 4);
-
     sampleMultinomialOnce
       <<<grid, block, block.x * sizeof(real),
          THCState_getCurrentStream(state)>>>(
-      THCTensor_(data)(state, self),
+      THCudaLongTensor_data(state, self),
       numDist,
       numCategories,
+      THCTensor_(data)(state, sampled),
       THCTensor_(data)(state, probDistContig));
+    THCTensor_(free)(state, sampled);
   } else {
     // Generic, slow implementation with memory allocations
 
@@ -207,7 +205,7 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
         <<<grid, block, 0, THCState_getCurrentStream(state)>>>(
           gen->gen_states,
           n_sample,
-          THCTensor_(data)(state, self),
+          THCudaLongTensor_data(state, self),
           numDist, numCategories,
           THCTensor_(data)(state, prefixSum));
     } else {
@@ -241,7 +239,7 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
             gen->gen_states,
             n_sample,
             sample,
-            THCTensor_(data)(state, self),
+            THCudaLongTensor_data(state, self),
             numDist, numCategories,
             THCTensor_(data)(state, origDist),
             THCTensor_(data)(state, prefixSum));
@@ -255,7 +253,7 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
 
   // Revert data restructuring based on input sizes
   if (inputSize == 1) {
-    THCTensor_(resize1d)(state, self, n_sample);
+    THCudaLongTensor_resize1d(state, self, n_sample);
 
     // Unfortunately, if prob_dist is contiguous already,
     // newContiguous is not a private copy, so we have to restructure
@@ -301,6 +299,31 @@ THC_API void THCTensor_(bernoulli)(THCState* state, THCTensor *self_, double p)
 
   THCTensor_(freeCopyTo)(state, self, self_);
 };
+
+#define DEFINE_BERNOULLI_TENSOR(NAME, PROB_TYPE, PROB_DATA_TYPE)               \
+THC_API void THCTensor_(NAME)(THCState* state,                                 \
+        THCTensor *self_, PROB_TYPE *probs_)                                   \
+{                                                                              \
+  THAssert(THCTensor_(checkGPU)(state, 2, self_, probs_));                     \
+  Generator* gen = THCRandom_getGenerator(state);                              \
+  THCTensor *self = THCTensor_(newContiguous)(state, self_);                   \
+  PROB_TYPE *probs = PROB_TYPE##_newContiguous(state, probs_);                 \
+  ptrdiff_t size = THCTensor_(nElement)(state, self);                          \
+  ptrdiff_t prob_size = PROB_TYPE##_nElement(state, probs);                    \
+  real *result_data = THCTensor_(data)(state, self);                           \
+  PROB_DATA_TYPE *probs_data = PROB_TYPE##_data(state, probs);                 \
+                                                                               \
+  THArgCheck(size == prob_size, 3, "inconsistent tensor size");                \
+                                                                               \
+  generate_bernoulli_tensor<<<NUM_BLOCKS, BLOCK_SIZE, 0, THCState_getCurrentStream(state)>>>( \
+      gen->gen_states, size, result_data, probs_data);                         \
+                                                                               \
+  PROB_TYPE##_free(state, probs);                                              \
+  THCTensor_(freeCopyTo)(state, self, self_);                                  \
+}
+
+DEFINE_BERNOULLI_TENSOR(bernoulli_FloatTensor, THCudaTensor, float)
+DEFINE_BERNOULLI_TENSOR(bernoulli_DoubleTensor, THCudaDoubleTensor, double)
 
 #if defined(THC_REAL_IS_DOUBLE)
 
