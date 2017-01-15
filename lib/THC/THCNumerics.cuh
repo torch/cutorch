@@ -10,8 +10,6 @@ struct THCNumConstants
 {
    static THC_DECL const T one()  { return T(1); }
    static THC_DECL const T zero() { return T(0); }
-   static THC_DECL const T min()  { return std::numeric_limits<T>::min(); }
-   static THC_DECL const T max()  { return std::numeric_limits<T>::max(); }
 
 };
 
@@ -20,8 +18,6 @@ struct THCNumConstants<half>
 {
   static THC_DECL const half one()  { half ret = THC_FLOAT_TO_HALF(1.f); return ret;} /* TODO: use literal */
   static THC_DECL const half zero() { half ret; ret.x = 0;  return ret;}
-  static THC_DECL const half min() { half ret; ret.x = 0xFBFF;  return ret; }
-  static THC_DECL const half max() { half ret; ret.x = 0x7BFF;  return ret; }
 };
 
 template <typename T, typename M>
@@ -45,9 +41,6 @@ struct THCNumCommonBase {
     return ScalarConvert<expr_type, storage_type>::to(a);
   }
 
-  static THC_DECL const T min()  { return THCNumConstants<T>::min(); }
-  static THC_DECL const T max()  { return THCNumConstants<T>::max(); }
-
   static  THC_DECL bool lt(const storage_type&  a, const storage_type&  b) { return m_(a) < m_(b);  }
   static  THC_DECL bool le(const storage_type&  a, const storage_type&  b) { return m_(a) <= m_(b); }
   static  THC_DECL bool gt(const storage_type&  a, const storage_type&  b) { return m_(a) > m_(b);  }
@@ -63,7 +56,8 @@ struct THCNumCommonBase {
   static  THC_DECL  expr_type  neg(const storage_type& a) { return  e_(-m_(a)); }
   static  THC_DECL  expr_type  pow (const storage_type& a, T b) { return e_(::pow((double)a, (double)b)); }
   static  THC_DECL  expr_type  mod(const storage_type&  a, const storage_type&  b) { return e_(m_(a) % m_(b)); }
-
+   static THC_DECL const T min()  { return std::numeric_limits<T>::min(); }
+   static THC_DECL const T max()  { return std::numeric_limits<T>::max(); }
 };
 
 template <typename T, typename M, bool is_int>
@@ -87,6 +81,10 @@ struct THCNumBase<T, M, false> : public THCNumCommonBase<T, M> {
   using typename Base::math_type;
   using typename Base::expr_type;
   using typename Base::storage_type;
+
+  static THC_DECL const T min()  { return -std::numeric_limits<T>::max(); }
+  static THC_DECL const T max()  { return std::numeric_limits<T>::max(); }
+
 
   static  THC_DECL  expr_type exp  (const storage_type& a) { return  e_(::exp(m_(a))); }
   static  THC_DECL  expr_type log  (const storage_type& a) { return  e_(::log(m_(a))); }
@@ -127,9 +125,13 @@ struct THCNumerics: public THCNumBase<T, T, std::numeric_limits<T>::is_integer> 
 
 #ifdef CUDA_HALF_TENSOR
 
-#ifndef CUDA_HALF_INSTRUCTIONS
 template <>
 struct THCNumerics<half>: public THCNumBase<half, float, false>  {
+  static THC_DECL const half min() { half ret; ret.x = 0xFBFF;  return ret; }
+  static THC_DECL const half max() { half ret; ret.x = 0x7BFF;  return ret; }
+  typedef THCNumConstants<half> Constants;
+
+# ifndef CUDA_HALF_INSTRUCTIONS
   typedef THCNumCommonBase<half, float> Base;
   using typename Base::math_type;
   using typename Base::expr_type;
@@ -137,15 +139,8 @@ struct THCNumerics<half>: public THCNumBase<half, float, false>  {
   using Base::e_;
   using Base::m_;
   using Base::s_;
-  typedef THCNumConstants<half> Constants;
-};
-
-#else
-template <>
-struct THCNumerics<half>: public THCNumBase<half, float, false>  {
+# else
   typedef THCNumCommonBase<half, half> Base;
-  typedef THCNumConstants<half> Constants;
-
   typedef typename Base::storage_type storage_type;
   typedef typename Base::math_type    math_type;
   typedef typename Base::expr_type    expr_type;
@@ -232,9 +227,9 @@ struct THCNumerics<half>: public THCNumBase<half, float, false>  {
   static  THC_DECL half mod  (const half& a, const half& b) { 
     return __float2half(fmodf(__half2float(a), __half2float(b)));
   }
-
-};
 # endif
+};
+
 #endif
 
 #endif // THC_NUMERICS_INC

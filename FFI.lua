@@ -47,16 +47,10 @@ cudaStream_t THCState_getCurrentStream(THCState *state);
       {'long','Long'},
       {'double','Double'},
   }
-   if cutorch.hasHalf then
-      if cutorch.hasFastHalfInstructions() then
-         -- Enable native half math on Pascal plaforms where fp16 is efficient (GP100)
-         table.insert(CudaTypes, {'half','Half'})
-     else
-        -- on the rest (Maxwell and Pascal 6.1 (1080), resort to storage-only
-        -- (a.k.a 'pseudo') fp16 type (16-bit storage, float math via conversions)
-        table.insert(CudaTypes, {'half','Half', 'float'})
-      end
-   end
+  if cutorch.hasHalf then
+      table.insert(CudaTypes, {'half','Half'})
+  end
+
    for _, typedata in ipairs(CudaTypes) do
       local real, Real = unpack(typedata)
       local ctype_def = [[

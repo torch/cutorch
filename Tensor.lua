@@ -88,3 +88,4 @@ for ValueType, CudaTensorType in pairs(CudaTensorTypes) do
   end
   rawset(torch.getmetatable(CudaTensorType), 'totable', Tensor__totable)
 end
+
