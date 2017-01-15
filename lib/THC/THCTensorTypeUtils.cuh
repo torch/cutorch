@@ -4,6 +4,7 @@
 #include <cuda.h>
 #include <assert.h>
 #include "THCGeneral.h"
+#include "THCHalf.h"
 #include "THCTensor.h"
 #include "THCTensorInfo.cuh"
 
@@ -74,7 +75,7 @@ TENSOR_UTILS(THCudaCharTensor, char, long);
 TENSOR_UTILS(THCudaShortTensor, short, long);
 TENSOR_UTILS(THCudaIntTensor, int, long);
 TENSOR_UTILS(THCudaLongTensor, long, long);
-TENSOR_UTILS(THCudaTensor, float, double);
+TENSOR_UTILS(THCudaTensor, float, float);
 TENSOR_UTILS(THCudaDoubleTensor, double, double);
 
 #ifdef CUDA_HALF_TENSOR
@@ -124,5 +125,56 @@ getTensorInfo(THCState* state, TensorType* t) {
   return TensorInfo<typename TensorUtils<TensorType>::DataType, IndexType>(
     TensorUtils<TensorType>::getData(state, t), dims, sz, st);
 }
+
+template <typename T>
+struct ScalarNegate {
+  static __host__ __device__ T to(const T v) { return -v; }
+};
+
+template <typename T>
+struct ScalarInv {
+  static __host__ __device__ T to(const T v) { return ((T) 1) / v; }
+};
+
+#ifdef CUDA_HALF_TENSOR
+template <>
+struct ScalarNegate<half> {
+  static __host__ __device__ half to(const half v) {
+#ifdef __CUDA_ARCH__
+#ifdef CUDA_HALF_INSTRUCTIONS
+    return __hneg(v);
+#else
+    return __float2half(-__half2float(v));
+#endif
+#else
+    half out = v;
+    out.x ^= 0x8000; // toggle sign bit
+    return out;
+#endif
+  }
+};
+
+template <>
+struct ScalarInv<half> {
+  static __host__ __device__ half to(const half v) {
+#ifdef __CUDA_ARCH__
+    return __float2half(1.0f / __half2float(v));
+#else
+    float fv = THC_half2float(v);
+    fv = 1.0f / fv;
+    return THC_float2half(fv);
+#endif
+  }
+};
+
+inline bool operator==(half a, half b) {
+  return a.x == b.x;
+}
+
+inline bool operator!=(half a, half b) {
+  return a.x != b.x;
+}
+
+#endif // CUDA_HALF_TENSOR
 
 #endif // THC_TENSOR_TYPE_UTILS_INC

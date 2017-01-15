@@ -2,7 +2,7 @@
 #error "You must define THC_GENERIC_FILE before including THGenerateHalfType.h"
 #endif
 
-#include "THCGeneral.h"
+#include "THCHalf.h"
 
 #if defined(CUDA_HALF_TENSOR) || defined(FORCE_TH_HALF)
 

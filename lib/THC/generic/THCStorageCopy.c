@@ -25,6 +25,7 @@ TH_CUDA_STORAGE_IMPLEMENT_COPY(Short)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Int)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Long)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Float)
+TH_CUDA_STORAGE_IMPLEMENT_COPY(Half)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
 
 void THStorage_(copyCuda)(THCState *state, THStorage *self, struct THCStorage *src)
@@ -44,7 +45,6 @@ void TH_CONCAT_4(TH,TYPEC,Storage_copyCuda,Real)(THCState *state, TH##TYPEC##Sto
   THCTensor_(free)(state, srcTensor);                                       \
   TH##TYPEC##Tensor_free(selfTensor);                                   \
 }
-
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Byte)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Char)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Short)
@@ -56,7 +56,5 @@ TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
 
 #undef TH_CUDA_STORAGE_IMPLEMENT_COPY
 #undef TH_CUDA_STORAGE_IMPLEMENT_COPYTO
-#undef TH_CUDA_STORAGE_IMPLEMENT_COPY_AUX
-#undef TH_CUDA_STORAGE_IMPLEMENT_COPYTO_AUX
 
 #endif

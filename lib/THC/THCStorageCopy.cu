@@ -1,5 +1,5 @@
-#include "THCGeneral.h"
 #include "THCStorageCopy.h"
+#include "THCGeneral.h"
 
 #include "THCHalf.h"
 #include "THCTensorCopy.h"

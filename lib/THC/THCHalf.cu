@@ -1,6 +1,5 @@
 #include "THCHalf.h"
 #include "THCThrustAllocator.cuh"
-
 #include <thrust/transform.h>
 #include <thrust/execution_policy.h>
 

@@ -175,7 +175,7 @@ template <>
 struct TensorCRemainderOp<half> {
   __device__ __forceinline__ void operator()(half* out, half* in) {
 #ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hsub(*out, __hmul(*in, hfloor(__hdiv(*out, *in))));
+    *out = __hsub(*out, __hmul(*in, hfloor(hdiv(*out, *in))));
 #else
     float fout = __half2float(*out);
     float fin = __half2float(*in);
@@ -185,7 +185,7 @@ struct TensorCRemainderOp<half> {
 
   __device__ __forceinline__ void operator()(half* out, half* in1, half* in2) {
 #ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hsub(*in1, __hmul(*in2, hfloor(__hdiv(*in1, *in2))));
+    *out = __hsub(*in1, __hmul(*in2, hfloor(hdiv(*in1, *in2))));
 #else
     float fin1 = __half2float(*in1);
     float fin2 = __half2float(*in2);
@@ -197,49 +197,14 @@ struct TensorCRemainderOp<half> {
 
 template <typename T>
 struct TensorCFmodOp {
-  __device__ __forceinline__ void operator()(T* out, T* in) {
-    *out = *out % *in;
-  }
-
+  typedef THCNumerics<T> N_;
   __device__ __forceinline__ void operator()(T* out, T* in1, T* in2) {
-    *out = *in1 % *in2;
+    *out = N_::s_(N_::mod(*in1,*in2));
+  }
+  __device__ __forceinline__ void operator()(T* out, T* in) {
+    this->operator()(out, out, in);
   }
 };
-
-template <>
-struct TensorCFmodOp<float> {
-  __device__ __forceinline__ void operator()(float* out, float* in) {
-    *out = fmodf(*out, *in);
-  }
-
-  __device__ __forceinline__ void operator()(float* out, float* in1, float* in2) {
-    *out = fmodf(*in1, *in2);
-  }
-};
-
-template <>
-struct TensorCFmodOp<double> {
-  __device__ __forceinline__ void operator()(double* out, double* in) {
-    *out = fmod(*out, *in);
-  }
-
-  __device__ __forceinline__ void operator()(double* out, double* in1, double* in2) {
-    *out = fmod(*in1, *in2);
-  }
-};
-
-#ifdef CUDA_HALF_TENSOR
-template <>
-struct TensorCFmodOp<half> {
-  __device__ __forceinline__ void operator()(half* out, half* in) {
-    *out = __float2half(fmodf(__half2float(*out), __half2float(*in)));
-  }
-
-  __device__ __forceinline__ void operator()(half* out, half* in1, half* in2) {
-    *out = __float2half(fmodf(__half2float(*in1), __half2float(*in2)));
-  }
-};
-#endif // CUDA_HALF_TENSOR
 
 template <typename T>
 struct TensorClampOp {

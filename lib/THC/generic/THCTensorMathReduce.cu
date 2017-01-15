@@ -301,7 +301,7 @@ THCTensor_(minall)(THCState *state, THCTensor *self) {
                      thrust::identity<real>(),
                      ReduceMin<real>(),
                      ReduceMin<real>(),
-                     THCNumConstants<typename THCNumerics<real>::storage_type>::max(), &val, 0)) {
+                     THCNumerics<real>::max(), &val, 0)) {
     THArgCheck(false, 1, CUTORCH_DIM_WARNING);
   }
 
@@ -317,7 +317,7 @@ THCTensor_(maxall)(THCState *state, THCTensor *self) {
                      thrust::identity<real>(),
                      ReduceMax<real>(),
                      ReduceMax<real>(),
-                     THCNumConstants<typename THCNumerics<real>::storage_type>::min(), &val, 0)) {
+                     THCNumerics<real>::min(), &val, 0)) {
     THArgCheck(false, 1, CUTORCH_DIM_WARNING);
   }
 
@@ -336,7 +336,7 @@ THCTensor_(max)(THCState *state,
   thrust::pair<typename TensorUtils<THCTensor>::DataType, long>
     init =
     thrust::make_pair<typename TensorUtils<THCTensor>::DataType, long>(
-      THCNumConstants<typename THCNumerics<typename TensorUtils<THCTensor>::DataType>::storage_type>::min(), 1);
+      THCNumerics<typename TensorUtils<THCTensor>::DataType>::min(), 1);
 
   return THC_reduceDimIndex(
     state, values, indices, src, dimension, init,
@@ -354,7 +354,7 @@ THCTensor_(min)(THCState *state,
   thrust::pair<typename TensorUtils<THCTensor>::DataType, long>
     init =
     thrust::make_pair<typename TensorUtils<THCTensor>::DataType, long>(
-      THCNumConstants<typename THCNumerics<typename TensorUtils<THCTensor>::DataType>::storage_type>::max(), 1);
+      THCNumerics<typename TensorUtils<THCTensor>::DataType>::max(), 1);
 
   return THC_reduceDimIndex(
     state, values, indices, src, dimension, init,

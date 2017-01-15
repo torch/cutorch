@@ -36,7 +36,7 @@ THCTensor_(dot)(THCState *state, THCTensor *self, THCTensor *src)
 
 #else
   THError("unimplemented data type");
-  return ScalarConvert<int, accreal>::to(0);
+  return 0;
 #endif
 }
 

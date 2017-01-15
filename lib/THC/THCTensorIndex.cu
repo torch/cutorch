@@ -1,10 +1,10 @@
-#include "THCGeneral.h"
-
+#include "THC.h"
 #include "THCTensorMath.h"
+#include "THCGeneral.h"
 #include "THCBlas.h"
 #include "THCTensorCopy.h"
 #include "THCTensorRandom.h"
-
+#include "THCHalf.h"
 #include "THCApply.cuh"
 #include "THCReduce.cuh"
 #include "THCDeviceUtils.cuh"

@@ -718,11 +718,7 @@ cudaError_t THCudaMemGetInfo(THCState *state,  size_t* freeBytes, size_t* totalB
 
   /* not always true - our optimistic guess here */
   largestBlock = *freeBytes;
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> upstream/master
   if (allocator->cacheInfo != NULL)
     allocator->cacheInfo(allocator->state, device, &cachedBytes, &largestBlock);
 

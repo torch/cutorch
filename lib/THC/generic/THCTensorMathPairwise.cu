@@ -63,7 +63,7 @@ THC_API void
 THCTensor_(div)(THCState* state, THCTensor *self_, THCTensor *src_, real value)
 {
   THAssert(THCTensor_(checkGPU)(state, 2, self_, src_));
-  THArgCheck(value != ScalarConvert<int, real>::to(0), 3, "divide by zero");
+  THArgCheck(value != THCNumConstants<real>::zero(), 3, "divide by zero");
 
   if (self_ == src_) {
     if (!THC_pointwiseApply1(state, self_, TensorDivConstantOp<real>(value))) {

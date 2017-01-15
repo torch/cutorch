@@ -1,7 +1,7 @@
 #ifndef THC_ATOMICS_INC
 #define THC_ATOMICS_INC
 
-#include "THCGeneral.h"
+#include "THCHalf.h"
 
 template <typename T, size_t n>
 struct AtomicAddIntegerImpl;
@@ -98,12 +98,12 @@ static inline  __device__ void atomicAdd(half *address, half val) {
       (unsigned int *) ((char *)address - ((size_t)address & 2));
   unsigned int old = *address_as_ui;
   unsigned int assumed;
-  typedef THCNumerics<half> N_;
+
   do {
     assumed = old;
     half hsum;
     hsum.x = (size_t)address & 2 ? (old >> 16) : (old & 0xffff);
-    hsum = N_::s_(N_::add(hsum, val));
+    hsum = THCNumerics<half>::add(hsum, val);
     old = (size_t)address & 2 ? (old & 0xffff) | (hsum.x << 16) : (old & 0xffff0000) | hsum.x;
     old = atomicCAS(address_as_ui, assumed, old);
    } while (assumed != old);

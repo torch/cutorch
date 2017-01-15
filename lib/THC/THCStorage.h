@@ -1,9 +1,8 @@
 #ifndef THC_STORAGE_INC
 #define THC_STORAGE_INC
 
-#include "THCGeneral.h"
-
 #include "THStorage.h"
+#include "THCGeneral.h"
 
 #define THCStorage        TH_CONCAT_3(TH,CReal,Storage)
 #define THCStorage_(NAME) TH_CONCAT_4(TH,CReal,Storage_,NAME)

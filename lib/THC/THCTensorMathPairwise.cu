@@ -111,7 +111,7 @@ struct TensorRemainderOp<half> {
 
   __device__ __forceinline__ void operator()(half* out, half* in) {
 #ifdef CUDA_HALF_INSTRUCTIONS
-    *out = __hsub(*in,  __hmul(val, hfloor(__hdiv(*in,  val))));
+    *out = __hsub(*in,  __hmul(val, hfloor(hdiv(*in,  val))));
 #else
     float fin = __half2float(*in);
     float fout = fin - fval * floorf(fin / fval);
@@ -121,7 +121,7 @@ struct TensorRemainderOp<half> {
 
   __device__ __forceinline__ void operator()(half* v) {
 #ifdef CUDA_HALF_INSTRUCTIONS
-    *v = __hsub(*v, __hmul(val, hfloor(__hdiv(*v, val))));
+    *v = __hsub(*v, __hmul(val, hfloor(hdiv(*v, val))));
 #else
     float fv = __half2float(*v);
     fv = fv - fval * floorf(fv / fval);

@@ -699,16 +699,8 @@ static int cutorch_setKernelPeerToPeerAccess(lua_State *L)
 }
 
 static int cutorch_getMemoryUsage(lua_State *L) {
-  size_t totalBytes = 0;
-<<<<<<< HEAD
   size_t freeBytes = 0;
-
-  THCState *state = cutorch_getstate(L);
-
-  int device = luaL_optint(L, 1, -10);
-  if (device != -10) { /* no argument passed, current device mem usage */
-    --device;
-=======
+  size_t totalBytes = 0;
   int curDevice;
   THCudaCheck(cudaGetDevice(&curDevice));
   THCState *state = cutorch_getstate(L);
@@ -720,24 +712,7 @@ static int cutorch_getMemoryUsage(lua_State *L) {
     THCudaCheck(cudaSetDevice(device-1)); /* zero indexed */
     THCudaCheck(THCudaMemGetInfo(state, &freeBytes, &totalBytes));
     THCudaCheck(cudaSetDevice(curDevice));
->>>>>>> upstream/master
   }
-
-  int prevDevice, curDevice = -10;
-  THCudaCheck(cudaGetDevice(&prevDevice));
-
-  if (device != -10) { /* no argument passed, current device mem usage */
-    curDevice = device; /* zero indexed */
-    if (curDevice != prevDevice)
-      THCudaCheck(cudaSetDevice(curDevice)); 
-  } 
-
-  THCudaCheck(THCudaMemGetInfo(state, &totalBytes, &freeBytes));
-
-  if (curDevice != prevDevice) { /* restore current device if we have changed it */
-    THCudaCheck(cudaSetDevice(prevDevice));
-  }
-
   lua_pushnumber(L, freeBytes);
   lua_pushnumber(L, totalBytes);
   return 2;

@@ -1,4 +1,5 @@
 #include "THCApply.cuh"
+#include "THCHalf.h"
 #include "THCNumerics.cuh"
 
 inline int curGPU() {
