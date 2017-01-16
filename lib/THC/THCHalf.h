@@ -41,7 +41,7 @@ THC_API int THC_fastHalfInstructions(THCState *state);
 #   define THC_DECL inline
 #  endif
 
-#if 0 // __CUDA_ARCH__ == 600 || __CUDA_ARCH__ >= 620
+#if __CUDA_ARCH__ == 600 || __CUDA_ARCH__ >= 620
 # define CUDA_HALF_INSTRUCTIONS 1
 #endif
 
