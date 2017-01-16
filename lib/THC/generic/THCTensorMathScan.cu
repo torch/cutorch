@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorMathScan.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 template<class BinaryOp>
 __host__ void THCTensor_(scanOuterDim)(THCState *state, THCTensor *tgt,
                                        THCTensor *src, long dimension,
@@ -85,5 +85,5 @@ void THCTensor_(cumprod)(THCState *state, THCTensor *self, THCTensor *src, long 
   return THCTensor_(scanDim)(state, self, src, dimension,
                              ScalarConvert<float, real>::to(1.0), MulOp<real>());
 }
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif

@@ -390,5 +390,4 @@ accreal THCTensor_(trace)(THCState *state, THCTensor *src_) {
   THCTensor_(free)(state, diag);
   return trace;
 }
-
 #endif

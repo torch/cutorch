@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorMathPairwise.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 THC_API void
 THCTensor_(add)(THCState *state, THCTensor *self_, THCTensor *src_, real value)
 {
@@ -209,5 +209,5 @@ THC_API int THCTensor_(equal)(THCState *state, THCTensor *self_, THCTensor *src_
 
   return min != 0;
 }
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif

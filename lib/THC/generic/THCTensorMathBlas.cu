@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorMathBlas.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 THC_API accreal
 THCTensor_(dot)(THCState *state, THCTensor *self, THCTensor *src)
 {
@@ -596,5 +596,6 @@ THCTensor_(baddbmm)(THCState *state, THCTensor *result, real beta, THCTensor *t,
   THError("unimplemented data type");
 #endif
 }
+# endif /* THC_GENERIC_NO_MATH */
 
 #endif

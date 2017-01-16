@@ -1091,6 +1091,13 @@ int luaopen_libcutorch(lua_State *L)
 #endif
   lua_setfield(L, -2, "hasHalf");
 
+#ifdef THC_MIN_MATH 
+  lua_pushboolean(L, 1);
+#else
+  lua_pushboolean(L, 0);
+#endif
+  lua_setfield(L, -2, "minMath");
+
   /* store gpu driver version in field */
   int driverVersion;
   THCudaCheck(cudaDriverGetVersion(&driverVersion));

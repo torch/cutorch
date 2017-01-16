@@ -75,6 +75,10 @@ IF ($ENV{TH_BINARY_BUILD})
   SET(CMAKE_CXX_FLAGS "-static-libstdc++ ${CMAKE_CXX_FLAGS}")
 ENDIF()
 
+# IF (ARM)
+ ADD_DEFINITIONS(-DTHC_MIN_MATH)
+# ENDIF()
+
 IF(APPLE)
   IF(${CUDA_VERSION} LESS 6.0)
     # work around for mac os x bug:

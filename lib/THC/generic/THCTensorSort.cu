@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorSort.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 // In alignment with default sort on a c++ map, this function
 // will permute key and value tensors identically, and
 // in such a way that the 'key' tensor is ordered numerically
@@ -332,5 +332,5 @@ THC_API void THCTensor_(sort)(THCState* state,
 
   THCudaCheck(cudaGetLastError());
 }
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif
