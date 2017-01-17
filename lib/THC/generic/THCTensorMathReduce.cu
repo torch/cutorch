@@ -33,6 +33,22 @@ THCTensor_(sumall)(THCState *state, THCTensor *self) {
   return val;
 }
 
+THC_API real
+THCTensor_(minall)(THCState *state, THCTensor *self) {
+  THAssert(THCTensor_(checkGPU)(state, 1, self));
+  real val;
+  if (!THC_reduceAll(state, self,
+                     thrust::identity<real>(),
+                     ReduceMin<real>(),
+                     ReduceMin<real>(),
+                     THCNumerics<real>::max(), &val, 0)) {
+    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
+  }
+
+  THCudaCheck(cudaGetLastError());
+  return val;
+}
+
 # ifndef THC_GENERIC_NO_MATH
 
 THC_API void
@@ -294,22 +310,6 @@ THCTensor_(meanall)(THCState *state, THCTensor *self)
   THAssert(THCTensor_(checkGPU)(state, 1, self));
   THArgCheck(self->nDimension > 0, 1, "empty Tensor");
   return THCTensor_(sumall)(state, self)/THCTensor_(nElement)(state, self);
-}
-
-THC_API real
-THCTensor_(minall)(THCState *state, THCTensor *self) {
-  THAssert(THCTensor_(checkGPU)(state, 1, self));
-  real val;
-  if (!THC_reduceAll(state, self,
-                     thrust::identity<real>(),
-                     ReduceMin<real>(),
-                     ReduceMin<real>(),
-                     THCNumerics<real>::max(), &val, 0)) {
-    THArgCheck(false, 1, CUTORCH_DIM_WARNING);
-  }
-
-  THCudaCheck(cudaGetLastError());
-  return val;
 }
 
 THC_API real
