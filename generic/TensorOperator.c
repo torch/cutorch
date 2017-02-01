@@ -210,10 +210,10 @@ static int cutorch_TensorOperator_(__mul__)(lua_State *L)
         luaL_error(L, "multiplication between %dD and %dD tensors not yet supported", tensor1->nDimension, tensor2->nDimension);
     }
   }
-  return 1;
 #else
   THError("unimplemented");
 #endif
+  return 1;
 }
 
 static int cutorch_TensorOperator_(__div__)(lua_State *L)
