@@ -188,6 +188,7 @@ SET(src-cuda
   THCTensorTopK.cu
   THCTensorSort.cu
   THCTensorTypeUtils.cu
+  THCTensorMode.cu
   )
 
 # loop over all types
@@ -257,6 +258,7 @@ INSTALL(FILES
           THCTensorMath.h
           THCTensorConv.h
           THCTensorTopK.h
+          THCTensorMode.h
           THCApply.cuh
           THCReduce.cuh
           THCReduceAll.cuh

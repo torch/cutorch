@@ -3659,6 +3659,12 @@ function test.topk()
    end
 end
 
+function test.mode()
+    local input = torch.CudaTensor(10):fill(1)
+    local values, indices = torch.mode(input)
+    -- TODO: actually test proper returns, as opposed to just succeeding :)
+end
+
 function test.cat()
    for k, typename in ipairs(typenames) do
       for dim = 1, 3 do

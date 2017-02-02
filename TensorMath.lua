@@ -1586,6 +1586,13 @@ wrap("topk",
        {name="boolean", default=0},
        {name="boolean", default=0}})
 
+wrap("mode",
+     cname("mode"),
+     {{name=Tensor, default=true, returned=true, noreadadd=true},
+       {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+       {name=Tensor},
+       {name="index", default=lastdim(3)}})
+
 do
    local Tensor = Tensor
    local real = real
