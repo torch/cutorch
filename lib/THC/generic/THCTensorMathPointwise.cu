@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorMathPointwise.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 #define IMPLEMENT_CUDA_TENSOR_BASIC_FUNC_(NAME, CFUNC, REAL)             \
   struct Tensor_##NAME##_##REAL##_Op {                                  \
     __device__ __forceinline__ void operator()(real* out, real* in) const { \
@@ -518,5 +518,5 @@ THCTensor_(addcdiv)(THCState *state, THCTensor *self_, THCTensor *t, real value,
 
   THCudaCheck(cudaGetLastError());
 }
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif

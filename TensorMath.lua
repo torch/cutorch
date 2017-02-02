@@ -551,6 +551,7 @@ local handledTypeaccreals = {
 
 for k, Tensor_ in pairs(handledTypenames) do
     Tensor = Tensor_
+
     if Tensor == 'CudaHalfTensor' then
         interface:print("#ifdef CUDA_HALF_TENSOR")
     end
@@ -591,6 +592,8 @@ for k, Tensor_ in pairs(handledTypenames) do
     wrap("zero",
          cname("zero"),
          {{name=Tensor, returned=true}})
+
+    interface:print("#ifndef THC_MIN_MATH")
 
     wrap("zeros",
          cname("zeros"),
@@ -1334,6 +1337,8 @@ void cutorch_%sMath_init(lua_State *L)
   lua_pop(L, 1);
 }
 ]], Tensor, Tensor, Tensor, Tensor))
+
+    interface:print("#endif")
 
     if Tensor == 'CudaHalfTensor' then
         interface:print("#endif")

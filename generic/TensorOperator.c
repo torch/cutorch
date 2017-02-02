@@ -2,6 +2,7 @@
 #define THC_GENERIC_FILE "generic/TensorOperator.c"
 #else
 
+#ifndef THC_GENERIC_NO_MATH
 static int cutorch_TensorOperator_(__add__)(lua_State *L)
 {
   THCTensor *tensor1 = luaT_toudata(L, 1, torch_Tensor);
@@ -242,13 +243,16 @@ static int cutorch_TensorOperator_(__div__)(lua_State *L)
 
   return 1;
 }
+#endif
 
 static const struct luaL_Reg cutorch_TensorOperator_(_) [] = {
+#ifndef THC_GENERIC_NO_MATH
   {"__add__", cutorch_TensorOperator_(__add__)},
   {"__sub__", cutorch_TensorOperator_(__sub__)},
   {"__unm__", cutorch_TensorOperator_(__unm__)},
   {"__mul__", cutorch_TensorOperator_(__mul__)},
   {"__div__", cutorch_TensorOperator_(__div__)},
+#endif
   {NULL, NULL}
 };
 

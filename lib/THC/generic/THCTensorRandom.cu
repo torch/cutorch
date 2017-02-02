@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorRandom.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 #define NUM_BLOCKS min((int)THCCeilDiv(size, (ptrdiff_t) BLOCK_SIZE), MAX_NUM_BLOCKS)
 
 #if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE) || defined(THC_REAL_IS_HALF)
@@ -347,5 +347,5 @@ THC_API void THCTensor_(geometric)(THCState* state, THCTensor *self_, double p)
   THCTensor_(freeCopyTo)(state, self, self_);
 };
 #undef NUM_BLOCKS
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif

@@ -3,9 +3,11 @@
 
 #include "THCGeneral.h"
 
+#ifndef THC_MIN_MATH
 /* We compile with CudaHalfTensor support if we have this: */
 #if CUDA_VERSION >= 7050 || CUDA_HAS_FP16
 #define CUDA_HALF_TENSOR 1
+#endif
 #endif
 
 #ifdef CUDA_HALF_TENSOR

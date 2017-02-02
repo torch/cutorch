@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorMathCompareT.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 THC_API void
 THCTensor_(ltTensor)(THCState *state, THCudaByteTensor *self_, THCTensor *src1, THCTensor *src2)
 {
@@ -109,5 +109,5 @@ THCTensor_(neTensorT)(THCState *state, THCTensor *self_, THCTensor *src1, THCTen
                     TensorNEOp<typename TensorUtils<THCTensor>::DataType,
                     typename TensorUtils<THCTensor>::DataType>());
 }
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif

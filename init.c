@@ -1056,26 +1056,30 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_HalfTensorCopy_init(L);
 #endif
 
+  cutorch_CudaTensorOperator_init(L);
+#ifndef THC_MIN_MATH
   cutorch_CudaByteTensorOperator_init(L);
   cutorch_CudaCharTensorOperator_init(L);
   cutorch_CudaShortTensorOperator_init(L);
   cutorch_CudaIntTensorOperator_init(L);
   cutorch_CudaLongTensorOperator_init(L);
-  cutorch_CudaTensorOperator_init(L);
   cutorch_CudaDoubleTensorOperator_init(L);
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensorOperator_init(L);
 #endif
+#endif
 
+  cutorch_CudaTensorMath_init(L);
+#ifndef THC_MIN_MATH
   cutorch_CudaByteTensorMath_init(L);
   cutorch_CudaCharTensorMath_init(L);
   cutorch_CudaShortTensorMath_init(L);
   cutorch_CudaIntTensorMath_init(L);
   cutorch_CudaLongTensorMath_init(L);
-  cutorch_CudaTensorMath_init(L);
   cutorch_CudaDoubleTensorMath_init(L);
 #ifdef CUDA_HALF_TENSOR
   cutorch_CudaHalfTensorMath_init(L);
+#endif
 #endif
 
   cutorch_Event_init(L);
@@ -1090,6 +1094,13 @@ int luaopen_libcutorch(lua_State *L)
   lua_pushboolean(L, 0);
 #endif
   lua_setfield(L, -2, "hasHalf");
+
+#ifdef THC_MIN_MATH 
+  lua_pushboolean(L, 1);
+#else
+  lua_pushboolean(L, 0);
+#endif
+  lua_setfield(L, -2, "minMath");
 
   /* store gpu driver version in field */
   int driverVersion;

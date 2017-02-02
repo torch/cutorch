@@ -15,14 +15,16 @@
 #ifdef CUDA_HALF_TENSOR
 #define CReal CudaHalf
 #endif
-
+# if defined THC_MIN_MATH
+#  define THC_GENERIC_NO_MATH 1
+# endif
 #define THC_REAL_IS_HALF
 #line 1 THC_GENERIC_FILE
 #include THC_GENERIC_FILE
 #undef real
 #undef accreal
 #undef Real
-
+#undef THC_GENERIC_NO_MATH
 #ifdef CUDA_HALF_TENSOR
 #undef CReal
 #endif

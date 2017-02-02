@@ -1,7 +1,7 @@
 #ifndef THC_GENERIC_FILE
 #define THC_GENERIC_FILE "generic/THCTensorMathMagma.cu"
 #else
-
+# ifndef THC_GENERIC_NO_MATH
 #if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_DOUBLE)
 
 #ifdef USE_MAGMA
@@ -646,5 +646,5 @@ THC_API void THCTensor_(qr)(THCState *state, THCTensor *rq_, THCTensor *rr_, THC
 }
 
 #endif
-
+# endif /* THC_GENERIC_NO_MATH */
 #endif
