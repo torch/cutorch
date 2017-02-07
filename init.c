@@ -780,6 +780,22 @@ static int cutorch_getDeviceProperties(lua_State *L)
   return 1;
 }
 
+static int cutorch_getRuntimeVersion(lua_State *L)
+{
+  int version;
+  THCudaCheck(cudaRuntimeGetVersion(&version));
+  lua_pushnumber(L, version);
+  return 1;
+}
+
+static int cutorch_getDriverVersion(lua_State *L)
+{
+  int version;
+  THCudaCheck(cudaDriverGetVersion(&version));
+  lua_pushnumber(L, version);
+  return 1;
+}
+
 static int cutorch_seed(lua_State *L)
 {
   unsigned long long seed = THCRandom_seed(cutorch_getstate(L));
@@ -978,6 +994,8 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"setKernelPeerToPeerAccess", cutorch_setKernelPeerToPeerAccess},
   {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
   {"getDeviceProperties", cutorch_getDeviceProperties},
+  {"getRuntimeVersion", cutorch_getRuntimeVersion},
+  {"getDriverVersion", cutorch_getDriverVersion},
   {"getMemoryUsage", cutorch_getMemoryUsage},
   {"hasHalfInstructions", cutorch_hasHalfInstructions},
   {"hasFastHalfInstructions", cutorch_hasFastHalfInstructions},
