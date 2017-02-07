@@ -49,27 +49,23 @@ local function longTensorSize(...)
    return size
 end
 
--- Creates a FloatTensor using the CudaHostAllocator.
--- Accepts either a LongStorage or a sequence of numbers.
-function cutorch.createCudaHostTensor(...)
-   local size = longTensorSize(...)
-   local storage = torch.FloatStorage(cutorch.CudaHostAllocator, size:prod())
-   return torch.FloatTensor(storage, 1, size:storage())
-end
-
-function cutorch.createCudaHostDoubleTensor(...)
-   local size = longTensorSize(...)
-   local storage = torch.DoubleStorage(cutorch.CudaHostAllocator, size:prod())
-   return torch.DoubleTensor(storage, 1, size:storage())
-end
-
+local hostTypes = {'Float', 'Double', 'Int', 'Long', 'Byte'}
 if cutorch.hasHalf then
-  function cutorch.createCudaHostHalfTensor(...)
-     local size = longTensorSize(...)
-     local storage = torch.HalfStorage(cutorch.CudaHostAllocator, size:prod())
-     return torch.HalfTensor(storage, 1, size:storage())
+   table.insert(hostTypes, 'Half')
+end
+
+for _, ty in ipairs(hostTypes) do
+   -- Creates torch Tensors using the CudaHostAllocator.
+   -- Accepts either a LongStorage or a sequence of numbers.
+   cutorch['createCudaHost' .. ty .. 'Tensor'] = function(...)
+      local size = longTensorSize(...)
+      local storage = torch[ty .. 'Storage'](cutorch.CudaHostAllocator, size:prod())
+      return torch[ty .. 'Tensor'](storage, 1, size:storage())
    end
- end
+end
+
+-- Alias to automate creation from both torch and cutorch types
+cutorch.createCudaHostTensor = cutorch.createCudaHostFloatTensor
 
 -- Creates a CudaTensor using the CudaUVAAllocator.
 -- Accepts either a LongStorage or a sequence of numbers.
