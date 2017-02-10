@@ -661,6 +661,18 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor, method={default=1}},
             {name=real}})
 
+    wrap("lshift",
+         cname("lshift"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real}})
+
+    wrap("rshift",
+         cname("rshift"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real}})
+
     wrap("fmod",
          cname("fmod"),
          {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -673,13 +685,33 @@ for k, Tensor_ in pairs(handledTypenames) do
             {name=Tensor, method={default=1}},
             {name=real}})
 
+    wrap("bitand",
+         cname("bitand"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real}})
+
+    wrap("bitor",
+         cname("bitor"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real}})
+
+    wrap("bitxor",
+         cname("bitxor"),
+         {{name=Tensor, default=true, returned=true, method={default='nil'}},
+            {name=Tensor, method={default=1}},
+            {name=real}})
+
     wrap("equal",
          cname("equal"),
          {{name=Tensor},
           {name=Tensor},
           {name="boolean", creturned=true}})
 
-    for _, name in ipairs({"cmul", "cpow", "cdiv", "cremainder", "cfmod"}) do
+    local cfuncs = {"cmul", "cpow", "cdiv", "cremainder", "cfmod",
+                    "clshift", "crshift", "cbitand", "cbitor", "cbitxor"}
+    for _, name in ipairs(cfuncs) do
        wrap(name,
             cname(name),
             {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -1457,7 +1489,9 @@ wrap("equal",
       {name=Tensor},
       {name="boolean", creturned=true}})
 
-for _, name in ipairs({"cmul", "cpow", "cdiv", "cremainder", "cfmod"}) do
+local cfuncs = {"cmul", "cpow", "cdiv", "cremainder", "cfmod",
+                "clshift", "crshift", "cbitand", "cbitor", "cbitxor"}
+for _, name in ipairs(cfuncs) do
   wrap(name,
        cname(name),
        {{name=Tensor, default=true, returned=true, method={default='nil'}},
