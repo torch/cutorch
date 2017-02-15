@@ -5,7 +5,6 @@
 #include "THCCachingHostAllocator.h"
 #include "THCSleep.h"
 #include "THCTensorRandom.h"
-#include "THCHalf.h" // for CUDA_HALF_TENSOR
 
 extern void cutorch_CudaByteStorage_init(lua_State* L);
 extern void cutorch_CudaCharStorage_init(lua_State* L);
@@ -721,7 +720,6 @@ static int cutorch_getMemoryUsage(lua_State *L) {
 
 static int cutorch_setDevice(lua_State *L)
 {
-  THCState *state = cutorch_getstate(L);
   int device = (int)luaL_checknumber(L, 1)-1;
   THCudaCheck(cudaSetDevice(device));
   return 0;
@@ -1108,6 +1106,10 @@ int luaopen_libcutorch(lua_State *L)
   lua_pushboolean(L, 0);
 #endif
   lua_setfield(L, -2, "hasHalf");
+
+  /* true fp16 vs pseudo-fp16 mode: this one is per device */
+  lua_pushboolean(L, THC_nativeHalfInstructions(state));
+  lua_setfield(L, -2, "hasHalfInstructions");
 
   /* store gpu driver version in field */
   int driverVersion;
