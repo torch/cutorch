@@ -3660,8 +3660,12 @@ function test.topk()
 end
 
 function test.mode()
-    local input = torch.CudaTensor(10):fill(1)
-    local values, indices = torch.mode(input)
+    local i = 0
+    -- local input = torch.CudaTensor(2, 3, 4):apply(function(x) i = i + 1; return i end)
+    local input = torch.CudaTensor(2, 3, 4):uniform()
+    print(input)
+    local values, indices = torch.mode(input, 2)
+    print(input)
     -- TODO: actually test proper returns, as opposed to just succeeding :)
 end
 
