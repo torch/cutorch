@@ -2,22 +2,13 @@
 #include "THCThrustAllocator.cuh"
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
-
-__global__ void printTensor(float *tensor, int count) {
-  for (int i = 0; i < count; ++i) {
-    // whateva u want bb
-  }
-}
-
-THC_API void pt(THCState* s, THCudaTensor* t) {
-  printTensor<<<1, 1>>>(THCudaTensor_data(s, t), THCudaTensor_nElement(s, t));
-}
-
-THC_API void ptm(THCState *s, THCudaTensor *t) {
-  printf("Storage: %p, Size: %p, Stride: %p\n", t->storage, t->size, t->stride);
-}
+#include <thrust/inner_product.h>
+#include <thrust/device_vector.h>
+#include <thrust/extrema.h>
+#include <thrust/execution_policy.h>
 
 THC_API void THCudaTensor_multiSelect(THCState* state, THCudaTensor* self, THCudaTensor* src, THLongStorage *position) {
+  // TODO: memory tracking for sets
   THCudaTensor* temp = src;
   for (int i = 0; i < THLongStorage_size(position); ++i) {
     /* printf("Selecting on dimension %d with index %d\n", i, THLongStorage_data(position)[i]); */
@@ -30,20 +21,74 @@ THC_API void THCudaTensor_calculateMode(THCState* state,
                                         THCudaTensor* values,
                                         THCudaLongTensor* indices,
                                         THCudaTensor* input,
+                                        THCudaTensor* orig,
                                         int dimension,
                                         THLongStorage* position) {
   // TODO: asserts, cuda check, gpu check etc.
   THCudaTensor *vec = THCudaTensor_new(state);
-  THCudaTensor_multiSelect(state, vec, input, position);
+  THCudaTensor *ovec = THCudaTensor_new(state);
+  if (THLongStorage_size(position) == 0) {
+    THCudaTensor_set(state, vec, input);
+    THCudaTensor_set(state, ovec, orig);
+  } else {
+    THCudaTensor_multiSelect(state, vec, input, position);
+    THCudaTensor_multiSelect(state, ovec, orig, position);
+  }
+  THAssert(THCudaTensor_isContiguous(state, vec));
+  long nElement = THCudaTensor_nElement(state, vec);
 
   THCThrustAllocator thrustAlloc(state);
 
-  thrust::device_ptr<float> iter(THCudaTensor_data(state, vec));
-  /* thrust::fill(iter, iter + THCudaTensor_nElement(state, vec), 1); */
+  thrust::device_ptr<float> vecPtr(THCudaTensor_data(state, vec));
+  thrust::device_vector<float> iter(vecPtr, vecPtr + nElement);
+  thrust::device_ptr<float> ovecPtr(THCudaTensor_data(state, ovec));
+  thrust::device_vector<float> oiter(ovecPtr, ovecPtr + nElement);
 
-  thrust::sort(iter, iter + THCudaTensor_nElement(state, vec));
+  thrust::sort(
+#if CUDA_VERSION >= 7000
+    thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
+#else
+    thrust::device,
+#endif
+    /* iter.begin(), iter.end()); */
+    vecPtr, vecPtr + nElement);
+
+  // Count # of unique elements:
+  int unique = thrust::inner_product(iter.begin(), iter.end() - 1, iter.begin() + 1, 0, thrust::plus<int>(), thrust::not_equal_to<float>()) + 1;
+
+  // Count frequency of each element
+  thrust::device_vector<float> keys(unique);
+  thrust::device_vector<int> counts(unique);
+  thrust::reduce_by_key(
+      iter.begin(), iter.end(),
+      /* vecPtr, vecPtr + nElement, */
+      thrust::constant_iterator<int>(1), keys.begin(), counts.begin());
+
+  // Find index of maximum count
+  thrust::device_vector<int>::iterator it = thrust::max_element(counts.begin(), counts.end());
+  float mode = keys[it - counts.begin()];
+
+  // Find first index within which it occurs
+  thrust::device_vector<float>::iterator it2 = thrust::find(oiter.begin(), oiter.end(), mode);
+  // assertion against iterator being end?
+  long index = thrust::distance(oiter.begin(), it2);
+
+  // Place mode, index in output
+  ptrdiff_t valuesOffset = THCudaTensor_storageOffset(state, values);
+  long indicesOffset = THCudaLongTensor_storageOffset(state, indices);
+  for (int i = 0, j = 0; i < THLongStorage_size(position); ++i, ++j) {
+    if (i == dimension) {
+      ++j;
+    }
+    long pos = THLongStorage_data(position)[i];
+    valuesOffset += THCudaTensor_stride(state, values, j) * pos;
+    indicesOffset += THCudaLongTensor_stride(state, indices, j) * pos;
+  }
+  THCudaStorage_set(state, THCudaTensor_storage(state, values), valuesOffset, mode);
+  THCudaLongStorage_set(state, THCudaLongTensor_storage(state, indices), indicesOffset, index);
 
   THCudaTensor_free(state, vec);
+  THCudaTensor_free(state, ovec);
 }
 
 // TODO: this probably should be a loop, not a recursive algorithm
@@ -51,6 +96,7 @@ THC_API void THCudaTensor_dimApplyMode(THCState* state,
                                THCudaTensor* values,
                                THCudaLongTensor* indices,
                                THCudaTensor* input,
+                               THCudaTensor* orig,
                                int dimension,
                                THLongStorage* position,
                                int curDim) {
@@ -64,13 +110,13 @@ THC_API void THCudaTensor_dimApplyMode(THCState* state,
     // size value, so we call the mode here
     for (int i = 0; i < THCudaTensor_size(state, input, curDim); ++i) {
       position->data[curDim] = i;
-      THCudaTensor_calculateMode(state, values, indices, input, dimension, position);
+      THCudaTensor_calculateMode(state, values, indices, input, orig, dimension, position);
     }
   } else {
     // Loop through the values and recurse
     for (int i = 0; i < THCudaTensor_size(state, input, curDim); ++i) {
       position->data[curDim] = i;
-      THCudaTensor_dimApplyMode(state, values, indices, input, dimension, position, curDim + 1);
+      THCudaTensor_dimApplyMode(state, values, indices, input, orig, dimension, position, curDim + 1);
     }
   }
   position->data[curDim] = 0;
@@ -119,13 +165,10 @@ THC_API void THCudaTensor_mode(THCState* state,
 
   // Special Case: if its a 1D Tensor, call the mode code on that dimension directly
   if (ndim == 1) {
-    THCudaTensor_calculateMode(state, values, indices, contiguous, dimension, position);
+    THCudaTensor_calculateMode(state, values, indices, contiguous, input, dimension, position);
   } else {
-    THCudaTensor_dimApplyMode(state, values, indices, contiguous, dimension, position, 0);
+    THCudaTensor_dimApplyMode(state, values, indices, contiguous, input, dimension, position, 0);
   }
-
-  /* THCudaTensor_set(state, input, contiguous); */
-  /* THCudaTensor_transpose(state, input, NULL, ndim - 1, dimension); */
 
   THCudaTensor_free(state, contiguous);
   THLongStorage_free(position);

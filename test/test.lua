@@ -3662,10 +3662,11 @@ end
 function test.mode()
     local i = 0
     -- local input = torch.CudaTensor(2, 3, 4):apply(function(x) i = i + 1; return i end)
-    local input = torch.CudaTensor(2, 3, 4):uniform()
+    -- local input = torch.CudaTensor(2, 3, 4):uniform()
+    local input = torch.CudaTensor({0, 2, 3, 3, 4, 3, 2, 3, 1})
     print(input)
-    local values, indices = torch.mode(input, 2)
-    print(input)
+    local values, indices = torch.mode(input)
+    print(values, indices)
     -- TODO: actually test proper returns, as opposed to just succeeding :)
 end
 
