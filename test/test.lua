@@ -3660,14 +3660,95 @@ function test.topk()
 end
 
 function test.mode()
-    local i = 0
-    -- local input = torch.CudaTensor(2, 3, 4):apply(function(x) i = i + 1; return i end)
-    -- local input = torch.CudaTensor(2, 3, 4):uniform()
-    local input = torch.CudaTensor({0, 2, 3, 3, 4, 3, 2, 3, 1})
-    print(input)
-    local values, indices = torch.mode(input)
-    print(values, indices)
-    -- TODO: actually test proper returns, as opposed to just succeeding :)
+    -- Tests for 1D Tensors
+
+    -- Single-element Tensor
+    local input = torch.FloatTensor({1})
+    compareFloatAndCuda(input, 'mode')
+
+    -- Tensor of all the same values
+    local input = torch.FloatTensor(10):fill(1)
+    compareFloatAndCuda(input, 'mode')
+
+    -- Tensor with a unique range of values
+    local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
+    compareFloatAndCuda(input, 'mode')
+
+    -- Consistency between ties when there are two things with equal counts
+    local input = torch.FloatTensor({2, 2, 1, 1})
+    compareFloatAndCuda(input, 'mode')
+
+    -- Larger Example
+    local input = torch.FloatTensor(1000):apply(function(x) return torch.random(1, 10) end)
+    compareFloatAndCuda(input, 'mode')
+
+    -- Tests for 2D Tensors
+
+    local function compareAllDims(input, ndim)
+        for i = 1, ndim do
+            compareFloatAndCuda(input, 'mode', i)
+        end
+    end
+
+    -- Tensor of all the same values
+    local input = torch.FloatTensor(3, 4):fill(1)
+    compareAllDims(input, 2)
+
+    -- Tensor with a unique range of values
+    local input = torch.FloatTensor({{2,  3,  5, 7},
+                                     {1, 10, 17, 6},
+                                     {0, 22, 14, 9}})
+    compareAllDims(input, 2)
+
+    -- Consistency between ties when there are two things with equal counts
+    local input = torch.FloatTensor({{2,  2,  3, 3},
+                                     {1,  1,  3, 3},
+                                     {2,  2,  1, 1},
+                                     {1,  1,  1, 1}})
+    compareAllDims(input, 2)
+
+    -- Larger example
+    local input = torch.FloatTensor(50, 100):apply(function(x) return torch.random(1, 10) end)
+    compareAllDims(input, 2)
+
+    -- Tests for 3D Tensors
+    -- Tensor of all the same values
+    local input = torch.FloatTensor(2, 4, 5):fill(1)
+    compareAllDims(input, 3)
+
+    -- Tensor with a unique range of values
+    local input = torch.FloatTensor(
+        {
+            {{2,  3,  5, 7},
+             {1, 10, 17, 6},
+             {0, 22, 14, 9}},
+
+            {{32, 88, 25,   4},
+             {21, 78, 57, 111},
+             {15, 68, 64, 222}}
+        }
+    )
+    compareAllDims(input, 3)
+
+    -- Consistency between ties when there are two things with equal counts
+    local input = torch.FloatTensor(
+        {
+            {{2,  2,  3, 3},
+             {1,  1,  3, 3},
+             {2,  2,  1, 1},
+             {1,  1,  1, 1}},
+
+            {{3,  3,  4, 4},
+             {2,  2,  4, 4},
+             {3,  3,  2, 2},
+             {2,  2,  2, 2}},
+        }
+    )
+    compareAllDims(input, 3)
+
+    -- Larger example
+    local input = torch.FloatTensor(14, 22, 32):apply(function(x) return torch.random(1, 10) end)
+    compareAllDims(input, 3)
 end
 
 function test.cat()
