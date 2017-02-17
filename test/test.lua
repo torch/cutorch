@@ -3682,6 +3682,12 @@ function test.mode()
     local input = torch.FloatTensor(1000):apply(function(x) return torch.random(1, 10) end)
     compareFloatAndCuda(input, 'mode')
 
+    -- verify input is unchanged
+    local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
+    local same = torch.FloatTensor({4, 3, 6, 8, 2, 1})
+    torch.mode(input)
+    tester:assertTensorEq(input, same, 0, 'cutorch mode modified input')
+
     -- Tests for 2D Tensors
 
     local function compareAllDims(input, ndim)
