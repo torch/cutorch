@@ -8,43 +8,27 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sequence.h>
 
-// Used to do []-style selection of an input Tensor given a storage of dimension values - i.e.
-//
-// multiSelect(state, self, src, {2, 0, 3})
-//
-// Should be equivalent to a Torch level operation: self = src[2][0][3]. In particular, we want
-// to leave self as a single vector, so the number of positions to index through must be one less
-// than the number of dimensions in src.
-THC_API void THCudaTensor_multiSelect(THCState* state, THCudaTensor* self, THCudaTensor* src, THLongStorage *position) {
-  THAssert(THLongStorage_size(position) == THCudaTensor_nDimension(state, src) - 1);
-
-  THCudaTensor* temp = src;
-  for (int i = 0; i < THLongStorage_size(position); ++i) {
-    THCudaTensor_select(state, self, temp, 0, THLongStorage_data(position)[i]);
-    temp = self;
-  }
-}
-
 THC_API void THCudaTensor_calculateMode(THCState* state,
                                         THCudaTensor* values,
                                         THCudaLongTensor* indices,
                                         THCudaTensor* input,
                                         int dimension,
                                         THLongStorage* position) {
-  THCudaTensor *vec = THCudaTensor_new(state);
+  THAssert(THCudaTensor_isContiguous(state, input));
 
-  // If we are calculating the mode for an input vector
-  if (THLongStorage_size(position) == 0) {
-    THCudaTensor_set(state, vec, input);
-  } else {
-    THCudaTensor_multiSelect(state, vec, input, position);
+  // Because the input is contiguous, we want to get a reference to the
+  // location of the buffer at the innermost dimension that we are going
+  // to calculate the mode for --> we do this by manually doing the stride
+  // calculations to get an offset
+  float *data = THCudaTensor_data(state, input);
+  for (int i = 0; i < THLongStorage_size(position); ++i) {
+    data += THLongStorage_data(position)[i] * THCudaTensor_stride(state, input, i);
   }
-  THAssert(THCudaTensor_isContiguous(state, vec));
-  long nElement = THCudaTensor_nElement(state, vec);
 
+  long nElement = THCudaTensor_size(state, input, THCudaTensor_nDimension(state, input) - 1);
   THCThrustAllocator thrustAlloc(state);
 
-  thrust::device_ptr<float> vecPtr(THCudaTensor_data(state, vec));
+  thrust::device_ptr<float> vecPtr = thrust::device_pointer_cast(data);
   thrust::device_vector<float> iter(vecPtr, vecPtr + nElement);
   thrust::device_vector<long> seq(nElement);
   thrust::sequence(
@@ -116,8 +100,6 @@ THC_API void THCudaTensor_calculateMode(THCState* state,
   }
   THCudaStorage_set(state, THCudaTensor_storage(state, values), valuesOffset, mode);
   THCudaLongStorage_set(state, THCudaLongTensor_storage(state, indices), indicesOffset, index);
-
-  THCudaTensor_free(state, vec);
 }
 
 // TODO: this probably should be a loop, not a recursive algorithm
