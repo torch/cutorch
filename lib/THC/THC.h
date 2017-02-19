@@ -16,6 +16,5 @@
 #include "THCTensorMath.h"
 #include "THCTensorConv.h"
 #include "THCTensorTopK.h"
-#include "THCTensorMode.h"
 
 #endif

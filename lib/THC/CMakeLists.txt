@@ -258,7 +258,6 @@ INSTALL(FILES
           THCTensorMath.h
           THCTensorConv.h
           THCTensorTopK.h
-          THCTensorMode.h
           THCApply.cuh
           THCReduce.cuh
           THCReduceAll.cuh
@@ -293,6 +292,7 @@ INSTALL(FILES
           THCTensorRandom.cuh
           THCTensorMathMagma.cuh
           THCThrustAllocator.cuh
+          THCTensorMode.cuh
           DESTINATION "${THC_INSTALL_INCLUDE_SUBDIR}/THC")
 
 INSTALL(FILES
@@ -337,4 +337,6 @@ INSTALL(FILES
           generic/THCDeviceTensorUtils.cu
           generic/THCTensorRandom.h
           generic/THCTensorRandom.cu
+          generic/THCTensorMode.h
+          generic/THCTensorMode.cu
           DESTINATION "${THC_INSTALL_INCLUDE_SUBDIR}/THC/generic")
