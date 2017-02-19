@@ -3660,27 +3660,36 @@ function test.topk()
 end
 
 function test.mode()
+    local function compareAllDims(input, ndim)
+        for k, typename in ipairs(typenames) do
+            input = input:type(typename)
+            for i = 1, ndim do
+                compareCPUAndCUDATypeTensorArgs(typename, nil, input, 'mode', i)
+            end
+        end
+    end
+
     -- Tests for 1D Tensors
 
     -- Single-element Tensor
     local input = torch.FloatTensor({1})
-    compareFloatAndCuda(input, 'mode')
+    compareAllDims(input, 1)
 
     -- Tensor of all the same values
     local input = torch.FloatTensor(10):fill(1)
-    compareFloatAndCuda(input, 'mode')
+    compareAllDims(input, 1)
 
     -- Tensor with a unique range of values
     local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
-    compareFloatAndCuda(input, 'mode')
+    compareAllDims(input, 1)
 
     -- Consistency between ties when there are two things with equal counts
     local input = torch.FloatTensor({2, 2, 1, 1})
-    compareFloatAndCuda(input, 'mode')
+    compareAllDims(input, 1)
 
     -- Larger Example
     local input = torch.FloatTensor(1000):apply(function(x) return torch.random(1, 10) end)
-    compareFloatAndCuda(input, 'mode')
+    compareAllDims(input, 1)
 
     -- verify input is unchanged
     local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
@@ -3689,12 +3698,6 @@ function test.mode()
     tester:assertTensorEq(input, same, 0, 'cutorch mode modified input')
 
     -- Tests for 2D Tensors
-
-    local function compareAllDims(input, ndim)
-        for i = 1, ndim do
-            compareFloatAndCuda(input, 'mode', i)
-        end
-    end
 
     -- Tensor of all the same values
     local input = torch.FloatTensor(3, 4):fill(1)
