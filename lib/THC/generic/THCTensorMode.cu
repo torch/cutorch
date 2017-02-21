@@ -2,12 +2,13 @@
 #define THC_GENERIC_FILE "generic/THCTensorMode.cu"
 #else
 
-THC_API void THCTensor_(calculateMode)(THCState* state,
-                                        THCTensor* values,
-                                        THCudaLongTensor* indices,
-                                        THCTensor* input,
+THC_API void THCTensor_(calculateMode)(THCState *state,
+                                        THCTensor *values,
+                                        THCudaLongTensor *indices,
+                                        THCTensor *input,
+                                        THCudaLongStorage *sortBuffer,
                                         int dimension,
-                                        THLongStorage* position) {
+                                        THLongStorage *position) {
   THAssert(THCTensor_(isContiguous)(state, input));
 
   // Because the input is contiguous, we want to get a reference to the
@@ -22,9 +23,13 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
   long nElement = THCTensor_(size)(state, input, THCTensor_(nDimension)(state, input) - 1);
   THCThrustAllocator thrustAlloc(state);
 
+  // Wrap input data, sortBuffer, in Thrust device vectors
   thrust::device_ptr<real> vecPtr = thrust::device_pointer_cast(data);
   thrust::device_vector<real> iter(vecPtr, vecPtr + nElement);
-  thrust::device_vector<long> seq(nElement);
+  thrust::device_ptr<long> sbPtr = thrust::device_pointer_cast(THCudaLongStorage_data(state, sortBuffer));
+  thrust::device_vector<long> seq(sbPtr, sbPtr + nElement);
+
+  // Fill sortBuffer with [0, 1, 2, ... nElement - 1]
   thrust::sequence(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
@@ -33,6 +38,7 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
 #endif
     seq.begin(), seq.end());
 
+  // Sort the input data. The original indices of the data are stored in seq
   thrust::stable_sort_by_key(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
@@ -45,7 +51,8 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
 #endif
   );
 
-  // Count # of unique elements:
+  // Count # of unique elements via an inner product between adjacent elements.
+  // Add 1 if two neighboring element are not equal.
   int unique = 1 + thrust::inner_product(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
@@ -88,7 +95,7 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
 
   // Find first index within which it occurs
 #if defined(THC_REAL_IS_HALF)
-  thrust::device_vector<real>::iterator it2 = thrust::find_if(
+  thrust::device_vector<real>::iterator positionIter = thrust::find_if(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #else
@@ -96,7 +103,7 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
 #endif
     iter.begin(), iter.end(), ThrustHalfEqualToPredicate(mode));
 #else
-  thrust::device_vector<real>::iterator it2 = thrust::find(
+  thrust::device_vector<real>::iterator positionIter = thrust::find(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #else
@@ -105,8 +112,8 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
     iter.begin(), iter.end(), mode);
 #endif
 
-  // assertion against iterator being end?
-  long index = seq[it2 - iter.begin()];
+  THAssert(positionIter != iter.end());
+  long index = seq[positionIter - iter.begin()];
 
   // Place mode, index in output
   ptrdiff_t valuesOffset = THCTensor_(storageOffset)(state, values);
@@ -121,25 +128,26 @@ THC_API void THCTensor_(calculateMode)(THCState* state,
   THCudaLongStorage_set(state, THCudaLongTensor_storage(state, indices), indicesOffset, index);
 }
 
-// TODO: this probably should be a loop, not a recursive algorithm
-THC_API void THCTensor_(dimApplyMode)(THCState* state,
-                               THCTensor* values,
-                               THCudaLongTensor* indices,
-                               THCTensor* input,
+// this probably could be a loop, not a recursive algorithm
+THC_API void THCTensor_(dimApplyMode)(THCState *state,
+                               THCTensor *values,
+                               THCudaLongTensor *indices,
+                               THCTensor *input,
+                               THCudaLongStorage *sortBuffer,
                                int dimension,
-                               THLongStorage* position,
+                               THLongStorage *position,
                                int curDim) {
   long ndim = THCTensor_(nDimension)(state, input);
 
   // Because we have transposed the Tensor, the data for the dimension we are mode'ing along
   // is always in the innermost dimension
   if (curDim == ndim - 1) {
-    THCTensor_(calculateMode)(state, values, indices, input, dimension, position);
+    THCTensor_(calculateMode)(state, values, indices, input, sortBuffer, dimension, position);
   } else {
     // Loop through the values and recurse
     for (int i = 0; i < THCTensor_(size)(state, input, curDim); ++i) {
       position->data[curDim] = i;
-      THCTensor_(dimApplyMode)(state, values, indices, input, dimension, position, curDim + 1);
+      THCTensor_(dimApplyMode)(state, values, indices, input, sortBuffer, dimension, position, curDim + 1);
     }
   }
 }
@@ -152,6 +160,7 @@ THC_API void THCTensor_(mode)(THCState *state,
   THLongStorage *dim;
   THCTensor *transposed, *contiguous, *valuesTransposed;
   THLongStorage *position;
+  THCudaLongStorage *sortBuffer;
   THCudaLongTensor *indicesTransposed;
   long ndim;
 
@@ -189,17 +198,18 @@ THC_API void THCTensor_(mode)(THCState *state,
   // Position is a Storage that will store the dimension values we are processing
   position = THLongStorage_newWithSize(ndim - 1);
 
-  // Special Case: if its a 1D Tensor, call the mode code on that dimension directly
-  if (ndim == 1) {
-    THCTensor_(calculateMode)(state, valuesTransposed, indicesTransposed, contiguous, dimension, position);
-  } else {
-    THCTensor_(dimApplyMode)(state, valuesTransposed, indicesTransposed, contiguous, dimension, position, 0);
-  }
+  // Sort Buffer is a Storage that will be used in the internal sort required to calculate
+  // the mode efficiently
+  sortBuffer = THCudaLongStorage_newWithSize(state, THCTensor_(size)(state, input, ndim - 1));
+
+  // Call mode
+  THCTensor_(dimApplyMode)(state, valuesTransposed, indicesTransposed, contiguous, sortBuffer, dimension, position, 0);
 
   THCTensor_(free)(state, contiguous);
   THLongStorage_free(position);
   THCTensor_(free)(state, valuesTransposed);
   THCudaLongTensor_free(state, indicesTransposed);
+  THCudaLongStorage_free(state, sortBuffer);
 }
 
 #endif
