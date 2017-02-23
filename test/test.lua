@@ -904,6 +904,35 @@ function test.add()
    checkMultiDevice(x, 'add', y, v, z)
 end
 
+local test_bitops =  function(funcname, tmin, tmax, vmin, vmax)
+   local sz1 = chooseInt(minsize, maxsize)
+   local sz2 = chooseInt(minsize, maxsize)
+   local x = torch.IntTensor(sz1, sz2):random(tmin, tmax)
+   local v = torch.random(vmin, vmax)
+   compareCPUAndCUDATypeTensorArgs('torch.CudaIntTensor', nil, x, funcname, v)
+   checkMultiDevice(x, funcname, v)
+end
+
+function test.lshift()
+   test_bitops('lshift', 1, 1000, 1, 10)
+end
+
+function test.rshift()
+   test_bitops('rshift', 1000, 1000000, 1, 10)
+end
+
+function test.bitand()
+   test_bitops('bitand', 1, 1000, 1, 255)
+end
+
+function test.bitor()
+   test_bitops('bitor', 1, 1000, 1, 255)
+end
+
+function test.bitxor()
+   test_bitops('bitxor', 1, 1000, 1, 255)
+end
+
 function test.csub()
    local sz1 = chooseInt(minsize, maxsize)
    local sz2 = chooseInt(minsize, maxsize)
