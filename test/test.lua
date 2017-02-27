@@ -816,7 +816,7 @@ function test.copyAsync()
       cutorch.streamSynchronize(cutorch.getStream())
       tester:assertTensorEq(device_tensor:double(), host_tensor:double(), 0,
                             "Async copy to host failed.")
-  end
+   end
 end
 
 function test.largeNoncontiguous()
@@ -4186,7 +4186,7 @@ function test.kernelP2PAccess()
    end
 end
 
-if os.getenv('THC_CACHING_ALLOCATOR') == '1' then
+if os.getenv('THC_CACHING_ALLOCATOR') ~= '0' then
    local function getCyclesPerMs()
       cutorch.synchronize()
       local t = torch.Timer()
@@ -4199,8 +4199,8 @@ if os.getenv('THC_CACHING_ALLOCATOR') == '1' then
       local cyclesPerMs = getCyclesPerMs()
 
       -- check that allocations are re-used after deletion
-      t = cutorch.createCudaHostTensor({1})
-      ptr = t:data()
+      local t = cutorch.createCudaHostTensor({1})
+      local ptr = t:data()
       t = nil; collectgarbage()
       t = cutorch.createCudaHostTensor({1})
       tester:asserteq(t:data(), ptr, 'allocation not reused')
@@ -4213,6 +4213,31 @@ if os.getenv('THC_CACHING_ALLOCATOR') == '1' then
       t = cutorch.createCudaHostTensor({1})
       tester:assertne(t:data(), ptr, 'allocation re-used too soon')
    end
+
+   function test.cachedPinnedMemoryMultiGPU()
+      local device_count = cutorch.getDeviceCount()
+      if device_count < 2 then
+         return
+      end
+
+      local cyclesPerMs = getCyclesPerMs()
+      local t = cutorch.createCudaHostTensor(1)
+      local ptr = t:data()
+      t[1] = 1
+
+      local gpu_tensor1 = torch.CudaTensor({0})
+
+      cutorch.setDevice(2)
+      local gpu_tensor2 = torch.CudaTensor({0})
+      cutorch._sleep(50 * cyclesPerMs)  -- delay the copy
+      gpu_tensor2:copyAsync(t)
+
+      cutorch.setDevice(1)
+      t = nil; collectgarbage();
+      t = cutorch.createCudaHostTensor(1)
+      tester:assertne(t:data(), ptr, 'allocation re-used too soon')
+   end
+
 end
 
 -- unfortunately, torch.Tester() forgot setUp and tearDown functions.
