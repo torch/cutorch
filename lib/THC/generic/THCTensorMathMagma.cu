@@ -10,7 +10,7 @@ static void THCTensor_(copyArray1d)(THCState *state, THCTensor *self, real *src,
 {
   long size[1] = { k };
   long stride[1] = { 1 };
-  THCTensor_(rawResize)(state, self, 1, size, stride);
+  THCTensor_(resizeNd)(state, self, 1, size, stride);
   size_t len = k * sizeof(real);
   THCudaCheck(cudaMemcpy(self->storage->data + self->storageOffset, src, len, cudaMemcpyHostToDevice));
 }
@@ -19,7 +19,7 @@ static void THCTensor_(copyArray2d)(THCState *state, THCTensor *self, real *src,
 {
   long size[2] = { m, n };
   long stride[2] = { 1, m };
-  THCTensor_(rawResize)(state, self, 2, size, stride);
+  THCTensor_(resizeNd)(state, self, 2, size, stride);
   size_t len = m * n * sizeof(real);
   THCudaCheck(cudaMemcpy(self->storage->data + self->storageOffset, src, len, cudaMemcpyHostToDevice));
 }
@@ -54,7 +54,7 @@ static THCTensor* THCTensor_(newColumnMajor)(THCState *state, THCTensor *self, T
   long size[2] = { src->size[0], src->size[1] };
   long stride[2] = { 1, src->size[0] };
 
-  THCTensor_(rawResize)(state, self, 2, size, stride);
+  THCTensor_(resizeNd)(state, self, 2, size, stride);
   THCTensor_(copy)(state, self, src);
   return self;
 }
@@ -627,9 +627,9 @@ THC_API void THCTensor_(qr)(THCState *state, THCTensor *rq_, THCTensor *rr_, THC
   THCTensor_(free)(state, a);
 
 #if defined(THC_REAL_IS_FLOAT)
-  magma_sorgqr_gpu(m, n, k, q_data, m, tau_data, work_data, nb, &info);
+  magma_sorgqr_gpu(m, k, k, q_data, m, tau_data, work_data, nb, &info);
 #else
-  magma_dorgqr_gpu(m, n, k, q_data, m, tau_data, work_data, nb, &info);
+  magma_dorgqr_gpu(m, k, k, q_data, m, tau_data, work_data, nb, &info);
 #endif
 
   if (info != 0)

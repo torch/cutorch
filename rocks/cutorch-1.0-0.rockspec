@@ -21,7 +21,6 @@ dependencies = {
 build = {
    type = "command",
    build_command = [[
-
 jopts=$(getconf _NPROCESSORS_CONF)
 
 echo "Building on $jopts cores"

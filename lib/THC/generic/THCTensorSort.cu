@@ -209,6 +209,8 @@ void sortViaThrust(THCState* state,
   THCTensor_(free)(state, trKeys);
   THCudaLongTensor_free(state, trIndices);
 
+  THCThrustAllocator thrustAlloc(state);
+
   thrust::device_ptr<real> keyIter(THCTensor_(data)(state, trContigKey));
 
   // Since we are composing a global index across all segments rather
@@ -223,7 +225,7 @@ void sortViaThrust(THCState* state,
 
   thrust::copy(
 #if CUDA_VERSION >= 7000
-    thrust::cuda::par.on(THCState_getCurrentStream(state)),
+    thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #endif
     countIter, countIter + totalElements, indexIter);
 
@@ -232,13 +234,13 @@ void sortViaThrust(THCState* state,
   if (dir) {
     thrust::stable_sort_by_key(
 #if CUDA_VERSION >= 7000
-      thrust::cuda::par.on(THCState_getCurrentStream(state)),
+      thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #endif
       keyIter, keyIter + totalElements, indexIter, ThrustGTOp<real>());
   } else {
     thrust::stable_sort_by_key(
 #if CUDA_VERSION >= 7000
-      thrust::cuda::par.on(THCState_getCurrentStream(state)),
+      thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #endif
       keyIter, keyIter + totalElements, indexIter, ThrustLTOp<real>());
   }
@@ -249,7 +251,7 @@ void sortViaThrust(THCState* state,
   // per each slice
   thrust::stable_sort_by_key(
 #if CUDA_VERSION >= 7000
-    thrust::cuda::par.on(THCState_getCurrentStream(state)),
+    thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #endif
     indexIter, indexIter + totalElements, keyIter,
     SliceComp(sliceSize));
@@ -258,7 +260,7 @@ void sortViaThrust(THCState* state,
   // Lua index
   thrust::for_each(
 #if CUDA_VERSION >= 7000
-    thrust::cuda::par.on(THCState_getCurrentStream(state)),
+    thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #endif
     indexIter, indexIter + totalElements,
     GlobalIndexToPerSliceIndex(sliceSize));
@@ -279,8 +281,8 @@ THC_API void THCTensor_(sort)(THCState* state,
                                THCudaLongTensor *indices,
                                THCTensor *input,
                                int dim, int order) {
-  THAssert(THCTensor_(checkGPU)(state, 2, sorted, input));
-  THAssert(THCudaLongTensor_checkGPU(state, 1, indices));
+  THCAssertSameGPU(THCTensor_(checkGPU)(state, 2, sorted, input));
+  THCAssertSameGPU(THCudaLongTensor_checkGPU(state, 1, indices));
   long dims = THCTensor_(nDimension)(state, sorted);
   THArgCheck(dims <= MAX_CUTORCH_DIMS, 2, CUTORCH_DIM_WARNING);
   dims = THCTensor_(nDimension)(state, input);
@@ -297,7 +299,21 @@ THC_API void THCTensor_(sort)(THCState* state,
   // How large are the slices that we are sorting?
   long sliceSize = THCTensor_(size)(state, input, dim);
 
-  if (sliceSize <= 2048) {
+  // Workaround:
+  // CUDA 8 uses more shared memory than 7.5 for bitonicSortKVInPlace,
+  // and so for the double word types,
+  // we get "too many resources requested for launch" in the 2048 case
+#if CUDA_VERSION >= 8000
+#if defined(THC_REAL_IS_DOUBLE) || defined(THC_REAL_IS_LONG)
+  int maxSliceSize = 1024;
+#else
+  int maxSliceSize = 2048;
+#endif
+#else
+  int maxSliceSize = 2048;
+#endif
+
+  if (sliceSize <= maxSliceSize) {
     // Fill `indices` (the values) with the
     // slice-relative index.
     THCudaLongTensor_fillSliceWithIndex(state, indices, dim);
