@@ -164,6 +164,9 @@ THC_API void THCTensor_(mode)(THCState *state,
   THCudaLongTensor *indicesTransposed;
   long ndim;
 
+  THCTensor *sorted;
+  THCudaLongTensor *positions;
+
   THAssert(THCTensor_(checkGPU)(state, 1, values));
 
   // Verify they are asking for a valid dimension
@@ -178,38 +181,60 @@ THC_API void THCTensor_(mode)(THCState *state,
   THCudaLongTensor_resize(state, indices, dim, NULL);
   THLongStorage_free(dim);
 
-  // Beginning our naive implementation: We don't want to mutate the input Tensor, but
-  // we need to be able to sort the inputs along the dimension in order to calculate the
-  // mode. Additionally, its ideal if the data along the dimension is contiguous. So
-  // we transpose the dimension with the innermost dimension and make a new contiguous
-  // version that we can use.
+  if (true) {
+    // Beginning our optimized implementation. First thing we want to do is to sort the
+    // input Tensor. So we need to create Tensors to sort into.
+    sorted = THCTensor_(new)(state);
+    positions = THCudaLongTensor_new(state);
+    THCTensor_(sort)(state, sorted, positions, input, dimension, 0);
 
-  transposed = THCTensor_(newClone)(state, input);
-  THCTensor_(transpose)(state, transposed, NULL, dimension, ndim - 1);
-  contiguous = THCTensor_(newContiguous)(state, transposed);
-  THCTensor_(free)(state, transposed);
+    // At this point we have the Tensor sorted along the mode dimension. Next, we want
+    // to tranpose this dimension to the innermost dim, and then make it contiguous.
+    THCTensor_(transpose)(state, sorted, sorted, dimension, ndim - 1);
+    THCudaLongTensor_transpose(state, positions, positions, dimension, ndim - 1);
 
-  // We also need to view the values and indices Tensors as transposed in order to
-  // properly determine the offset into the underlying storage in which to place the
-  // mode and index for a particular set of dimension values
-  valuesTransposed = THCTensor_(newTranspose)(state, values, dimension, ndim-1);
-  indicesTransposed = THCudaLongTensor_newTranspose(state, indices, dimension, ndim-1);
+    // Make this Tensor contiguous
+    contiguous = THCTensor_(newContiguous)(state, sorted);
 
-  // Position is a Storage that will store the dimension values we are processing
-  position = THLongStorage_newWithSize(ndim - 1);
+    // TODO: setup and call mode kernel
 
-  // Sort Buffer is a Storage that will be used in the internal sort required to calculate
-  // the mode efficiently
-  sortBuffer = THCudaLongStorage_newWithSize(state, THCTensor_(size)(state, input, ndim - 1));
+    THCTensor_(free)(state, sorted);
+    THCudaLongTensor_free(state, positions);
+    THCTensor_(free)(state, contiguous);
+  } else {
+    // Beginning our naive implementation: We don't want to mutate the input Tensor, but
+    // we need to be able to sort the inputs along the dimension in order to calculate the
+    // mode. Additionally, its ideal if the data along the dimension is contiguous. So
+    // we transpose the dimension with the innermost dimension and make a new contiguous
+    // version that we can use.
 
-  // Call mode
-  THCTensor_(dimApplyMode)(state, valuesTransposed, indicesTransposed, contiguous, sortBuffer, dimension, position, 0);
+    transposed = THCTensor_(newClone)(state, input);
+    THCTensor_(transpose)(state, transposed, NULL, dimension, ndim - 1);
+    contiguous = THCTensor_(newContiguous)(state, transposed);
+    THCTensor_(free)(state, transposed);
 
-  THCTensor_(free)(state, contiguous);
-  THLongStorage_free(position);
-  THCTensor_(free)(state, valuesTransposed);
-  THCudaLongTensor_free(state, indicesTransposed);
-  THCudaLongStorage_free(state, sortBuffer);
+    // We also need to view the values and indices Tensors as transposed in order to
+    // properly determine the offset into the underlying storage in which to place the
+    // mode and index for a particular set of dimension values
+    valuesTransposed = THCTensor_(newTranspose)(state, values, dimension, ndim-1);
+    indicesTransposed = THCudaLongTensor_newTranspose(state, indices, dimension, ndim-1);
+
+    // Position is a Storage that will store the dimension values we are processing
+    position = THLongStorage_newWithSize(ndim - 1);
+
+    // Sort Buffer is a Storage that will be used in the internal sort required to calculate
+    // the mode efficiently
+    sortBuffer = THCudaLongStorage_newWithSize(state, THCTensor_(size)(state, input, ndim - 1));
+
+    // Call mode
+    THCTensor_(dimApplyMode)(state, valuesTransposed, indicesTransposed, contiguous, sortBuffer, dimension, position, 0);
+
+    THCTensor_(free)(state, contiguous);
+    THLongStorage_free(position);
+    THCTensor_(free)(state, valuesTransposed);
+    THCudaLongTensor_free(state, indicesTransposed);
+    THCudaLongStorage_free(state, sortBuffer);
+  }
 }
 
 #endif
