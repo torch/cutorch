@@ -3690,6 +3690,32 @@ function test.cat()
    end
 end
 
+function test.catNoDim()
+   for k, typename in ipairs(typenames) do
+      local a
+      local b
+      local c
+
+      a = torch.Tensor(minsize):uniform():type(typename)
+      b = torch.Tensor(minsize):uniform():type(typename)
+      c = torch.cat(a, b)
+      tester:assertTensorEq(c:narrow(1, 1, minsize), a, 0, 'torch.cat value')
+      tester:assertTensorEq(c:narrow(1, minsize + 1, minsize), b, 0, 'torch.cat value')
+
+      a = torch.Tensor(1, minsize):uniform():type(typename)
+      b = torch.Tensor(1, minsize):uniform():type(typename)
+      c = torch.cat(a, b)
+      tester:assertTensorEq(c:narrow(2, 1, minsize), a, 0, 'torch.cat value')
+      tester:assertTensorEq(c:narrow(2, minsize + 1, minsize), b, 0, 'torch.cat value')
+
+      a = torch.Tensor(10, minsize):uniform():type(typename)
+      b = torch.Tensor(10, minsize):uniform():type(typename)
+      c = torch.cat(a, b)
+      tester:assertTensorEq(c:narrow(2, 1, minsize), a, 0, 'torch.cat value')
+      tester:assertTensorEq(c:narrow(2, minsize + 1, minsize), b, 0, 'torch.cat value')
+   end
+end
+
 function test.catArray()
    for k, typename in ipairs(typenames) do
       for dim = 1, 3 do
