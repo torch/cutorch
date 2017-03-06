@@ -1,6 +1,7 @@
 #include "THCGeneral.h"
 #include "TH.h"
 #include "THCAllocator.h"
+#include "THCCachingAllocator.h"
 #include "THCCachingHostAllocator.h"
 #include "THCStream.h"
 #include "THCThreadLocal.h"
@@ -301,6 +302,30 @@ THC_API THCDeviceAllocator* THCState_getDeviceAllocator(THCState* state)
 void THCState_setDeviceAllocator(THCState* state, THCDeviceAllocator* allocator)
 {
   state->cudaDeviceAllocator = allocator;
+}
+
+int THCState_getCachingAllocator(THCState* state)
+{
+  return state->cudaHostAllocator == &THCCachingHostAllocator;
+}
+
+void THCState_setCachingAllocator(THCState* state, int enable)
+{
+  // Empty cache of previous allocator if any.
+  if (state->cudaDeviceAllocator && state->cudaDeviceAllocator->emptyCache) {
+    state->cudaDeviceAllocator->emptyCache(state->cudaDeviceAllocator->state);
+  }
+  if (state->cudaHostAllocator == &THCCachingHostAllocator) {
+    THCCachingHostAllocator_emptyCache();
+  }
+
+  if (enable) {
+    THCState_setDeviceAllocator(state, THCCachingAllocator_get());
+    state->cudaHostAllocator = &THCCachingHostAllocator;
+  } else {
+    THCState_setDeviceAllocator(state, &defaultDeviceAllocator);
+    state->cudaHostAllocator = &THCudaHostAllocator;
+  }
 }
 
 int THCState_getNumDevices(THCState *state)
