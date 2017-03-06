@@ -1,8 +1,6 @@
 #include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
-#include "THCCachingAllocator.h"
-#include "THCCachingHostAllocator.h"
 #include "THCSleep.h"
 #include "THCTensorRandom.h"
 #include "THCHalf.h" // for CUDA_HALF_TENSOR
@@ -699,6 +697,24 @@ static int cutorch_setKernelPeerToPeerAccess(lua_State *L)
   return 0;
 }
 
+static int cutorch_getCachingAllocator(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  lua_pushboolean(L, THCState_getCachingAllocator(state));
+
+  return 1;
+}
+
+static int cutorch_setCachingAllocator(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+
+  int val = lua_toboolean(L, -1);
+  THCState_setCachingAllocator(state, val);
+
+  return 0;
+}
+
 static int cutorch_getMemoryUsage(lua_State *L) {
   size_t freeBytes = 0;
   size_t totalBytes = 0;
@@ -993,6 +1009,8 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"setPeerToPeerAccess", cutorch_setPeerToPeerAccess},
   {"setKernelPeerToPeerAccess", cutorch_setKernelPeerToPeerAccess},
   {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
+  {"getCachingAllocator", cutorch_getCachingAllocator},
+  {"setCachingAllocator", cutorch_setCachingAllocator},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"getRuntimeVersion", cutorch_getRuntimeVersion},
   {"getDriverVersion", cutorch_getDriverVersion},
@@ -1027,10 +1045,8 @@ int luaopen_libcutorch(lua_State *L)
 
   /* Enable the caching allocator unless THC_CACHING_ALLOCATOR=0 */
   char* thc_caching_allocator = getenv("THC_CACHING_ALLOCATOR");
-  if (!thc_caching_allocator || strcmp(thc_caching_allocator, "0") != 0) {
-    THCState_setDeviceAllocator(state, THCCachingAllocator_get());
-    state->cudaHostAllocator = &THCCachingHostAllocator;
-  }
+  THCState_setCachingAllocator(state,
+                               !thc_caching_allocator || strcmp(thc_caching_allocator, "0") != 0);
 
   THCudaInit(state);
 
