@@ -85,6 +85,7 @@ __global__ void computeMode(
   __shared__ T smem[Power2Size];
   __shared__ bool bmem[Power2Size];
   __shared__ int  cmem[Power2Size];
+  __shared__ int  imem[Power2Size];
 
   /* __shared__ unsigned int smem[1024]; */
   /* __shared__ bool      bmem[1024]; */
@@ -119,23 +120,6 @@ __global__ void computeMode(
   cmem[tidx * 2] = !bmem[tidx * 2];
   cmem[tidx * 2 + 1] = !bmem[tidx * 2 + 1];
 
-  /* if (threadIdx.x == 0) { */
-  /*   printf("smem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", smem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /*   printf("bmem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", bmem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /*   printf("cmem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", cmem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
   __syncthreads();
 
   // Next, we perform a segmented prefix sum on the neighboring elements, where
@@ -147,31 +131,29 @@ __global__ void computeMode(
   // Flag   = [1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1]
   //           1  2  1  2  1  2  3  1  1  1  2  1  1]
   segmentedInclusivePrefixScan<int, BinaryAddOp<int>, Power2Size>(cmem, bmem, BinaryAddOp<int>());
-  /* if (threadIdx.x == 0) { */
-  /*   printf("bmem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", bmem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /*   printf("cmem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", cmem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
 
-  // Now we reduce to find the maximum value, which represents the count of the mode
-  if (threadIdx.x == 0) {
-    for (int i = 0; i < sliceSize; ++i) {
-      if (cmem[i] > maxCount) {
-        maxCount = cmem[i];
-        index = i;
+  // initialize indices
+  imem[tidx * 2] = tidx * 2;
+  imem[tidx * 2 + 1] = tidx * 2 + 1;
+
+  // Next, reduce to find the maximum count, and index at which it occurs
+#pragma unroll
+  for (unsigned int offset = Power2Size / 2; offset > 0; offset >>= 1) {
+    if (tidx + offset < sliceSize) {
+      if (cmem[tidx + offset] > cmem[tidx]) {
+        cmem[tidx] = cmem[tidx + offset];
+        imem[tidx] = imem[tidx + offset];
       }
     }
-    mode = smem[index];
-    index -= maxCount;
+    __syncthreads();
   }
-  __syncthreads();
+
+  // mode is the value at the maximum index in the segmented scan, index is
+  // the count minus that (to find the first element)
+  if (threadIdx.x == 0) {
+    mode = smem[imem[0]];
+    index = imem[0] - cmem[0];
+  }
 
   // Now that we have the mode, and corresponding index, we need to calculate the output
   // position in the values/indices array. TODO: sinking suspicion this is wrong
