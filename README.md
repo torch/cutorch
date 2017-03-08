@@ -51,6 +51,7 @@ With the caching memory allocator, device allocations and frees should logically
 - `cutorch.getState()` - Returns the global state of the cutorch package. This state is not for users, it stores the raw RNG states, cublas handles and other thread and device-specific stuff.
 - `cutorch.withDevice(devID, f)` - This is a convenience for multi-GPU code, that takes in a device ID as well as a function f. It switches cutorch to the new device, executes the function f, and switches back cutorch to the original device.
 - `cutorch.createCudaHostTensor([...])` - Allocates a `torch.FloatTensor` of [host-pinned memory](https://devblogs.nvidia.com/parallelforall/how-optimize-data-transfers-cuda-cc/), where dimensions can be given as an argument list of sizes or a `torch.LongStorage`.
+- `cutorch.isCachingAllocatorEnabled()` - Returns whether the caching CUDA memory allocator is enabled or not.
 
 #### Low-level streams functions (dont use this as a user, easy to shoot yourself in the foot):
 - `cutorch.reserveStreams(n [, nonblocking])`: creates n user streams for use on every device. NOTE: stream index `s` on device 1 is a different cudaStream_t than stream `s` on device 2. Takes an optional non-blocking flag; by default, this is assumed to be false. If true, then the stream is created with cudaStreamNonBlocking.
