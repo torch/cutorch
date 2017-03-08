@@ -152,6 +152,9 @@ THC_API void THCTensor_(dimApplyMode)(THCState *state,
   }
 }
 
+#define MAX_GRID_SIZE  65535
+#define MAX_BLOCK_SIZE 1024
+
 THC_API void THCTensor_(mode)(THCState *state,
                               THCTensor *values,
                               THCudaLongTensor *indices,
@@ -162,7 +165,7 @@ THC_API void THCTensor_(mode)(THCState *state,
   THLongStorage *position;
   THCudaLongStorage *sortBuffer;
   THCudaLongTensor *indicesTransposed;
-  long ndim;
+  long ndim, sliceSize, slices;
 
   THCTensor *sorted;
   THCudaLongTensor *positions;
@@ -173,6 +176,9 @@ THC_API void THCTensor_(mode)(THCState *state,
   ndim = THCTensor_(nDimension)(state, input);
   THArgCheck(dimension >= 0 && dimension < ndim, 4, "Dimension of out bounds");
 
+  sliceSize = THCTensor_(size)(state, input, dimension);
+  slices = THCTensor_(nElement)(state, input) / sliceSize;
+
   // Resize output value, index Tensors to appropriate sizes (i.e. the same as
   // the input Tensor, except at dim=dimension, the size is 1)
   dim = THCTensor_(newSizeOf)(state, input);
@@ -181,7 +187,15 @@ THC_API void THCTensor_(mode)(THCState *state,
   THCudaLongTensor_resize(state, indices, dim, NULL);
   THLongStorage_free(dim);
 
-  if (true) {
+  // Requirements for fused kernel implementation:
+  //
+  // 1. sliceSize <= 2 * max threads per block
+  // 2. uses one block per slice, so number of slices must be less than the maximum number of blocks for
+  // a kernel launch
+  // 3. Can use 32-bit index math for indexing (mainly just for implementation conciseness, could be changed)
+  if (sliceSize <= MAX_BLOCK_SIZE &&
+      slices <= MAX_GRID_SIZE &&
+      TensorUtils<THCTensor>::canUse32BitIndexMath(state, input)) {
     // Beginning our optimized implementation. First thing we want to do is to sort the
     // input Tensor. So we need to create Tensors to sort into.
     sorted = THCTensor_(new)(state);
@@ -196,7 +210,52 @@ THC_API void THCTensor_(mode)(THCState *state,
     // Make this Tensor contiguous
     contiguous = THCTensor_(newContiguous)(state, sorted);
 
-    // TODO: setup and call mode kernel
+    // Set-up TensorInfo structs for passing to kernel
+    TensorInfo<real, unsigned int> tiContig = getTensorInfo<THCTensor, unsigned int>(state, contiguous);
+    TensorInfo<long, unsigned int> tiPos = getTensorInfo<THCudaLongTensor, unsigned int>(state, positions);
+    TensorInfo<real, unsigned int> tiValues = getTensorInfo<THCTensor, unsigned int>(state, values);
+    TensorInfo<long, unsigned int> tiIndices = getTensorInfo<THCudaLongTensor, unsigned int>(state, indices);
+
+    // The number of blocks is the number of slices that we need to calculate the mode for. Each block
+    // is responsible for computing a single mode
+    dim3 grid;
+    THC_getGridFromTiles(slices, grid);
+
+    // The blocksize is two elements per thread, rounded up to the nearest power of 2
+    long ceilPowerOf2 = nnextHighestPowerOf2(sliceSize);
+    dim3 block(ceilPowerOf2);
+
+  #define HANDLE_MODE(SIZE) \
+    computeMode<real, SIZE> \
+      <<<grid, block, 0, THCState_getCurrentStream(state)>>>( \
+        tiContig, tiPos, tiValues, tiIndices, sliceSize); \
+
+    switch(ceilPowerOf2) {
+      case 2048:
+        HANDLE_MODE(2048)
+        break;
+      case 1024:
+      case 512:
+      case 256:
+        HANDLE_MODE(1024)
+        break;
+      case 128:
+      case 64:
+        HANDLE_MODE(128)
+        break;
+      case 32:
+      case 16:
+      case 8:
+      case 4:
+      case 2:
+        HANDLE_MODE(32)
+        break;
+      case 1:
+        // TODO: handle copy
+        break;
+      default:
+        assert(false);
+    }
 
     THCTensor_(free)(state, sorted);
     THCudaLongTensor_free(state, positions);
@@ -236,5 +295,8 @@ THC_API void THCTensor_(mode)(THCState *state,
     THCudaLongStorage_free(state, sortBuffer);
   }
 }
+
+#undef MAX_GRID_SIZE
+#undef MAX_BLOCK_SIZE
 
 #endif
