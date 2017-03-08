@@ -187,6 +187,13 @@ THC_API void THCTensor_(mode)(THCState *state,
   THCudaLongTensor_resize(state, indices, dim, NULL);
   THLongStorage_free(dim);
 
+  // If sliceSize is 1, copy input to values and set indices
+  if (sliceSize == 1) {
+    THCTensor_(copy)(state, values, input);
+    THCudaLongTensor_fill(state, indices, TH_INDEX_BASE);
+    return;
+  }
+
   // Requirements for fused kernel implementation:
   //
   // 1. sliceSize <= 2 * max threads per block
@@ -223,7 +230,7 @@ THC_API void THCTensor_(mode)(THCState *state,
 
     // The blocksize is two elements per thread, rounded up to the nearest power of 2
     long ceilPowerOf2 = nnextHighestPowerOf2(sliceSize);
-    dim3 block(ceilPowerOf2);
+    dim3 block(ceilPowerOf2 / 2);
 
   #define HANDLE_MODE(SIZE) \
     computeMode<real, SIZE> \
@@ -251,8 +258,6 @@ THC_API void THCTensor_(mode)(THCState *state,
         HANDLE_MODE(32)
         break;
       case 1:
-        // TODO: handle copy
-        break;
       default:
         assert(false);
     }
