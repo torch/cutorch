@@ -699,6 +699,14 @@ static int cutorch_setKernelPeerToPeerAccess(lua_State *L)
   return 0;
 }
 
+static int cutorch_isCachingAllocatorEnabled(lua_State *L)
+{
+  THCState *state = cutorch_getstate(L);
+  lua_pushboolean(L, THCState_isCachingAllocatorEnabled(state));
+
+  return 1;
+}
+
 static int cutorch_getMemoryUsage(lua_State *L) {
   size_t freeBytes = 0;
   size_t totalBytes = 0;
@@ -993,6 +1001,7 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {"setPeerToPeerAccess", cutorch_setPeerToPeerAccess},
   {"setKernelPeerToPeerAccess", cutorch_setKernelPeerToPeerAccess},
   {"getKernelPeerToPeerAccess", cutorch_getKernelPeerToPeerAccess},
+  {"isCachingAllocatorEnabled", cutorch_isCachingAllocatorEnabled},
   {"getDeviceProperties", cutorch_getDeviceProperties},
   {"getRuntimeVersion", cutorch_getRuntimeVersion},
   {"getDriverVersion", cutorch_getDriverVersion},
