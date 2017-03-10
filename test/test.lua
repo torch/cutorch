@@ -175,13 +175,13 @@ local function createTestTensor(maxSize)
 end
 
 local function isEqual(x, y, tolerance, ...)
-   if a == nil and b == nil then return true end
-   if a == nil and b ~= nil then return false end
-   if a ~= nil and b == nil then return false end
+   if x == nil and y == nil then return true end
+   if x == nil and y ~= nil then return false end
+   if x ~= nil and y == nil then return false end
 
-   -- clone the tensors so we can modify the contents if necessary for testing
-   local a = x:clone()
-   local b = y:clone()
+   -- if x, y are tensors clone them so we can modify the contents if necessary for testing
+   local a = type(x) ~= 'number' and x:clone() or x
+   local b = type(y) ~= 'number' and y:clone() or y
 
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
