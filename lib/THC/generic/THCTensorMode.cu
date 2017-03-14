@@ -167,8 +167,6 @@ THC_API void THCTensor_(mode)(THCState *state,
   THCudaLongTensor *indicesTransposed;
   long ndim, sliceSize, slices;
 
-  THCTensor *sorted;
-  THCudaLongTensor *positions;
 
   THAssert(THCTensor_(checkGPU)(state, 1, values));
 
@@ -203,23 +201,12 @@ THC_API void THCTensor_(mode)(THCState *state,
   if (sliceSize <= MAX_BLOCK_SIZE &&
       slices <= MAX_GRID_SIZE &&
       TensorUtils<THCTensor>::canUse32BitIndexMath(state, input)) {
-    // Beginning our optimized implementation. First thing we want to do is to sort the
-    // input Tensor. So we need to create Tensors to sort into.
-    sorted = THCTensor_(new)(state);
-    positions = THCudaLongTensor_new(state);
-    THCTensor_(sort)(state, sorted, positions, input, dimension, 0);
-
-    // At this point we have the Tensor sorted along the mode dimension. Next, we want
-    // to tranpose this dimension to the innermost dim, and then make it contiguous.
-    THCTensor_(transpose)(state, sorted, sorted, dimension, ndim - 1);
-    THCudaLongTensor_transpose(state, positions, positions, dimension, ndim - 1);
-
-    // Make this Tensor contiguous
-    contiguous = THCTensor_(newContiguous)(state, sorted);
+    // Beginning our optimized implementation. First thing we want to do is to transpose
+    // the input Tensor along the sort dimension, and then make it contiguous
+    transposed = THCTensor_(newTranspose)(state, input, dimension, ndim - 1);
+    contiguous = THCTensor_(newContiguous)(state, transposed);
 
     // Set-up TensorInfo structs for passing to kernel
-    TensorInfo<real, unsigned int> tiContig = getTensorInfo<THCTensor, unsigned int>(state, contiguous);
-    TensorInfo<long, unsigned int> tiPos = getTensorInfo<THCudaLongTensor, unsigned int>(state, positions);
     TensorInfo<real, unsigned int> tiValues = getTensorInfo<THCTensor, unsigned int>(state, values);
     TensorInfo<long, unsigned int> tiIndices = getTensorInfo<THCudaLongTensor, unsigned int>(state, indices);
 
@@ -232,11 +219,14 @@ THC_API void THCTensor_(mode)(THCState *state,
     long ceilPowerOf2 = nnextHighestPowerOf2(sliceSize);
     dim3 block(ceilPowerOf2 / 2);
 
+    // Macro that calls kernel
   #define HANDLE_MODE(SIZE) \
     computeMode<real, SIZE> \
       <<<grid, block, 0, THCState_getCurrentStream(state)>>>( \
-        tiContig, tiPos, tiValues, tiIndices, sliceSize); \
+        THCTensor_(data)(state, contiguous), tiValues, tiIndices, sliceSize); \
 
+    // Tradeoff between compilation time and the number of specializations. Ideally we would have
+    // one HANDLE_MODE for each power of 2
     switch(ceilPowerOf2) {
       case 2048:
         HANDLE_MODE(2048)
@@ -262,8 +252,7 @@ THC_API void THCTensor_(mode)(THCState *state,
         assert(false);
     }
 
-    THCTensor_(free)(state, sorted);
-    THCudaLongTensor_free(state, positions);
+    THCTensor_(free)(state, transposed);
     THCTensor_(free)(state, contiguous);
   } else {
     // Beginning our naive implementation: We don't want to mutate the input Tensor, but
@@ -271,6 +260,7 @@ THC_API void THCTensor_(mode)(THCState *state,
     // mode. Additionally, its ideal if the data along the dimension is contiguous. So
     // we transpose the dimension with the innermost dimension and make a new contiguous
     // version that we can use.
+    assert(false);
 
     transposed = THCTensor_(newClone)(state, input);
     THCTensor_(transpose)(state, transposed, NULL, dimension, ndim - 1);
