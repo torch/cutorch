@@ -365,10 +365,11 @@ end
 -- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
 --             false: convert then to baseType when doing CUDA
 -- x = first argument tensor
+-- limit: number of returns to compare, if nil, compares all returns
 -- gpu2cpu_map = map of gpu types to cpu types
 -- fn = function name (as string), or the function)
 -- ... = the rest of arguments to fn
-local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, indexMode, x, fn, ...)
+local function compareCPUAndCUDATypeTensorArgsWithConvInternal(cudaType, gpu2cpu_map, indexMode, limit, x, fn, ...)
    local baseType = t2cpu[cudaType]
    assert(baseType, 'Cannot find baseType for ' .. cudaType)
    local x_cpu = x:type(baseType)
@@ -421,23 +422,30 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
    tester:assert(#rcpu == #rcuda,
 		 string.format("number of return arguments for CPU and CUDA "
 			       .. "are different for function '%s'", tostring(fn)))
-   for k, _ in ipairs(rcpu) do
-      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
-                    string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
+
+   if limit ~= nil then
+      for k = 1, limit do
+         tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
+                       string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
+      end
+   else
+      for k, _ in ipairs(rcpu) do
+         tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
+                       string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
+      end
    end
+
    -- also test x in case function changed object
    tester:assert(isEqual(x_cpu, x_cuda, tolerance),
                  string.format(errstrobj, divval(x_cpu, x_cuda)))
 end
 
--- baseType = the tensor type to test
--- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
---             false: convert then to baseType when doing CUDA
--- x = first argument tensor
--- fn = function name (as string), or the function)
--- ... = the rest of arguments to fn
 local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
-   compareCPUAndCUDATypeTensorArgsWithConv(cudaType, nil, indexMode, x, fn, ...)
+   compareCPUAndCUDATypeTensorArgsWithConvInternal(cudaType, nil, indexMode, nil, x, fn, ...)
+end
+
+local function compareCPUAndCUDATypeTensorArgsWithLimit(cudaType, indexMode, limit, x, fn, ...)
+   compareCPUAndCUDATypeTensorArgsWithConvInternal(cudaType, nil, indexMode, limit, x, fn, ...)
 end
 
 function test.squeeze()
@@ -1906,10 +1914,10 @@ local function testIndexAdd(types, gpu2cpu_map)
    for k, typename in ipairs(types) do
       local ctype = t2cpu[typename]
       local x, src = x:type(ctype), src:type(ctype)
-      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+      compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, true, nil, x, 'indexAdd',
                                               index, longIndex, src)
       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
-          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+          compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, false, nil, x, 'indexAdd',
                                                   index, longIndex, src)
       end
    end
@@ -1921,10 +1929,10 @@ local function testIndexAdd(types, gpu2cpu_map)
    for k, typename in ipairs(types) do
       local ctype = t2cpu[typename]
       local x, src = x:type(ctype), src:type(ctype)
-      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+      compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, true, nil, x, 'indexAdd',
                                               index, longIndex, src)
       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
-          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+          compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, false, nil, x, 'indexAdd',
                                                   index, longIndex, src)
       end
    end
@@ -1937,10 +1945,10 @@ local function testIndexAdd(types, gpu2cpu_map)
    for k, typename in ipairs(types) do
       local ctype = t2cpu[typename]
       local x, src = x:type(ctype), src:type(ctype)
-      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+      compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, true, nil, x, 'indexAdd',
                                               index, longIndex, src)
       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
-          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+          compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, false, nil, x, 'indexAdd',
                                                   index, longIndex, src)
       end
    end
