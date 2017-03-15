@@ -3848,6 +3848,7 @@ local function verifyMode3D(tensor)
     --       5 --> 2,
     --       ...
 
+    -- used to set loop bounds and indexing to construct the above table using the loop below
     local dbounds = {
       {tensor:size(2), tensor:size(3), tensor:size(1)},
       {tensor:size(1), tensor:size(3), tensor:size(2)},
@@ -3888,8 +3889,7 @@ local function verifyMode3D(tensor)
 
 
    -- verification pass
-   -- for dim = 1, 3 do
-   for dim = 1, 1 do
+   for dim = 1, 3 do
       for _, cudaType in ipairs({'torch.CudaIntTensor'}) do
          local baseType = t2cpu[cudaType]
          assert(baseType, 'Cannot find baseType for ' .. cudaType)
