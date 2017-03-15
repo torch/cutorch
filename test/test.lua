@@ -3667,6 +3667,287 @@ function test.topk()
    end
 end
 
+local function verifyMode1D(tensor)
+   -- We cannot rely upon comparing against CPU-Torch as the way it resolves
+   -- ties between equal modes and how it picks the corresponding index is not
+   -- reliable. Instead we will use apply macros to compute the mode in place in
+   -- our code and compare against these results
+
+   -- counts is a table of tensor element -> # of occurrences
+   local counts = {}
+
+   -- populate counts by iterating over the elements in the tensor
+   tensor:apply(function(x) if counts[x] == nil then counts[x] = 1 else counts[x] = counts[x] + 1 end return x end)
+
+   -- next, calculate the max occurrence in the tensor
+   local max = -1;
+   for _, count in pairs(counts) do
+      if count > max then max = count end
+   end
+   print(counts, max)
+
+   -- now verify for all the GPU types that 1. the mode picked has max occurrences,
+   -- and 2. that the index returned contains that mode
+
+   -- for _, cudaType in ipairs(typenames) do
+   for _, cudaType in ipairs({'torch.CudaIntTensor', 'torch.CudaTensor'}) do
+      local baseType = t2cpu[cudaType]
+      assert(baseType, 'Cannot find baseType for ' .. cudaType)
+      local x_cpu = tensor:clone():type(baseType)
+      local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
+
+      local modes, indices = x_cuda:mode()
+      print(x_cuda, modes, indices)
+
+      -- 1D, so should only be a single return
+      tester:assert(modes:nElement() == 1)
+      tester:assert(indices:nElement() == 1)
+      local mode = modes[1]
+      local index = indices[1]
+      -- print(mode, index)
+
+      tester:assert(counts[mode] == max, string.format(
+         'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
+         cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
+      ))
+      tester:assert(tensor[index] == mode)
+   end
+end
+
+local function assertSize(tensor, sizes)
+   local valid = true
+   if tensor:nDimension() ~= #sizes then
+      tester:assert(false, 'tensor dimension mismatch')
+   end
+   for i, size in ipairs(sizes) do
+      if tensor:size(i) ~= size then
+         valid = false
+      end
+   end
+   tester:assert(valid, 'tensor size mismatch')
+end
+
+local function verifyMode2D(tensor)
+   for dim = 1, 2 do
+      -- In the case of a 2D Tensor, we need to calculate the count for each slice
+      -- sCounts is a table containing the counts of elements for each slice,
+      -- sMax is a table containing the max occurrence for each slice
+      local sCounts = {}
+      local sMax = {}
+
+      -- First, we use the :split() function to split the Tensor
+      -- Suppose we are mode'ing a 5x10 Tensor. If we mode along dim=1,
+      -- we have a result Tensor that is 1x10, so we need the counts for
+      -- all 10 slices of size=5. So we actually split along dim=2, with
+      -- size = 1, to yield 10 5x1 tensors
+      local splits = tensor:split(1, dim == 1 and 2 or 1)
+
+      -- next, we iterate over these split Tensors to calculate the mode, as we
+      -- did in the 1D case
+      for i, slice in pairs(splits) do
+         local counts = {}
+         slice:apply(function(x) if counts[x] == nil then counts[x] = 1 else counts[x] = counts[x] + 1 end return x end)
+
+         local max = -1;
+         for _, count in pairs(counts) do
+            if count > max then max = count end
+         end
+
+         sCounts[i] = counts;
+         sMax[i] = max;
+      end
+
+      -- verification pass
+      for _, cudaType in ipairs({'torch.CudaIntTensor'}) do
+         local baseType = t2cpu[cudaType]
+         assert(baseType, 'Cannot find baseType for ' .. cudaType)
+         local x_cpu = tensor:clone():type(baseType)
+         local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
+         local modes, indices = x_cuda:mode(dim)
+
+         -- 2D, so expect:
+         -- (dim = 1) a 1xsize(tensor, dim = 2) tensor
+         -- (dim = 2) a size(tensor, dim = 1)x1 tensor
+
+         print(modes, indices)
+         if dim == 1 then
+            assertSize(modes, {1, tensor:size(2)})
+            assertSize(indices, {1, tensor:size(2)})
+         else
+            assertSize(modes, {tensor:size(1), 1})
+            assertSize(indices, {tensor:size(1), 1})
+         end
+
+         -- we need to run through and verify that all of the modes/indices are valid, for
+         -- the results of each slice. First, we squeeze the Tensor, so we can iterate over
+         -- both the 1D/2D values in the same manner
+         modes = modes:squeeze()
+         indices = indices:squeeze()
+
+         -- iterate over each slice, and verify that for each slice the mode selected has
+         -- max occurrences, and the index points to the mode
+         for i, counts in pairs(sCounts) do
+            local max = sMax[i]
+            local mode = modes[i]
+            local index = indices[i]
+
+            tester:assert(counts[mode] == max, string.format(
+               'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
+               cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
+            ))
+
+            if dim == 1 then
+               tester:assert(tensor[index][i] == mode, string.format(
+                  'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                  cudaType, tostring(index), tostring(tensor[index][i]), tostring(mode)
+               ))
+            else
+               tester:assert(tensor[i][index] == mode, string.format(
+                  'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                  cudaType, tostring(index), tostring(tensor[i][index]), tostring(mode)
+               ))
+            end
+         end
+      end
+   end
+end
+
+local function verifyMode3D(tensor)
+    -- In the case of 3D Tensor, we need to calculate the count for each slice,
+    -- but this time, we have two layers of depth, for each of the non-mode dims
+    -- so sCounts is a multi-level table where sCounts[i][j] is the counts for
+    -- (_, i, j), (i, _, j) or (i, j, _) depending on the dim
+    local sCounts = {}
+    local sMax = {}
+
+    -- Suppose we have a 2x3x4 Tensor T:
+    -- (1, .., ..),    (2, .., ..)
+    -- [1, 2, 3, 4]    [3, 2, 2, 4]
+    -- [5, 6, 7, 8]    [5, 6, 8, 7]
+    -- [9, 10, 11, 12] [1, 10, 11, 1]
+    --
+    -- Then for dim = 1, we need counts to be a multi-level table (3x4xcounts)
+    --                2                                           (2x4xcounts)
+    --                3                                           (2x3xcounts)
+    --
+    -- Results: dim = 1
+    -- {1:
+    --    {1:
+    --       1 --> 1,
+    --       3 --> 1,
+    --     2:
+    --       2 --> 2,
+    --     3:
+    --       2 --> 1,
+    --       3 --> 1,
+    --     4:
+    --       4 --> 2,
+    --    },
+    -- {2:
+    --    {1:
+    --       5 --> 2,
+    --       ...
+
+    local dbounds = {
+      {tensor:size(2), tensor:size(3), tensor:size(1)},
+      {tensor:size(1), tensor:size(3), tensor:size(2)},
+      {tensor:size(1), tensor:size(2), tensor:size(3)}}
+    local dfuncs = {
+      function(tensor, i, j, k) return tensor[k][i][j] end,
+      function(tensor, i, j, k) return tensor[i][k][j] end,
+      function(tensor, i, j, k) return tensor[i][j][k] end,
+    }
+
+    -- loop...
+    for d, bounds in ipairs(dbounds) do
+      sCounts[d] = {}
+      sMax[d] = {}
+      for i = 1, bounds[1] do
+        sCounts[d][i] = {}
+        sMax[d][i] = {}
+        for j = 1, bounds[2] do
+           sCounts[d][i][j] = {}
+           sMax[d][i][j] = {}
+           for k = 1, bounds[3] do
+             local v = dfuncs[d](tensor, i, j, k)
+             if sCounts[d][i][j][v] == nil then
+                sCounts[d][i][j][v] = 1
+             else
+                sCounts[d][i][j][v] = sCounts[d][i][j][v] + 1
+             end
+
+             local max = -1
+             for _, count in pairs(sCounts[d][i][j]) do
+                if count > max then max = count end
+             end
+             sMax[d][i][j] = max
+           end -- k
+        end -- k
+      end -- j
+    end -- d
+
+
+   -- verification pass
+   -- for dim = 1, 3 do
+   for dim = 1, 1 do
+      for _, cudaType in ipairs({'torch.CudaIntTensor'}) do
+         local baseType = t2cpu[cudaType]
+         assert(baseType, 'Cannot find baseType for ' .. cudaType)
+         local x_cpu = tensor:clone():type(baseType)
+         local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
+         local modes, indices = x_cuda:mode(dim)
+         print(modes, indices)
+
+         if dim == 1 then
+            assertSize(modes, {1, tensor:size(2), tensor:size(3)})
+            assertSize(indices, {1, tensor:size(2), tensor:size(3)})
+         elseif dim == 2 then
+            assertSize(modes, {tensor:size(1), 1, tensor:size(3)})
+            assertSize(indices, {tensor:size(1), 1, tensor:size(3)})
+         else
+            assertSize(modes, {tensor:size(1), tensor:size(2), 1})
+            assertSize(indices, {tensor:size(1), tensor:size(2), 1})
+         end
+
+         -- squeeze on mode dim
+         modes = modes:squeeze(dim)
+         indices = indices:squeeze(dim)
+
+         -- iterate over slices
+         for i, js in pairs(sCounts[dim]) do
+            for j, counts in pairs(js) do
+               local max = sMax[dim][i][j]
+               local mode = modes[i][j]
+               local index = indices[i][j]
+
+               tester:assert(counts[mode] == max, string.format(
+                  'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
+                  cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
+               ))
+
+               if dim == 1 then
+                  tester:assert(tensor[index][i][j] == mode, string.format(
+                     'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                     cudaType, tostring(index), tostring(tensor[index][i][j]), tostring(mode)
+                  ))
+               elseif dim == 2 then
+                  tester:assert(tensor[i][index][j] == mode, string.format(
+                     'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                     cudaType, tostring(index), tostring(tensor[i][index][j]), tostring(mode)
+                  ))
+               else
+                  tester:assert(tensor[i][j][index] == mode, string.format(
+                     'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                     cudaType, tostring(index), tostring(tensor[i][j][index]), tostring(mode)
+                  ))
+               end
+
+            end -- j
+         end --i
+      end -- tensor type
+   end -- dim
+end
+
 function test.mode()
     local function compareAllDims(input, ndim)
         for k, typename in ipairs(typenames) do
