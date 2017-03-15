@@ -206,9 +206,15 @@ THC_API void THCTensor_(mode)(THCState *state,
     transposed = THCTensor_(newTranspose)(state, input, dimension, ndim - 1);
     contiguous = THCTensor_(newContiguous)(state, transposed);
 
+    // We also need to view the values and indices Tensors as transposed in order to
+    // properly determine the offset into the underlying storage in which to place the
+    // mode and index for a particular set of dimension values
+    valuesTransposed = THCTensor_(newTranspose)(state, values, dimension, ndim-1);
+    indicesTransposed = THCudaLongTensor_newTranspose(state, indices, dimension, ndim-1);
+
     // Set-up TensorInfo structs for passing to kernel
-    TensorInfo<real, unsigned int> tiValues = getTensorInfo<THCTensor, unsigned int>(state, values);
-    TensorInfo<long, unsigned int> tiIndices = getTensorInfo<THCudaLongTensor, unsigned int>(state, indices);
+    TensorInfo<real, unsigned int> tiValues = getTensorInfo<THCTensor, unsigned int>(state, valuesTransposed);
+    TensorInfo<long, unsigned int> tiIndices = getTensorInfo<THCudaLongTensor, unsigned int>(state, indicesTransposed);
 
     // The number of blocks is the number of slices that we need to calculate the mode for. Each block
     // is responsible for computing a single mode
@@ -217,12 +223,11 @@ THC_API void THCTensor_(mode)(THCState *state,
 
     // The blocksize is two elements per thread, rounded up to the nearest power of 2
     long ceilPowerOf2 = nnextHighestPowerOf2(sliceSize);
-    dim3 block(ceilPowerOf2 / 2);
 
-    // Macro that calls kernel
+    // Macro that calls kernel --> note that we set the block dimensions here
   #define HANDLE_MODE(SIZE) \
     computeMode<real, SIZE> \
-      <<<grid, block, 0, THCState_getCurrentStream(state)>>>( \
+      <<<grid, dim3(SIZE / 2), 0, THCState_getCurrentStream(state)>>>( \
         THCTensor_(data)(state, contiguous), tiValues, tiIndices, sliceSize); \
 
     // Tradeoff between compilation time and the number of specializations. Ideally we would have
@@ -251,17 +256,18 @@ THC_API void THCTensor_(mode)(THCState *state,
       default:
         assert(false);
     }
+    THCudaCheck(cudaGetLastError());
 
     THCTensor_(free)(state, transposed);
     THCTensor_(free)(state, contiguous);
+    THCTensor_(free)(state, valuesTransposed);
+    THCudaLongTensor_free(state, indicesTransposed);
   } else {
     // Beginning our naive implementation: We don't want to mutate the input Tensor, but
     // we need to be able to sort the inputs along the dimension in order to calculate the
     // mode. Additionally, its ideal if the data along the dimension is contiguous. So
     // we transpose the dimension with the innermost dimension and make a new contiguous
     // version that we can use.
-    assert(false);
-
     transposed = THCTensor_(newClone)(state, input);
     THCTensor_(transpose)(state, transposed, NULL, dimension, ndim - 1);
     contiguous = THCTensor_(newContiguous)(state, transposed);

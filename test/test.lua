@@ -3684,33 +3684,32 @@ local function verifyMode1D(tensor)
    for _, count in pairs(counts) do
       if count > max then max = count end
    end
-   print(counts, max)
 
    -- now verify for all the GPU types that 1. the mode picked has max occurrences,
    -- and 2. that the index returned contains that mode
 
-   -- for _, cudaType in ipairs(typenames) do
-   for _, cudaType in ipairs({'torch.CudaIntTensor', 'torch.CudaTensor'}) do
+   for _, cudaType in ipairs(typenames) do
       local baseType = t2cpu[cudaType]
       assert(baseType, 'Cannot find baseType for ' .. cudaType)
       local x_cpu = tensor:clone():type(baseType)
       local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
 
       local modes, indices = x_cuda:mode()
-      print(x_cuda, modes, indices)
 
       -- 1D, so should only be a single return
-      tester:assert(modes:nElement() == 1)
-      tester:assert(indices:nElement() == 1)
+      tester:assert(modes:nElement() == 1, 'mode returned an invalid number of values')
+      tester:assert(indices:nElement() == 1, 'mode returned an invalid number of values')
       local mode = modes[1]
       local index = indices[1]
-      -- print(mode, index)
 
       tester:assert(counts[mode] == max, string.format(
          'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
          cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
       ))
-      tester:assert(tensor[index] == mode)
+      tester:assert(tensor[index] == mode, string.format(
+        'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+        cudaType, tostring(index), tostring(tensor[index]), tostring(mode)
+      ))
    end
 end
 
@@ -3758,7 +3757,7 @@ local function verifyMode2D(tensor)
       end
 
       -- verification pass
-      for _, cudaType in ipairs({'torch.CudaIntTensor'}) do
+      for _, cudaType in ipairs(typenames) do
          local baseType = t2cpu[cudaType]
          assert(baseType, 'Cannot find baseType for ' .. cudaType)
          local x_cpu = tensor:clone():type(baseType)
@@ -3769,7 +3768,6 @@ local function verifyMode2D(tensor)
          -- (dim = 1) a 1xsize(tensor, dim = 2) tensor
          -- (dim = 2) a size(tensor, dim = 1)x1 tensor
 
-         print(modes, indices)
          if dim == 1 then
             assertSize(modes, {1, tensor:size(2)})
             assertSize(indices, {1, tensor:size(2)})
@@ -3890,13 +3888,12 @@ local function verifyMode3D(tensor)
 
    -- verification pass
    for dim = 1, 3 do
-      for _, cudaType in ipairs({'torch.CudaIntTensor'}) do
+      for _, cudaType in ipairs(typenames) do
          local baseType = t2cpu[cudaType]
          assert(baseType, 'Cannot find baseType for ' .. cudaType)
          local x_cpu = tensor:clone():type(baseType)
          local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
          local modes, indices = x_cuda:mode(dim)
-         print(modes, indices)
 
          if dim == 1 then
             assertSize(modes, {1, tensor:size(2), tensor:size(3)})
@@ -3949,36 +3946,37 @@ local function verifyMode3D(tensor)
 end
 
 function test.mode()
-    local function compareAllDims(input, ndim)
-        for k, typename in ipairs(typenames) do
-            input = input:type(typename)
-            for i = 1, ndim do
-                compareCPUAndCUDATypeTensorArgs(typename, nil, input, 'mode', i)
-            end
-        end
-    end
-
     -- Tests for 1D Tensors
 
     -- Single-element Tensor
     local input = torch.FloatTensor({1})
-    compareAllDims(input, 1)
+    verifyMode1D(input)
 
     -- Tensor of all the same values
     local input = torch.FloatTensor(10):fill(1)
-    compareAllDims(input, 1)
+    verifyMode1D(input)
 
     -- Tensor with a unique range of values
     local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
-    compareAllDims(input, 1)
+    verifyMode1D(input)
 
-    -- Consistency between ties when there are two things with equal counts
+    -- Handles ties when there are two things with equal counts
     local input = torch.FloatTensor({2, 2, 1, 1})
-    compareAllDims(input, 1)
+    verifyMode1D(input)
+
+    -- Big Range of Values: (4 is the mode)
+    local input = torch.FloatTensor({
+        1, 4, 4, 4, 4, 1, 1, 2, 2, 2, 3, 4, 5, 5, 4, 4, 4, 4, 4, 4,
+        2, 2, 1, 1, 2, 3, 4, 4, 4, 4, 2, 3, 4, 4, 3, 2, 1, 2, 3, 4})
+    verifyMode1D(input)
 
     -- Larger Example
     local input = torch.FloatTensor(1000):apply(function(x) return torch.random(1, 10) end)
-    compareAllDims(input, 1)
+    verifyMode1D(input)
+
+    -- Example that overflows fused-kernel
+    -- local input = torch.IntTensor(16384):apply(function(x) return torch.random(1, 100) end)
+    -- verifyMode1D(input)
 
     -- verify input is unchanged
     local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
@@ -3990,29 +3988,30 @@ function test.mode()
 
     -- Tensor of all the same values
     local input = torch.FloatTensor(3, 4):fill(1)
-    compareAllDims(input, 2)
+    verifyMode2D(input)
 
     -- Tensor with a unique range of values
     local input = torch.FloatTensor({{2,  3,  5, 7},
                                      {1, 10, 17, 6},
                                      {0, 22, 14, 9}})
-    compareAllDims(input, 2)
+    verifyMode2D(input)
 
     -- Consistency between ties when there are two things with equal counts
     local input = torch.FloatTensor({{2,  2,  3, 3},
                                      {1,  1,  3, 3},
                                      {2,  2,  1, 1},
                                      {1,  1,  1, 1}})
-    compareAllDims(input, 2)
+    verifyMode2D(input)
 
     -- Larger example
     local input = torch.FloatTensor(50, 100):apply(function(x) return torch.random(1, 10) end)
-    compareAllDims(input, 2)
+    verifyMode2D(input)
 
     -- Tests for 3D Tensors
+
     -- Tensor of all the same values
     local input = torch.FloatTensor(2, 4, 5):fill(1)
-    compareAllDims(input, 3)
+    verifyMode3D(input)
 
     -- Tensor with a unique range of values
     local input = torch.FloatTensor(
@@ -4023,12 +4022,12 @@ function test.mode()
 
             {{32, 88, 25,   4},
              {21, 78, 57, 111},
-             {15, 68, 64, 222}}
+             {15, 68, 64, 117}}
         }
     )
-    compareAllDims(input, 3)
+    verifyMode3D(input)
 
-    -- Consistency between ties when there are two things with equal counts
+    -- Handles ties when there are two things with equal counts
     local input = torch.FloatTensor(
         {
             {{2,  2,  3, 3},
@@ -4042,11 +4041,11 @@ function test.mode()
              {2,  2,  2, 2}},
         }
     )
-    compareAllDims(input, 3)
+    verifyMode3D(input)
 
     -- Larger example
     local input = torch.FloatTensor(14, 22, 32):apply(function(x) return torch.random(1, 10) end)
-    compareAllDims(input, 3)
+    verifyMode3D(input)
 end
 
 function test.cat()
