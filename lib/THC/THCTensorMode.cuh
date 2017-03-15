@@ -118,26 +118,10 @@ __global__ void computeMode(
   bmem[stidx] = stidx < sliceSize;
   __syncthreads(); // barrier for smem, bmem initialization
 
-  if (threadIdx.x == 0) {
-    /* printf("smem (before sort): "); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", smem[i]); */
-    /* } */
-    /* printf("\n"); */
-  }
-
   // First, sort the input slice in ascending order. smem contains the input
   // elements, and bmem marks the valid indices
   bitonicSortKeys<LTComp<T>, T, unsigned int, Power2Size>(smem, bmem, LTComp<T>());
   __syncthreads(); // make no assumptions that the sort syncs at end
-
-  if (threadIdx.x == 0) {
-    /* printf("smem (after sort): "); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", smem[i]); */
-    /* } */
-    /* printf("\n"); */
-  }
 
   // The next step of our algorithm is performing a block-wide comparison of
   // neighboring elements. In particular, given an sorted input slice A, we
@@ -173,19 +157,6 @@ __global__ void computeMode(
   cmem[stidx] = !bmem[stidx];
   __syncthreads(); // barrier for cmem initialization
 
-  if (threadIdx.x == 0) {
-    /* printf("(before scan): cmem:"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", cmem[i]); */
-    /* } */
-    /* printf("\n"); */
-    /* printf("(before scan): bmem:"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", bmem[i]); */
-    /* } */
-    /* printf("\n"); */
-  }
-
   // Next, we perform a segmented prefix sum on the neighboring elements, where
   // the presence of a one indicates the start of a segment. In this case bmem acts
   // as the segment start flags, and cmem is the buffer to be summed:
@@ -205,19 +176,6 @@ __global__ void computeMode(
   imem[tidx] = tidx;
   imem[stidx] = stidx;
   __syncthreads(); // barrier for both the scan and the imem initialization
-
-  if (threadIdx.x == 0) {
-    /* printf("(after scan): cmem:"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", cmem[i]); */
-    /* } */
-    /* printf("\n"); */
-    /* printf("(after scan): imem:"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", imem[i]); */
-    /* } */
-    /* printf("\n"); */
-  }
 
   // At this point, we need to find the maximum element in the cmem buffer.
   // This element will represent the count (-1) of the mode. Because of the
@@ -272,26 +230,12 @@ __global__ void computeMode(
     __syncthreads();
   }
 
-  /* if (threadIdx.x == 0) { */
-  /*   printf("(after max reduction): cmem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", cmem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /*   printf("(after max reduction): imem:"); */
-  /*   for (int i = 0; i < sliceSize; ++i) { */
-  /*     printf(" %d", imem[i]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
-
   // Store the mode in shared memory for use in finding the mode in the input slice
   __shared__ T  mode;
 
   // Given the above constraints, the mode is the value at the maximum index in the segmented scan
   if (tidx == 0) {
     mode = smem[imem[0]];
-    /* printf("imem[0] = %d, cmem[0] = %d, mode: %d, index: %ld\n", imem[0], cmem[0], mode, index); */
   }
   __syncthreads(); // broadcast mode
 
@@ -309,28 +253,12 @@ __global__ void computeMode(
   }
   __syncthreads(); // barrier for initialization of bmem, imem
 
-  if (tidx == 0) {
-    /* printf("(in preparation for min index reduction): (imem, bmem):"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" (%d, %d)", imem[i], bmem[i]); */
-    /* } */
-    /* printf("\n"); */
-    /* printf("(in preparation for min index reduction): imem:"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", imem[i]); */
-    /* } */
-    /* printf("\n"); */
-  }
-
   // Then we perform a similar reduction to the one above, except this time we update
   // the element if the element at the base position is not equal to the mode and
   // the element at the offset position is. At the end, imem[0] will contain an index
   // with the mode.
   for (unsigned int offset = Power2Size / 2; offset > 0; offset >>= 1) {
     if (tidx < offset && tidx + offset < sliceSize) {
-      /* printf("thread %d comparing (%d, %d)\n", tidx, tidx, tidx + offset); */
-      /* if (!bmem[tidx] && bmem[tidx + offset]) { */
-
       // Just always update the base if the offset is true
       if (bmem[tidx + offset]) {
         imem[tidx] = imem[tidx + offset];
@@ -339,23 +267,13 @@ __global__ void computeMode(
     }
     __syncthreads();
   }
-  if (threadIdx.x == 0) {
-    /* printf("(after min index reduction): imem:"); */
-    /* for (int i = 0; i < sliceSize; ++i) { */
-    /*   printf(" %d", imem[i]); */
-    /* } */
-    /* printf("\n"); */
-  }
 
   // Finally, we have the mode, and an index where it occurs. We use a single thread
   // to place this in the appropriate output position
   if (tidx == 0) {
     long index = TH_INDEX_BASE + imem[0];
 
-    // Now that we have the mode, and corresponding index, we need to calculate the output
-    // position in the values/indices array and store the data
     unsigned int outputOffset = IndexToOffset<T, unsigned int, -1>::get(blockId, values);
-    /* printf("outputOffset: %d\n", outputOffset); */
     values.data[outputOffset] = mode;
     indices.data[outputOffset] = index;
   }
