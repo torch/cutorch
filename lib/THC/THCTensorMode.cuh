@@ -74,8 +74,22 @@ __global__ void computeMode(
   unsigned int blockId = getLinearBlockId<unsigned int>();
   unsigned int linearOffset = blockId * sliceSize;
 
-  // The smem buffer is used to store the elements from the slice
-  __shared__ T    smem[Power2Size];
+  // shmem is a dynamically sized buffer we will use throughout the kernel to
+  // handle computation efficiently. The size of this shmem must be
+  // sizeof(T) * Power2Size + (2 * sizeof(unsigned int) * Power2Size)
+  //
+  // Ultimately, the buffer will be organized as follows:
+  //
+  // [smem (slice elements) | cmem (unsigned int buffer) | bmem (bool buffer) OR imem (unsigned int buffer)]
+  extern __shared__ char shmem[];
+
+  // smem represents a proportion of the shared memory buffer that is used to store
+  // the elements from the slice:
+  T *smem = reinterpret_cast<T *>(shmem);
+
+  // we also reserve a chunk of the buffer for unsigned ints, we will use this
+  // later
+  unsigned int *cmem = reinterpret_cast<unsigned int *>(&smem[Power2Size]);
 
   // Each thread loads up to two elements from the Tensor into shared memory
   if (tidx < sliceSize) {
@@ -85,11 +99,12 @@ __global__ void computeMode(
     smem[stidx] = input[linearOffset + stidx];
   }
 
-  // The fmem buffer is used in multiple components of the kernel. First, it stores
-  // whether bmem[i] = i < sliceSize to mark the valid components in the smem buffer
-  // for sorting
-  __shared__ bool bmem[Power2Size];
+  // Next, we initialize a boolean region of the buffer, offset by the loaded element
+  // smem region and unsigned int region above
+  bool *bmem = reinterpret_cast<bool *>(&cmem[Power2Size]);
 
+  // The first use of this region stores bmem[i] = i < sliceSize to mark the valid
+  // components in the smem buffer
   bmem[tidx] = tidx < sliceSize;
   bmem[stidx] = stidx < sliceSize;
   __syncthreads(); // barrier for smem, bmem initialization
@@ -123,12 +138,9 @@ __global__ void computeMode(
   }
   __syncthreads(); // barrier for bmem initialization
 
-  // Next, we initialize another shared memory buffer cmem which will be used in the
-  // Segmented Prefix Sum
-  __shared__ unsigned int  cmem[Power2Size];
-
-  // We set cmem to be the negation of bmem. In particular, we can think of cmem[i] = true
-  // iff A[i-1] == A[i] in our original sorted slice.
+  // Next, we initialize our shared memory region cmem which will be used in the
+  // Segmented Prefix Sum.  We set cmem to be the negation of bmem. In particular,
+  // we can think of cmem[i] = true iff A[i-1] == A[i] in our original sorted slice.
   cmem[tidx] = !bmem[tidx];
   cmem[stidx] = !bmem[stidx];
   __syncthreads(); // barrier for cmem initialization
@@ -145,8 +157,10 @@ __global__ void computeMode(
   // of each element in the original input.
   segmentedInclusivePrefixScan<unsigned int, BinaryAddOp<unsigned int>, Power2Size>(cmem, bmem, BinaryAddOp<unsigned int>());
 
-  // Our last shared memory buffer is used to track indices
-  __shared__ unsigned int imem[Power2Size];
+  // Our last shared memory buffer is used to track indices. We use the region after
+  // cmem to store these indices, overwriting the region currently used by the bmem
+  // buffer
+  unsigned int *imem = reinterpret_cast<unsigned int *>(bmem);
 
   // initialize the indices buffer such that imem[i] = i
   imem[tidx] = tidx;
@@ -221,11 +235,11 @@ __global__ void computeMode(
   // i.e bmem[i] = true if input[i] == mode
   if (tidx < sliceSize) {
     bmem[tidx] = THCNumerics<T>::eq(input[linearOffset + tidx], mode);
-    imem[tidx] = tidx;
+    cmem[tidx] = tidx;
   }
   if (stidx < sliceSize) {
     bmem[stidx] = THCNumerics<T>::eq(input[linearOffset + stidx], mode);
-    imem[stidx] = stidx;
+    cmem[stidx] = stidx;
   }
   __syncthreads(); // barrier for initialization of bmem, imem
 
@@ -237,7 +251,7 @@ __global__ void computeMode(
     if (tidx < offset && tidx + offset < sliceSize) {
       // Just always update the base if the offset is true
       if (bmem[tidx + offset]) {
-        imem[tidx] = imem[tidx + offset];
+        cmem[tidx] = cmem[tidx + offset];
         bmem[tidx] = true;  // need to update match
       }
     }
@@ -247,7 +261,7 @@ __global__ void computeMode(
   // Finally, we have the mode, and an index where it occurs. We use a single thread
   // to place this in the appropriate output position
   if (tidx == 0) {
-    long index = TH_INDEX_BASE + imem[0];
+    long index = TH_INDEX_BASE + cmem[0];
 
     unsigned int outputOffset = IndexToOffset<T, unsigned int, -1>::get(blockId, values);
     values.data[outputOffset] = mode;

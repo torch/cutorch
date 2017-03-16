@@ -224,11 +224,17 @@ THC_API void THCTensor_(mode)(THCState *state,
     // The blocksize is two elements per thread, rounded up to the nearest power of 2
     long ceilPowerOf2 = nextHighestPowerOf2(sliceSize);
 
-    // Macro that calls kernel --> note that we set the block dimensions here
+    // Macro that calls kernel --> note that we set the block dimensions here, and
+    // the amount of shared memory
   #define HANDLE_MODE(SIZE) \
+  { \
+    dim3 blockSize(SIZE / 2); \
+\
+    int memsize = (sizeof(real) * SIZE) + (2 * SIZE * sizeof(unsigned int)); \
     computeMode<real, SIZE> \
-      <<<grid, dim3(SIZE / 2), 0, THCState_getCurrentStream(state)>>>( \
+      <<<grid, blockSize, memsize, THCState_getCurrentStream(state)>>>( \
         THCTensor_(data)(state, contiguous), tiValues, tiIndices, sliceSize); \
+  }
 
     // Tradeoff between compilation time and the number of specializations. Ideally we would have
     // one HANDLE_MODE for each power of 2
