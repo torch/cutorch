@@ -124,26 +124,26 @@ __global__ void computeMode(
   // We re-use the bmem buffer for this computation. In particular, we can think of
   // B[i] = true indicating the start of a sequence of equal values in the sorted
   // list.
+  //
+  // We also initialize our shared memory region cmem which will be used in the
+  // Segmented Prefix Sum.  We set cmem to be the negation of bmem. In particular,
+  // we can think of cmem[i] = true iff A[i-1] == A[i] in our original sorted slice.
 
   if (tidx == 0) {
     bmem[tidx] = true;  // for setting element 0
+    cmem[tidx] = false;
   }
 
   // Compares elements (0, 1), (2, 3), ... and sets 1, 3, ...
   bmem[tidx * 2 + 1] = THCNumerics<T>::ne(smem[tidx * 2], smem[tidx * 2 + 1]); // (0, 1), (1, 2), etc.
+  cmem[tidx * 2 + 1] = !bmem[tidx * 2 + 1];
 
   // Compares elements (1, 2), (3, 4), ... and sets 2, 4, ...
   if (((tidx + 1) * 2) < Power2Size) {
     bmem[(tidx + 1) * 2] = THCNumerics<T>::ne(smem[((tidx + 1) * 2) - 1], smem[(tidx + 1) * 2]);
+    cmem[(tidx + 1) * 2] = !bmem[(tidx + 1) * 2];
   }
-  __syncthreads(); // barrier for bmem initialization
-
-  // Next, we initialize our shared memory region cmem which will be used in the
-  // Segmented Prefix Sum.  We set cmem to be the negation of bmem. In particular,
-  // we can think of cmem[i] = true iff A[i-1] == A[i] in our original sorted slice.
-  cmem[tidx] = !bmem[tidx];
-  cmem[stidx] = !bmem[stidx];
-  __syncthreads(); // barrier for cmem initialization
+  __syncthreads(); // barrier for bmem, cmem initialization
 
   // Next, we perform a segmented prefix sum on the neighboring elements, where
   // the presence of a one indicates the start of a segment. In this case bmem acts
