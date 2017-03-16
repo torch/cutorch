@@ -276,15 +276,15 @@ THC_API void THCTensor_(mode)(THCState *state,
     // We also need to view the values and indices Tensors as transposed in order to
     // properly determine the offset into the underlying storage in which to place the
     // mode and index for a particular set of dimension values
-    valuesTransposed = THCTensor_(newTranspose)(state, values, dimension, ndim-1);
-    indicesTransposed = THCudaLongTensor_newTranspose(state, indices, dimension, ndim-1);
+    valuesTransposed = THCTensor_(newTranspose)(state, values, dimension, ndim - 1);
+    indicesTransposed = THCudaLongTensor_newTranspose(state, indices, dimension, ndim - 1);
 
     // Position is a Storage that will store the dimension values we are processing
     position = THLongStorage_newWithSize(ndim - 1);
 
     // Sort Buffer is a Storage that will be used in the internal sort required to calculate
     // the mode efficiently
-    sortBuffer = THCudaLongStorage_newWithSize(state, THCTensor_(size)(state, input, ndim - 1));
+    sortBuffer = THCudaLongStorage_newWithSize(state, sliceSize);
 
     // Call mode
     THCTensor_(dimApplyMode)(state, valuesTransposed, indicesTransposed, contiguous, sortBuffer, dimension, position, 0);
