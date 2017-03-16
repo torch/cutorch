@@ -3726,8 +3726,15 @@ local function assertSize(tensor, sizes)
    tester:assert(valid, 'tensor size mismatch')
 end
 
-local function verifyMode2D(tensor)
-   for dim = 1, 2 do
+local function verifyMode2D(tensor, onlyDim)
+   local dims = {}
+   if onlyDim ~= nil then
+      dims = {onlyDim}
+   else
+      dims = {1, 2}
+   end
+
+   for _, dim in ipairs(dims) do
       -- In the case of a 2D Tensor, we need to calculate the count for each slice
       -- sCounts is a table containing the counts of elements for each slice,
       -- sMax is a table containing the max occurrence for each slice
@@ -3810,7 +3817,13 @@ local function verifyMode2D(tensor)
    end
 end
 
-local function verifyMode3D(tensor)
+local function verifyMode3D(tensor, onlyDim)
+    local dims = {}
+    if onlyDim ~= nil then
+       dims = {onlyDim}
+    else
+       dims = {1, 2, 3}
+    end
     -- In the case of 3D Tensor, we need to calculate the count for each slice,
     -- but this time, we have two layers of depth, for each of the non-mode dims
     -- so sCounts is a multi-level table where sCounts[i][j] is the counts for
@@ -3887,7 +3900,7 @@ local function verifyMode3D(tensor)
 
 
    -- verification pass
-   for dim = 1, 3 do
+   for _, dim in ipairs(dims) do
       for _, cudaType in ipairs(typenames) do
          local baseType = t2cpu[cudaType]
          assert(baseType, 'Cannot find baseType for ' .. cudaType)
@@ -3974,10 +3987,6 @@ function test.mode()
     local input = torch.FloatTensor(1000):apply(function(x) return torch.random(1, 10) end)
     verifyMode1D(input)
 
-    -- Example that overflows fused-kernel
-    -- local input = torch.IntTensor(16384):apply(function(x) return torch.random(1, 100) end)
-    -- verifyMode1D(input)
-
     -- verify input is unchanged
     local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
     local same = torch.FloatTensor({4, 3, 6, 8, 2, 1})
@@ -4046,6 +4055,27 @@ function test.mode()
     -- Larger example
     local input = torch.FloatTensor(14, 22, 32):apply(function(x) return torch.random(1, 10) end)
     verifyMode3D(input)
+end
+
+function test.bigmode()
+    -- Examples that overflow fused-kernel
+    local input = torch.IntTensor(16384):apply(function(x) return torch.random(1, 100) end)
+    verifyMode1D(input)
+
+    local input = torch.FloatTensor(4096, 4):fill(1)
+    verifyMode2D(input, 1)
+
+    local input = torch.FloatTensor(4, 4096):fill(1)
+    verifyMode2D(input, 2)
+
+    local input = torch.FloatTensor(2, 2, 4096):fill(1)
+    verifyMode3D(input, 3)
+
+    local input = torch.FloatTensor(2, 4096, 2):fill(1)
+    verifyMode3D(input, 2)
+
+    local input = torch.FloatTensor(4096, 2, 2):fill(1)
+    verifyMode3D(input, 1)
 end
 
 function test.cat()
