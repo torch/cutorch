@@ -885,14 +885,12 @@ for k, Tensor_ in pairs(handledTypenames) do
              {name="boolean", default=0}}
     )
 
-    if Tensor ~= 'CudaHalfTensor' then
-        wrap("mode",
-             cname("mode"),
-             {{name=Tensor, default=true, returned=true, noreadadd=true},
-               {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
-               {name=Tensor},
-               {name="index", default=lastdim(3)}})
-    end
+    wrap("mode",
+         cname("mode"),
+         {{name=Tensor, default=true, returned=true, noreadadd=true},
+             {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+             {name=Tensor},
+             {name="index", default=lastdim(3)}})
 
     wrap("squeeze",
          cname("squeeze"),
