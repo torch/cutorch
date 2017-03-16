@@ -39,7 +39,7 @@ THC_API void THCTensor_(calculateMode)(THCState *state,
     seq.begin(), seq.end());
 
   // Sort the input data. The original indices of the data are stored in seq
-  thrust::stable_sort_by_key(
+  thrust::sort_by_key(
 #if CUDA_VERSION >= 7000
     thrust::cuda::par(thrustAlloc).on(THCState_getCurrentStream(state)),
 #else
@@ -113,7 +113,7 @@ THC_API void THCTensor_(calculateMode)(THCState *state,
 #endif
 
   THAssert(positionIter != iter.end());
-  long index = seq[positionIter - iter.begin()];
+  long index = TH_INDEX_BASE + seq[positionIter - iter.begin()];
 
   // Place mode, index in output
   ptrdiff_t valuesOffset = THCTensor_(storageOffset)(state, values);
