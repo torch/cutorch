@@ -49,6 +49,40 @@ __device__ void inclusivePrefixScan(T *smem, BinaryOp binop) {
   }
 }
 
+// Extends the above Inclusive Scan to support segments. It has the same properties
+// but also takes a flag array that indicates the starts of "segments", i.e. individual
+// units to scan. For example, consider the following (+)-scan that is segmented:
+//
+// Input:  [1, 3, 2, 4, 1, 2, 3, 2, 1, 4]
+// Flags:  [1, 0, 0, 1, 0, 1, 1, 0, 1, 0]
+// Output:  1  4  6  4  5  2  3  5  1  5
+//
+// So we see that each "flag" resets the scan to that index.
+template <typename T, class BinaryOp, int Power2ScanSize>
+__device__ void segmentedInclusivePrefixScan(T *smem, bool *bmem, BinaryOp binop) {
+  // Reduce step ("upsweep")
+#pragma unroll
+  for (int stride = 1; stride < Power2ScanSize; stride <<= 1) {
+    int index = (threadIdx.x + 1) * stride * 2 - 1;
+    if (index < Power2ScanSize) {
+      smem[index] = bmem[index] ? smem[index] : binop(smem[index], smem[index - stride]);
+      bmem[index] = bmem[index] | bmem[index - stride];
+    }
+    __syncthreads();
+  }
+
+  // Post-reduce step ("downsweep")
+#pragma unroll
+  for (int stride = Power2ScanSize / 4; stride > 0; stride >>= 1) {
+    int index = (threadIdx.x + 1) * stride * 2 - 1;
+    if ((index + stride) < Power2ScanSize) {
+      smem[index + stride] = bmem[index + stride] ? smem[index + stride] : binop(smem[index + stride], smem[index]);
+      bmem[index + stride] = bmem[index + stride] | bmem[index];
+    }
+    __syncthreads();
+  }
+}
+
 // Inclusive prefix sum using shared memory
 template <typename T, bool KillWARDependency, class BinaryFunction>
 __device__ void inclusivePrefixScan(T* smem, T in, T* out, BinaryFunction binop) {

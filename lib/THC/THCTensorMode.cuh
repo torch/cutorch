@@ -3,6 +3,7 @@
 
 #include "THCNumerics.cuh"
 #include "THCSortUtils.cuh"
+#include "THCScanUtils.cuh"
 
 struct ThrustHalfLess
 {
@@ -48,31 +49,6 @@ struct BinaryAddOp<unsigned int> {
     return a + b;
   }
 };
-
-template <typename T, class BinaryOp, int Power2ScanSize>
-__device__ void segmentedInclusivePrefixScan(T *smem, bool *bmem, BinaryOp binop) {
-  // Reduce step ("upsweep")
-#pragma unroll
-  for (int stride = 1; stride < Power2ScanSize; stride <<= 1) {
-    int index = (threadIdx.x + 1) * stride * 2 - 1;
-    if (index < Power2ScanSize) {
-      smem[index] = bmem[index] ? smem[index] : binop(smem[index], smem[index - stride]);
-      bmem[index] = bmem[index] | bmem[index - stride];
-    }
-    __syncthreads();
-  }
-
-  // Post-reduce step ("downsweep")
-#pragma unroll
-  for (int stride = Power2ScanSize / 4; stride > 0; stride >>= 1) {
-    int index = (threadIdx.x + 1) * stride * 2 - 1;
-    if ((index + stride) < Power2ScanSize) {
-      smem[index + stride] = bmem[index + stride] ? smem[index + stride] : binop(smem[index + stride], smem[index]);
-      bmem[index + stride] = bmem[index + stride] | bmem[index];
-    }
-    __syncthreads();
-  }
-}
 
 // The mode kernel has the following characteristics: It uses internal shared memory
 // buffers of Power2Size, which must be greater than the number of elements. Additionally,
