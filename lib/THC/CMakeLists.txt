@@ -188,6 +188,7 @@ SET(src-cuda
   THCTensorTopK.cu
   THCTensorSort.cu
   THCTensorTypeUtils.cu
+  THCSortUtils.cu
   THCTensorMode.cu
   )
 

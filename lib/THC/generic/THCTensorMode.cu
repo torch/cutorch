@@ -222,7 +222,7 @@ THC_API void THCTensor_(mode)(THCState *state,
     THC_getGridFromTiles(slices, grid);
 
     // The blocksize is two elements per thread, rounded up to the nearest power of 2
-    long ceilPowerOf2 = nnextHighestPowerOf2(sliceSize);
+    long ceilPowerOf2 = nextHighestPowerOf2(sliceSize);
 
     // Macro that calls kernel --> note that we set the block dimensions here
   #define HANDLE_MODE(SIZE) \
