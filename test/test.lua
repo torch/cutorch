@@ -3786,8 +3786,8 @@ local function verifyMode2D(tensor, onlyDim)
          -- we need to run through and verify that all of the modes/indices are valid, for
          -- the results of each slice. First, we squeeze the Tensor, so we can iterate over
          -- both the 1D/2D values in the same manner
-         modes = modes:squeeze()
-         indices = indices:squeeze()
+         modes = modes:squeeze(dim)
+         indices = indices:squeeze(dim)
 
          -- iterate over each slice, and verify that for each slice the mode selected has
          -- max occurrences, and the index points to the mode

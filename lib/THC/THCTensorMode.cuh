@@ -63,6 +63,13 @@ struct ModeUnsignedPair {
   unsigned int index;
 };
 
+template <typename T>
+struct MaxReduceOp {
+  __host__ __device__ inline T operator()(const T& a, const T& b) {
+    return b.val > a.val ? b : a;
+  }
+};
+
 // The mode kernel has the following characteristics: It uses internal shared memory
 // buffers of Power2Size, which must be greater than the number of elements. Additionally,
 // there is one block for every slice to calculate the mode for, and in each block there
@@ -226,21 +233,10 @@ __global__ void computeMode(
   //
   // So at the end at C[0] we have the maximum count = 2, and the
   // corresponding index I[0] = 4
-#pragma unroll
-  for (unsigned int offset = Power2Size / 2; offset > 0; offset >>= 1) {
-    if (tidx < offset && tidx + offset < sliceSize) {
-      // Note that we could do >= as well. We use >, so that we pick the
-      // earliest maximum value in the sequence in case of ties. This will
-      // result in picking the smallest value for the mode, i.e. if both
-      // 3 and 4 occur the same number of times in the input, and their count
-      // is the mode, then we return 3. This mimics the behavior of CPU-Torch
-      if (uupmem[tidx + offset].val > uupmem[tidx].val) {
-        uupmem[tidx].val = uupmem[tidx + offset].val;
-        uupmem[tidx].index = uupmem[tidx + offset].index;
-      }
-    }
-    __syncthreads();
-  }
+
+  struct ModeUnsignedPair hold = {0, 0};
+  hold = reduceBlockN<struct ModeUnsignedPair, MaxReduceOp<struct ModeUnsignedPair>, 2, true>
+    (uupmem, &uupmem[tidx * 2], sliceSize, MaxReduceOp<struct ModeUnsignedPair>(), hold);
 
   // Store the mode in shared memory for use in finding the mode in the input slice
   __shared__ T  mode;
@@ -248,7 +244,7 @@ __global__ void computeMode(
   // Given the above constraints, the mode is the value at the reduced index in the
   // original sorted element buffer
   if (tidx == 0) {
-    mode = smem[uupmem[0].index];
+    mode = smem[hold.index];
   }
   __syncthreads(); // broadcast mode
 
