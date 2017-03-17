@@ -49,6 +49,22 @@ __device__ void inclusivePrefixScan(T *smem, BinaryOp binop) {
   }
 }
 
+// Generic Op that can be be used to support segmented scans by re-using
+// the basic inclusiveScanOp. Merely requires that the input data has both
+// a flag and val component
+template <typename T, class BinaryOp>
+struct SegmentedScanOp {
+  __host__ __device__ SegmentedScanOp(BinaryOp binop): _binop(binop) {}
+  __host__ __device__ inline T operator()(const T& a, const T& b) {
+    T c;
+    c.val = a.flag ? a.val : _binop(a.val, b.val);
+    c.flag = a.flag | b.flag;
+    return c;
+  }
+
+  BinaryOp _binop;
+};
+
 // Extends the above Inclusive Scan to support segments. It has the same properties
 // but also takes a flag array that indicates the starts of "segments", i.e. individual
 // units to scan. For example, consider the following (+)-scan that is segmented:
