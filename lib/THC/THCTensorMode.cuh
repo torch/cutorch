@@ -70,6 +70,13 @@ struct MaxReduceOp {
   }
 };
 
+template <typename T>
+struct MatchReduceOp {
+  __host__ __device__ inline T operator()(const T& a, const T& b) {
+    return b.flag ? b : a;
+  }
+};
+
 // The mode kernel has the following characteristics: It uses internal shared memory
 // buffers of Power2Size, which must be greater than the number of elements. Additionally,
 // there is one block for every slice to calculate the mode for, and in each block there
@@ -234,9 +241,9 @@ __global__ void computeMode(
   // So at the end at C[0] we have the maximum count = 2, and the
   // corresponding index I[0] = 4
 
-  struct ModeUnsignedPair hold = {0, 0};
-  hold = reduceBlockN<struct ModeUnsignedPair, MaxReduceOp<struct ModeUnsignedPair>, 2, true>
-    (uupmem, &uupmem[tidx * 2], sliceSize, MaxReduceOp<struct ModeUnsignedPair>(), hold);
+  struct ModeUnsignedPair max = {0, 0};
+  max = reduceBlockN<struct ModeUnsignedPair, MaxReduceOp<struct ModeUnsignedPair>, 2, true>
+    (uupmem, &uupmem[tidx * 2], sliceSize, MaxReduceOp<struct ModeUnsignedPair>(), max);
 
   // Store the mode in shared memory for use in finding the mode in the input slice
   __shared__ T  mode;
@@ -244,7 +251,7 @@ __global__ void computeMode(
   // Given the above constraints, the mode is the value at the reduced index in the
   // original sorted element buffer
   if (tidx == 0) {
-    mode = smem[hold.index];
+    mode = smem[max.index];
   }
   __syncthreads(); // broadcast mode
 
@@ -267,21 +274,14 @@ __global__ void computeMode(
   // the element if the element at the base position is not equal to the mode and
   // the element at the offset position is. At the end, C[0] will contain an index
   // with the mode.
-  for (unsigned int offset = Power2Size / 2; offset > 0; offset >>= 1) {
-    if (tidx < offset && tidx + offset < sliceSize) {
-      // Just always update the base if the offset is true
-      if (ubpmem[tidx + offset].flag) {
-        ubpmem[tidx].val = ubpmem[tidx + offset].val;
-        ubpmem[tidx].flag = true;  // need to update match
-      }
-    }
-    __syncthreads();
-  }
+  struct ModeUnsignedBoolPair match = {0, false};
+  match = reduceBlockN<struct ModeUnsignedBoolPair, MatchReduceOp<struct ModeUnsignedBoolPair>, 2, true>
+    (ubpmem, &ubpmem[tidx * 2], sliceSize, MatchReduceOp<struct ModeUnsignedBoolPair>(), match);
 
   // Finally, we have the mode, and an index where it occurs. We use a single thread
   // to place this in the appropriate output position
   if (tidx == 0) {
-    long index = TH_INDEX_BASE + ubpmem[0].val;
+    long index = TH_INDEX_BASE + match.val;
 
     unsigned int outputOffset = IndexToOffset<T, unsigned int, -1>::get(blockId, values);
     values.data[outputOffset] = mode;
