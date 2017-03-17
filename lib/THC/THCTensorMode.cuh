@@ -50,6 +50,19 @@ struct BinaryAddOp<unsigned int> {
   }
 };
 
+// Used for a segmented reduction
+struct ModeUnsignedBoolPair {
+  unsigned int val;
+  bool flag;
+};
+
+// In the kernel below, we have a common pattern of reducing (unsigned int, unsigned int)
+// pairs of data
+struct ModeUnsignedPair {
+  unsigned int val;
+  unsigned int index;
+};
+
 // The mode kernel has the following characteristics: It uses internal shared memory
 // buffers of Power2Size, which must be greater than the number of elements. Additionally,
 // there is one block for every slice to calculate the mode for, and in each block there
@@ -66,7 +79,7 @@ __global__ void computeMode(
     long sliceSize)
 {
   int tidx = threadIdx.x;
-  int stidx = blockDim.x + threadIdx.x; // Second Index this thread responsible for
+  int stidx = blockDim.x + threadIdx.x; // Second index this thread responsible for
 
   // First, we need to calculate the offset into the sorted Tensor that represents
   // the start of the slice for this block to calculate the mode for. This offset
@@ -78,18 +91,14 @@ __global__ void computeMode(
   // handle computation efficiently. The size of this shmem must be
   // sizeof(T) * Power2Size + (2 * sizeof(unsigned int) * Power2Size)
   //
-  // Ultimately, the buffer will be organized as follows:
+  // Initially, the buffer will be organized as follows:
   //
-  // [smem (slice elements) | cmem (unsigned int buffer) | bmem (bool buffer) OR imem (unsigned int buffer)]
+  // [smem (slice elements) | bmem (valid indices) | <scratch space>]
   extern __shared__ char shmem[];
 
   // smem represents a proportion of the shared memory buffer that is used to store
   // the elements from the slice:
   T *smem = reinterpret_cast<T *>(shmem);
-
-  // we also reserve a chunk of the buffer for unsigned ints, we will use this
-  // later
-  unsigned int *cmem = reinterpret_cast<unsigned int *>(&smem[Power2Size]);
 
   // Each thread loads up to two elements from the Tensor into shared memory
   if (tidx < sliceSize) {
@@ -100,8 +109,8 @@ __global__ void computeMode(
   }
 
   // Next, we initialize a boolean region of the buffer, offset by the loaded element
-  // smem region and unsigned int region above
-  bool *bmem = reinterpret_cast<bool *>(&cmem[Power2Size]);
+  // smem region
+  bool *bmem = reinterpret_cast<bool *>(&smem[Power2Size]);
 
   // The first use of this region stores bmem[i] = i < sliceSize to mark the valid
   // components in the smem buffer
@@ -121,89 +130,102 @@ __global__ void computeMode(
   // Given the input A = [0, 0, 1, 1, 2, 2, 2, 4, 5, 6, 6, 7, 8]
   //                 B = [1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1]
   //
-  // We re-use the bmem buffer for this computation. In particular, we can think of
-  // B[i] = true indicating the start of a sequence of equal values in the sorted
-  // list.
+  // In particular, we can think of B[i] true indicating the start of a sequence of
+  // equal values in the sorted list. Similarly, we will also store the negation of B,
+  // which we'll call C. In particular, we can think of C[i] = true iff A[i-1] == A[i]
+  // in our original sorted slice.
   //
-  // We also initialize our shared memory region cmem which will be used in the
-  // Segmented Prefix Sum.  We set cmem to be the negation of bmem. In particular,
-  // we can think of cmem[i] = true iff A[i-1] == A[i] in our original sorted slice.
+  //                 C = [0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0]
+
+  // We overwrite bmem, and treat the rest of shared memory as a buffer of (index, flag) pairs
+  // where the index represents values from C, and the flag represents values from B.
+  //
+  // [smem (sorted slice) | ubpmem (index, flag pairs)]
+
+  struct ModeUnsignedBoolPair *ubpmem = reinterpret_cast<struct ModeUnsignedBoolPair *>(
+      &smem[Power2Size]);
 
   if (tidx == 0) {
-    bmem[tidx] = true;  // for setting element 0
-    cmem[tidx] = false;
+    ubpmem[0].flag = true;
+    ubpmem[0].val = 0;
   }
 
   // Compares elements (0, 1), (2, 3), ... and sets 1, 3, ...
-  bmem[tidx * 2 + 1] = THCNumerics<T>::ne(smem[tidx * 2], smem[tidx * 2 + 1]); // (0, 1), (1, 2), etc.
-  cmem[tidx * 2 + 1] = !bmem[tidx * 2 + 1];
+  ubpmem[tidx * 2 + 1].flag = THCNumerics<T>::ne(smem[tidx * 2], smem[tidx * 2 + 1]); // (0, 1), (1, 2), etc.
+  ubpmem[tidx * 2 + 1].val = !ubpmem[tidx * 2 + 1].flag;
 
   // Compares elements (1, 2), (3, 4), ... and sets 2, 4, ...
   if (((tidx + 1) * 2) < Power2Size) {
-    bmem[(tidx + 1) * 2] = THCNumerics<T>::ne(smem[((tidx + 1) * 2) - 1], smem[(tidx + 1) * 2]);
-    cmem[(tidx + 1) * 2] = !bmem[(tidx + 1) * 2];
+    ubpmem[(tidx + 1) * 2].flag = THCNumerics<T>::ne(smem[((tidx + 1) * 2) - 1], smem[(tidx + 1) * 2]);
+    ubpmem[(tidx + 1) * 2].val = !ubpmem[(tidx + 1) * 2].flag;
   }
-  __syncthreads(); // barrier for bmem, cmem initialization
+  __syncthreads(); // barrier for uupmem initialization
 
   // Next, we perform a segmented prefix sum on the neighboring elements, where
-  // the presence of a one indicates the start of a segment. In this case bmem acts
-  // as the segment start flags, and cmem is the buffer to be summed:
+  // the presence of a one indicates the start of a segment. In this case B acts
+  // as the segment start flags, and C is the buffer to be summed:
   //
-  // Input  (cmem)  = [0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0]
-  // Flag   (bmem)  = [1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1]
-  // Output (cmem)  = [0, 1, 0, 1, 0, 1, 2, 0, 0, 0, 1, 0, 0]
+  // Input  (C)  = [0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0]
+  // Flag   (B)  = [1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1]
+  // Output (C)  = [0, 1, 0, 1, 0, 1, 2, 0, 0, 0, 1, 0, 0]
   //
-  // Afterwards, the cmem buffer contains the lengths of the segments (minus 1), i.e. the counts
-  // of each element in the original input.
-  segmentedInclusivePrefixScan<unsigned int, BinaryAddOp<unsigned int>, Power2Size>(cmem, bmem, BinaryAddOp<unsigned int>());
+  // Afterwards, the (index) components of the uupmem buffer contain the lengths of the
+  // segments (minus 1), i.e. the counts of each element in the original input.
 
-  // Our last shared memory buffer is used to track indices. We use the region after
-  // cmem to store these indices, overwriting the region currently used by the bmem
-  // buffer
-  unsigned int *imem = reinterpret_cast<unsigned int *>(bmem);
+  inclusivePrefixScan<
+    struct ModeUnsignedBoolPair,
+    struct SegmentedScanOp<struct ModeUnsignedBoolPair, BinaryAddOp<unsigned int> >,
+    Power2Size>(
+        ubpmem,
+        SegmentedScanOp<struct ModeUnsignedBoolPair, BinaryAddOp<unsigned int> >(BinaryAddOp<unsigned int>()));
+  // assumes scan syncs at the end
 
-  // initialize the indices buffer such that imem[i] = i
-  imem[tidx] = tidx;
-  imem[stidx] = stidx;
-  __syncthreads(); // barrier for both the scan and the imem initialization
+  // Next, we reinterpret the ubpmem buffer as pairs of unsigned integers (i.e. we treat the
+  // boolean flag regions as integers). We initialize these to represent indices, and we'll call
+  // this buffer I
+  struct ModeUnsignedPair *uupmem = reinterpret_cast<struct ModeUnsignedPair *>(ubpmem);
+  uupmem[tidx].index = tidx;
+  uupmem[stidx].index = stidx;
+  __syncthreads(); // barrier for index initialization
 
-  // At this point, we need to find the maximum element in the cmem buffer.
+  // At this point, we need to find the maximum element in lengths buffer B.
   // This element will represent the count (-1) of the mode. Because of the
   // way we have set up the problem, the index where this mode occurs will
   // also be the location of the mode value in the sorted array, e.g.
   //
   // smem = [0, 0, 1, 1, 1, 2]
-  // cmem = [0, 1, 0, 1, 2, 0]
+  // C    = [0, 1, 0, 1, 2, 0]
+  // I    = [0, 1, 2, 3, 4, 5]
   //                     ^
   //                     maximum value, also aligned with mode = 1
   //
-  // We perform a block wide max-reduction of the cmem buffer, and bring imem
-  // along with it.
+  // We perform a block wide max-reduction of the C buffer, but we also need the
+  // indices to come along with it, so we utilize the uupmem construction.
   //
   // Loop 1 (Power2Size = offset = 4):
   //
-  // (0, 4) --> cmem[4] = 2 > cmem[0] = 0, so update cmem[0], imem[0]
-  // (1, 5) --> cmem[5] = 0 <= cmem[1] = 1, do nothing
+  // (0, 4) --> C[4] = 2 > C[0] = 0, so update C[0], I[0]
+  // (1, 5) --> C[5] = 0 <= C[1] = 1, do nothing
   //
   // Now:         0  1  2  3  4  5
-  //      cmem = [2, 1, 0, 1, 2, 0]
-  //      imem = [4, 1, 2, 3, 4, 5]
+  //      C = [2, 1, 0, 1, 2, 0]
+  //      I = [4, 1, 2, 3, 4, 5]
   //
   // Loop 2 (offset = 2)
   //
-  // (0, 2) --> cmem[2] == 0 <= cmem[0] = 2, do nothing
-  // (1, 3) --> cmem[3] == 1 <= cmem[1] = 1, do nothing
+  // (0, 2) --> C[2] == 0 <= C[0] = 2, do nothing
+  // (1, 3) --> C[3] == 1 <= C[1] = 1, do nothing
   //
   // Now:         0  1  2  3  4  5
-  //      cmem = [2, 1, 2, 1, 2, 0]
-  //      imem = [4, 1, 4, 3, 4, 5]
+  //      C = [2, 1, 2, 1, 2, 0]
+  //      I = [4, 1, 4, 3, 4, 5]
   //
   // Loop 3 (offset = 1)
   //
-  // (0, 1) --> cmem[1] == 1 <= cmem[0] = 2, do nothing
+  // (0, 1) --> C[1] == 1 <= C[0] = 2, do nothing
   //
-  // So at the end at cmem[0] we have the maximum count = 2, and the
-  // corresponding index = 4
+  // So at the end at C[0] we have the maximum count = 2, and the
+  // corresponding index I[0] = 4
 #pragma unroll
   for (unsigned int offset = Power2Size / 2; offset > 0; offset >>= 1) {
     if (tidx < offset && tidx + offset < sliceSize) {
@@ -212,9 +234,9 @@ __global__ void computeMode(
       // result in picking the smallest value for the mode, i.e. if both
       // 3 and 4 occur the same number of times in the input, and their count
       // is the mode, then we return 3. This mimics the behavior of CPU-Torch
-      if (cmem[tidx + offset] > cmem[tidx]) {
-        cmem[tidx] = cmem[tidx + offset];
-        imem[tidx] = imem[tidx + offset];
+      if (uupmem[tidx + offset].val > uupmem[tidx].val) {
+        uupmem[tidx].val = uupmem[tidx + offset].val;
+        uupmem[tidx].index = uupmem[tidx + offset].index;
       }
     }
     __syncthreads();
@@ -223,36 +245,38 @@ __global__ void computeMode(
   // Store the mode in shared memory for use in finding the mode in the input slice
   __shared__ T  mode;
 
-  // Given the above constraints, the mode is the value at the maximum index in the segmented scan
+  // Given the above constraints, the mode is the value at the reduced index in the
+  // original sorted element buffer
   if (tidx == 0) {
-    mode = smem[imem[0]];
+    mode = smem[uupmem[0].index];
   }
   __syncthreads(); // broadcast mode
 
   // Finally, we need to find the "an" index of the mode in the input Tensor. The API does
   // not constrain which index we pick, so it can be any of the indices that contain the mode.
-  // We will do a reduction to find the index. First, we mark indices that are equal to the mode,
-  // i.e bmem[i] = true if input[i] == mode
+  // We will do a reduction to find the index. We go back to using the (index, flag) buffer
+  // arrangment. First, we mark indices that are equal to the mode, i.e B[i] = true if
+  // input[i] == mode, and initialize C[i] to be the index
   if (tidx < sliceSize) {
-    bmem[tidx] = THCNumerics<T>::eq(input[linearOffset + tidx], mode);
-    cmem[tidx] = tidx;
+    ubpmem[tidx].flag = THCNumerics<T>::eq(input[linearOffset + tidx], mode);
+    ubpmem[tidx].val = tidx;
   }
   if (stidx < sliceSize) {
-    bmem[stidx] = THCNumerics<T>::eq(input[linearOffset + stidx], mode);
-    cmem[stidx] = stidx;
+    ubpmem[stidx].flag = THCNumerics<T>::eq(input[linearOffset + stidx], mode);
+    ubpmem[stidx].val = stidx;
   }
-  __syncthreads(); // barrier for initialization of bmem, imem
+  __syncthreads(); // barrier for initialization of ubpmem
 
   // Then we perform a similar reduction to the one above, except this time we update
   // the element if the element at the base position is not equal to the mode and
-  // the element at the offset position is. At the end, imem[0] will contain an index
+  // the element at the offset position is. At the end, C[0] will contain an index
   // with the mode.
   for (unsigned int offset = Power2Size / 2; offset > 0; offset >>= 1) {
     if (tidx < offset && tidx + offset < sliceSize) {
       // Just always update the base if the offset is true
-      if (bmem[tidx + offset]) {
-        cmem[tidx] = cmem[tidx + offset];
-        bmem[tidx] = true;  // need to update match
+      if (ubpmem[tidx + offset].flag) {
+        ubpmem[tidx].val = ubpmem[tidx + offset].val;
+        ubpmem[tidx].flag = true;  // need to update match
       }
     }
     __syncthreads();
@@ -261,7 +285,7 @@ __global__ void computeMode(
   // Finally, we have the mode, and an index where it occurs. We use a single thread
   // to place this in the appropriate output position
   if (tidx == 0) {
-    long index = TH_INDEX_BASE + cmem[0];
+    long index = TH_INDEX_BASE + ubpmem[0].val;
 
     unsigned int outputOffset = IndexToOffset<T, unsigned int, -1>::get(blockId, values);
     values.data[outputOffset] = mode;
