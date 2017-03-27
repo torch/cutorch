@@ -183,7 +183,7 @@ __global__ void computeMode(
   // Flag   (B)  = [1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1]
   // Output (C)  = [0, 1, 0, 1, 0, 1, 2, 0, 0, 0, 1, 0, 0]
   //
-  // Afterwards, the (index) components of the uupmem buffer contain the lengths of the
+  // Afterwards, the (index) components of the ubpmem buffer contain the lengths of the
   // segments (minus 1), i.e. the counts of each element in the original input.
 
   inclusivePrefixScan<
@@ -198,11 +198,8 @@ __global__ void computeMode(
   // boolean flag regions as integers). We initialize these to represent indices, and we'll call
   // this buffer I
   struct ModeUnsignedPair *uupmem = reinterpret_cast<struct ModeUnsignedPair *>(ubpmem);
-  uupmem[tidx].index = tidx;
-  uupmem[stidx].index = stidx;
-  __syncthreads(); // barrier for index initialization
 
-  // At this point, we need to find the maximum element in lengths buffer B.
+  // At this point, we need to find the maximum element in lengths buffer C.
   // This element will represent the count (-1) of the mode. Because of the
   // way we have set up the problem, the index where this mode occurs will
   // also be the location of the mode value in the sorted array, e.g.
@@ -216,34 +213,23 @@ __global__ void computeMode(
   // We perform a block wide max-reduction of the C buffer, but we also need the
   // indices to come along with it, so we utilize the uupmem construction.
   //
-  // Loop 1 (Power2Size = offset = 4):
-  //
-  // (0, 4) --> C[4] = 2 > C[0] = 0, so update C[0], I[0]
-  // (1, 5) --> C[5] = 0 <= C[1] = 1, do nothing
-  //
-  // Now:         0  1  2  3  4  5
-  //      C = [2, 1, 0, 1, 2, 0]
-  //      I = [4, 1, 2, 3, 4, 5]
-  //
-  // Loop 2 (offset = 2)
-  //
-  // (0, 2) --> C[2] == 0 <= C[0] = 2, do nothing
-  // (1, 3) --> C[3] == 1 <= C[1] = 1, do nothing
-  //
-  // Now:         0  1  2  3  4  5
-  //      C = [2, 1, 2, 1, 2, 0]
-  //      I = [4, 1, 4, 3, 4, 5]
-  //
-  // Loop 3 (offset = 1)
-  //
-  // (0, 1) --> C[1] == 1 <= C[0] = 2, do nothing
-  //
-  // So at the end at C[0] we have the maximum count = 2, and the
-  // corresponding index I[0] = 4
+  // At the end we need to return the ModeUnsignedPair containing index = 4, val = 2,
+  // which represents the max
+
+  // In practice, we will make each thread locally reduce 2 values in its registers prior
+  // to the global block-wide reduction. Note that instead of tidx/stidx, we utilize tidx * 2,
+  // tidx * 2 + 1, so each thread deals with adjacent elements. This is because the reduce
+  // code below relies on thread elements to be adjacent.
+  struct ModeUnsignedPair uup[2];
+  uup[0].index = tidx * 2;
+  uup[0].val = ubpmem[tidx * 2].val;
+  uup[1].index = tidx * 2 + 1;
+  uup[1].val = ubpmem[tidx * 2 + 1].val;
 
   struct ModeUnsignedPair max = {0, 0};
-  max = reduceBlockN<struct ModeUnsignedPair, MaxReduceOp<struct ModeUnsignedPair>, 2, true>
-    (uupmem, &uupmem[tidx * 2], sliceSize, MaxReduceOp<struct ModeUnsignedPair>(), max);
+
+  max = reduceBlockN<struct ModeUnsignedPair, MaxReduceOp<struct ModeUnsignedPair>, 2, false>
+    (uupmem, uup, sliceSize, MaxReduceOp<struct ModeUnsignedPair>(), max);
 
   // Store the mode in shared memory for use in finding the mode in the input slice
   __shared__ T  mode;
