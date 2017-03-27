@@ -173,7 +173,7 @@ __global__ void computeMode(
     ubpmem[(tidx + 1) * 2].flag = THCNumerics<T>::ne(smem[((tidx + 1) * 2) - 1], smem[(tidx + 1) * 2]);
     ubpmem[(tidx + 1) * 2].val = !ubpmem[(tidx + 1) * 2].flag;
   }
-  __syncthreads(); // barrier for uupmem initialization
+  __syncthreads(); // barrier for ubpmem initialization
 
   // Next, we perform a segmented prefix sum on the neighboring elements, where
   // the presence of a one indicates the start of a segment. In this case B acts
@@ -225,6 +225,7 @@ __global__ void computeMode(
   uup[0].val = ubpmem[tidx * 2].val;
   uup[1].index = tidx * 2 + 1;
   uup[1].val = ubpmem[tidx * 2 + 1].val;
+  __syncthreads();
 
   struct ModeUnsignedPair max = {0, 0};
 
@@ -246,23 +247,22 @@ __global__ void computeMode(
   // We will do a reduction to find the index. We go back to using the (index, flag) buffer
   // arrangment. First, we mark indices that are equal to the mode, i.e B[i] = true if
   // input[i] == mode, and initialize C[i] to be the index
-  if (tidx < sliceSize) {
-    ubpmem[tidx].flag = THCNumerics<T>::eq(input[linearOffset + tidx], mode);
-    ubpmem[tidx].val = tidx;
-  }
-  if (stidx < sliceSize) {
-    ubpmem[stidx].flag = THCNumerics<T>::eq(input[linearOffset + stidx], mode);
-    ubpmem[stidx].val = stidx;
-  }
-  __syncthreads(); // barrier for initialization of ubpmem
+  //
+  // Again we reduce 2 elements in the thread's registers prior to the block-wide reduction
+  struct ModeUnsignedBoolPair ubpp[2];
+  ubpp[0].flag = THCNumerics<T>::eq(input[linearOffset + (tidx * 2)], mode);
+  ubpp[0].val = tidx * 2;
+  ubpp[1].flag = THCNumerics<T>::eq(input[linearOffset + (tidx * 2 + 1)], mode);
+  ubpp[1].val = tidx * 2 + 1;
 
   // Then we perform a similar reduction to the one above, except this time we update
   // the element if the element at the base position is not equal to the mode and
   // the element at the offset position is. At the end, C[0] will contain an index
   // with the mode.
   struct ModeUnsignedBoolPair match = {0, false};
-  match = reduceBlockN<struct ModeUnsignedBoolPair, MatchReduceOp<struct ModeUnsignedBoolPair>, 2, true>
-    (ubpmem, &ubpmem[tidx * 2], sliceSize, MatchReduceOp<struct ModeUnsignedBoolPair>(), match);
+
+  match = reduceBlockN<struct ModeUnsignedBoolPair, MatchReduceOp<struct ModeUnsignedBoolPair>, 2, false>
+    (ubpmem, ubpp, sliceSize, MatchReduceOp<struct ModeUnsignedBoolPair>(), match);
 
   // Finally, we have the mode, and an index where it occurs. We use a single thread
   // to place this in the appropriate output position
