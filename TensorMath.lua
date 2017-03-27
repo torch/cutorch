@@ -885,6 +885,13 @@ for k, Tensor_ in pairs(handledTypenames) do
              {name="boolean", default=0}}
     )
 
+    wrap("mode",
+         cname("mode"),
+         {{name=Tensor, default=true, returned=true, noreadadd=true},
+             {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+             {name=Tensor},
+             {name="index", default=lastdim(3)}})
+
     wrap("squeeze",
          cname("squeeze"),
          {{name=Tensor, default=true, returned=true, postcall=function(arg)
@@ -1618,6 +1625,13 @@ wrap("topk",
        {name="index", default=lastdim(3)},
        {name="boolean", default=0},
        {name="boolean", default=0}})
+
+wrap("mode",
+     cname("mode"),
+     {{name=Tensor, default=true, returned=true, noreadadd=true},
+       {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+       {name=Tensor},
+       {name="index", default=lastdim(3)}})
 
 do
    local Tensor = Tensor

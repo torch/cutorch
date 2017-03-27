@@ -365,10 +365,11 @@ end
 -- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
 --             false: convert then to baseType when doing CUDA
 -- x = first argument tensor
+-- limit: number of returns to compare, if nil, compares all returns
 -- gpu2cpu_map = map of gpu types to cpu types
 -- fn = function name (as string), or the function)
 -- ... = the rest of arguments to fn
-local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, indexMode, x, fn, ...)
+local function compareCPUAndCUDATypeTensorArgsWithConvInternal(cudaType, gpu2cpu_map, indexMode, limit, x, fn, ...)
    local baseType = t2cpu[cudaType]
    assert(baseType, 'Cannot find baseType for ' .. cudaType)
    local x_cpu = x:type(baseType)
@@ -421,23 +422,30 @@ local function compareCPUAndCUDATypeTensorArgsWithConv(cudaType, gpu2cpu_map, in
    tester:assert(#rcpu == #rcuda,
 		 string.format("number of return arguments for CPU and CUDA "
 			       .. "are different for function '%s'", tostring(fn)))
-   for k, _ in ipairs(rcpu) do
-      tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
-                    string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
+
+   if limit ~= nil then
+      for k = 1, limit do
+         tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
+                       string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
+      end
+   else
+      for k, _ in ipairs(rcpu) do
+         tester:assert(isEqual(rcpu[k], rcuda[k], tolerance),
+                       string.format(errstrval, k, divval(rcpu[k], rcuda[k])))
+      end
    end
+
    -- also test x in case function changed object
    tester:assert(isEqual(x_cpu, x_cuda, tolerance),
                  string.format(errstrobj, divval(x_cpu, x_cuda)))
 end
 
--- baseType = the tensor type to test
--- indexMode = true: keep indexing and masking Tensors as their CPU equivalents
---             false: convert then to baseType when doing CUDA
--- x = first argument tensor
--- fn = function name (as string), or the function)
--- ... = the rest of arguments to fn
 local function compareCPUAndCUDATypeTensorArgs(cudaType, indexMode, x, fn, ...)
-   compareCPUAndCUDATypeTensorArgsWithConv(cudaType, nil, indexMode, x, fn, ...)
+   compareCPUAndCUDATypeTensorArgsWithConvInternal(cudaType, nil, indexMode, nil, x, fn, ...)
+end
+
+local function compareCPUAndCUDATypeTensorArgsWithLimit(cudaType, indexMode, limit, x, fn, ...)
+   compareCPUAndCUDATypeTensorArgsWithConvInternal(cudaType, nil, indexMode, limit, x, fn, ...)
 end
 
 function test.squeeze()
@@ -2052,10 +2060,10 @@ local function testIndexAdd(types, gpu2cpu_map)
    for k, typename in ipairs(types) do
       local ctype = t2cpu[typename]
       local x, src = x:type(ctype), src:type(ctype)
-      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+      compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, true, nil, x, 'indexAdd',
                                               index, longIndex, src)
       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
-          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+          compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, false, nil, x, 'indexAdd',
                                                   index, longIndex, src)
       end
    end
@@ -2067,10 +2075,10 @@ local function testIndexAdd(types, gpu2cpu_map)
    for k, typename in ipairs(types) do
       local ctype = t2cpu[typename]
       local x, src = x:type(ctype), src:type(ctype)
-      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+      compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, true, nil, x, 'indexAdd',
                                               index, longIndex, src)
       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
-          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+          compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, false, nil, x, 'indexAdd',
                                                   index, longIndex, src)
       end
    end
@@ -2083,10 +2091,10 @@ local function testIndexAdd(types, gpu2cpu_map)
    for k, typename in ipairs(types) do
       local ctype = t2cpu[typename]
       local x, src = x:type(ctype), src:type(ctype)
-      compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, true, x, 'indexAdd',
+      compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, true, nil, x, 'indexAdd',
                                               index, longIndex, src)
       if typename ~= 'torch.CudaByteTensor' and typename ~= 'torch.CudaCharTensor' then
-          compareCPUAndCUDATypeTensorArgsWithConv(typename, gpu2cpu_map, false, x, 'indexAdd',
+          compareCPUAndCUDATypeTensorArgsWithConvInternal(typename, gpu2cpu_map, false, nil, x, 'indexAdd',
                                                   index, longIndex, src)
       end
    end
@@ -3803,6 +3811,417 @@ function test.topk()
          compareFloatAndCuda(t, runTopK, dim, kTests[k], dir)
       end
    end
+end
+
+local function verifyMode1D(tensor)
+   -- We cannot rely upon comparing against CPU-Torch as the way it resolves
+   -- ties between equal modes and how it picks the corresponding index is not
+   -- reliable. Instead we will use apply macros to compute the mode in place in
+   -- our code and compare against these results
+
+   -- counts is a table of tensor element -> # of occurrences
+   local counts = {}
+
+   -- populate counts by iterating over the elements in the tensor
+   tensor:apply(function(x) if counts[x] == nil then counts[x] = 1 else counts[x] = counts[x] + 1 end return x end)
+
+   -- next, calculate the max occurrence in the tensor
+   local max = -1;
+   for _, count in pairs(counts) do
+      if count > max then max = count end
+   end
+
+   -- now verify for all the GPU types that 1. the mode picked has max occurrences,
+   -- and 2. that the index returned contains that mode
+
+   for _, cudaType in ipairs(typenames) do
+      local baseType = t2cpu[cudaType]
+      assert(baseType, 'Cannot find baseType for ' .. cudaType)
+      local x_cpu = tensor:clone():type(baseType)
+      local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
+
+      local modes, indices = x_cuda:mode()
+
+      -- 1D, so should only be a single return
+      tester:assert(modes:nElement() == 1, 'mode returned an invalid number of values')
+      tester:assert(indices:nElement() == 1, 'mode returned an invalid number of values')
+      local mode = modes[1]
+      local index = indices[1]
+
+      tester:assert(counts[mode] == max, string.format(
+         'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
+         cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
+      ))
+      tester:assert(tensor[index] == mode, string.format(
+        'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+        cudaType, tostring(index), tostring(tensor[index]), tostring(mode)
+      ))
+   end
+end
+
+local function assertSize(tensor, sizes)
+   local valid = true
+   if tensor:nDimension() ~= #sizes then
+      tester:assert(false, 'tensor dimension mismatch')
+   end
+   for i, size in ipairs(sizes) do
+      if tensor:size(i) ~= size then
+         valid = false
+      end
+   end
+   tester:assert(valid, 'tensor size mismatch')
+end
+
+local function verifyMode2D(tensor, onlyDim)
+   local dims = {}
+   if onlyDim ~= nil then
+      dims = {onlyDim}
+   else
+      dims = {1, 2}
+   end
+
+   for _, dim in ipairs(dims) do
+      -- In the case of a 2D Tensor, we need to calculate the count for each slice
+      -- sCounts is a table containing the counts of elements for each slice,
+      -- sMax is a table containing the max occurrence for each slice
+      local sCounts = {}
+      local sMax = {}
+
+      -- First, we use the :split() function to split the Tensor
+      -- Suppose we are mode'ing a 5x10 Tensor. If we mode along dim=1,
+      -- we have a result Tensor that is 1x10, so we need the counts for
+      -- all 10 slices of size=5. So we actually split along dim=2, with
+      -- size = 1, to yield 10 5x1 tensors
+      local splits = tensor:split(1, dim == 1 and 2 or 1)
+
+      -- next, we iterate over these split Tensors to calculate the mode, as we
+      -- did in the 1D case
+      for i, slice in pairs(splits) do
+         local counts = {}
+         slice:apply(function(x) if counts[x] == nil then counts[x] = 1 else counts[x] = counts[x] + 1 end return x end)
+
+         local max = -1;
+         for _, count in pairs(counts) do
+            if count > max then max = count end
+         end
+
+         sCounts[i] = counts;
+         sMax[i] = max;
+      end
+
+      -- verification pass
+      for _, cudaType in ipairs(typenames) do
+         local baseType = t2cpu[cudaType]
+         assert(baseType, 'Cannot find baseType for ' .. cudaType)
+         local x_cpu = tensor:clone():type(baseType)
+         local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
+         local modes, indices = x_cuda:mode(dim)
+
+         -- 2D, so expect:
+         -- (dim = 1) a 1xsize(tensor, dim = 2) tensor
+         -- (dim = 2) a size(tensor, dim = 1)x1 tensor
+
+         if dim == 1 then
+            assertSize(modes, {1, tensor:size(2)})
+            assertSize(indices, {1, tensor:size(2)})
+         else
+            assertSize(modes, {tensor:size(1), 1})
+            assertSize(indices, {tensor:size(1), 1})
+         end
+
+         -- we need to run through and verify that all of the modes/indices are valid, for
+         -- the results of each slice. First, we squeeze the Tensor, so we can iterate over
+         -- both the 1D/2D values in the same manner
+         modes = modes:squeeze(dim)
+         indices = indices:squeeze(dim)
+
+         -- iterate over each slice, and verify that for each slice the mode selected has
+         -- max occurrences, and the index points to the mode
+         for i, counts in pairs(sCounts) do
+            local max = sMax[i]
+            local mode = modes[i]
+            local index = indices[i]
+
+            tester:assert(counts[mode] == max, string.format(
+               'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
+               cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
+            ))
+
+            if dim == 1 then
+               tester:assert(tensor[index][i] == mode, string.format(
+                  'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                  cudaType, tostring(index), tostring(tensor[index][i]), tostring(mode)
+               ))
+            else
+               tester:assert(tensor[i][index] == mode, string.format(
+                  'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                  cudaType, tostring(index), tostring(tensor[i][index]), tostring(mode)
+               ))
+            end
+         end
+      end
+   end
+end
+
+local function verifyMode3D(tensor, onlyDim)
+    local dims = {}
+    if onlyDim ~= nil then
+       dims = {onlyDim}
+    else
+       dims = {1, 2, 3}
+    end
+    -- In the case of 3D Tensor, we need to calculate the count for each slice,
+    -- but this time, we have two layers of depth, for each of the non-mode dims
+    -- so sCounts is a multi-level table where sCounts[i][j] is the counts for
+    -- (_, i, j), (i, _, j) or (i, j, _) depending on the dim
+    local sCounts = {}
+    local sMax = {}
+
+    -- Suppose we have a 2x3x4 Tensor T:
+    -- (1, .., ..),    (2, .., ..)
+    -- [1, 2, 3, 4]    [3, 2, 2, 4]
+    -- [5, 6, 7, 8]    [5, 6, 8, 7]
+    -- [9, 10, 11, 12] [1, 10, 11, 1]
+    --
+    -- Then for dim = 1, we need counts to be a multi-level table (3x4xcounts)
+    --                2                                           (2x4xcounts)
+    --                3                                           (2x3xcounts)
+    --
+    -- Results: dim = 1
+    -- {1:
+    --    {1:
+    --       1 --> 1,
+    --       3 --> 1,
+    --     2:
+    --       2 --> 2,
+    --     3:
+    --       2 --> 1,
+    --       3 --> 1,
+    --     4:
+    --       4 --> 2,
+    --    },
+    -- {2:
+    --    {1:
+    --       5 --> 2,
+    --       ...
+
+    -- used to set loop bounds and indexing to construct the above table using the loop below
+    local dbounds = {
+      {tensor:size(2), tensor:size(3), tensor:size(1)},
+      {tensor:size(1), tensor:size(3), tensor:size(2)},
+      {tensor:size(1), tensor:size(2), tensor:size(3)}}
+    local dfuncs = {
+      function(tensor, i, j, k) return tensor[k][i][j] end,
+      function(tensor, i, j, k) return tensor[i][k][j] end,
+      function(tensor, i, j, k) return tensor[i][j][k] end,
+    }
+
+    -- loop...
+    for d, bounds in ipairs(dbounds) do
+      sCounts[d] = {}
+      sMax[d] = {}
+      for i = 1, bounds[1] do
+        sCounts[d][i] = {}
+        sMax[d][i] = {}
+        for j = 1, bounds[2] do
+           sCounts[d][i][j] = {}
+           sMax[d][i][j] = {}
+           for k = 1, bounds[3] do
+             local v = dfuncs[d](tensor, i, j, k)
+             if sCounts[d][i][j][v] == nil then
+                sCounts[d][i][j][v] = 1
+             else
+                sCounts[d][i][j][v] = sCounts[d][i][j][v] + 1
+             end
+
+             local max = -1
+             for _, count in pairs(sCounts[d][i][j]) do
+                if count > max then max = count end
+             end
+             sMax[d][i][j] = max
+           end -- k
+        end -- k
+      end -- j
+    end -- d
+
+
+   -- verification pass
+   for _, dim in ipairs(dims) do
+      for _, cudaType in ipairs(typenames) do
+         local baseType = t2cpu[cudaType]
+         assert(baseType, 'Cannot find baseType for ' .. cudaType)
+         local x_cpu = tensor:clone():type(baseType)
+         local x_cuda = cloneExactlyToGPUType(x_cpu, nil, t2gpu)
+         local modes, indices = x_cuda:mode(dim)
+
+         if dim == 1 then
+            assertSize(modes, {1, tensor:size(2), tensor:size(3)})
+            assertSize(indices, {1, tensor:size(2), tensor:size(3)})
+         elseif dim == 2 then
+            assertSize(modes, {tensor:size(1), 1, tensor:size(3)})
+            assertSize(indices, {tensor:size(1), 1, tensor:size(3)})
+         else
+            assertSize(modes, {tensor:size(1), tensor:size(2), 1})
+            assertSize(indices, {tensor:size(1), tensor:size(2), 1})
+         end
+
+         -- squeeze on mode dim
+         modes = modes:squeeze(dim)
+         indices = indices:squeeze(dim)
+
+         -- iterate over slices
+         for i, js in pairs(sCounts[dim]) do
+            for j, counts in pairs(js) do
+               local max = sMax[dim][i][j]
+               local mode = modes[i][j]
+               local index = indices[i][j]
+
+               tester:assert(counts[mode] == max, string.format(
+                  'Type: %s --> Selected mode of %s which has count of %s, but mode must have %s occurrences',
+                  cudaType, tostring(mode), tostring(counts[mode]), tostring(max)
+               ))
+
+               if dim == 1 then
+                  tester:assert(tensor[index][i][j] == mode, string.format(
+                     'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                     cudaType, tostring(index), tostring(tensor[index][i][j]), tostring(mode)
+                  ))
+               elseif dim == 2 then
+                  tester:assert(tensor[i][index][j] == mode, string.format(
+                     'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                     cudaType, tostring(index), tostring(tensor[i][index][j]), tostring(mode)
+                  ))
+               else
+                  tester:assert(tensor[i][j][index] == mode, string.format(
+                     'Type: %s --> Selected index of %s which has value %s, but mode is %s',
+                     cudaType, tostring(index), tostring(tensor[i][j][index]), tostring(mode)
+                  ))
+               end
+
+            end -- j
+         end --i
+      end -- tensor type
+   end -- dim
+end
+
+function test.mode()
+    -- Tests for 1D Tensors
+
+    -- Single-element Tensor
+    local input = torch.FloatTensor({1})
+    verifyMode1D(input)
+
+    -- Tensor of all the same values
+    local input = torch.FloatTensor(10):fill(1)
+    verifyMode1D(input)
+
+    -- Tensor with a unique range of values
+    local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
+    verifyMode1D(input)
+
+    -- Handles ties when there are two things with equal counts
+    local input = torch.FloatTensor({2, 2, 1, 1})
+    verifyMode1D(input)
+
+    -- Big Range of Values: (4 is the mode)
+    local input = torch.FloatTensor({
+        1, 4, 4, 4, 4, 1, 1, 2, 2, 2, 3, 4, 5, 5, 4, 4, 4, 4, 4, 4,
+        2, 2, 1, 1, 2, 3, 4, 4, 4, 4, 2, 3, 4, 4, 3, 2, 1, 2, 3, 4})
+    verifyMode1D(input)
+
+    -- Larger Example
+    local input = torch.FloatTensor(1000):apply(function(x) return torch.random(1, 10) end)
+    verifyMode1D(input)
+
+    -- verify input is unchanged
+    local input = torch.FloatTensor({4, 3, 6, 8, 2, 1})
+    local same = torch.FloatTensor({4, 3, 6, 8, 2, 1})
+    torch.mode(input)
+    tester:assertTensorEq(input, same, 0, 'cutorch mode modified input')
+
+    -- Tests for 2D Tensors
+
+    -- Tensor of all the same values
+    local input = torch.FloatTensor(3, 4):fill(1)
+    verifyMode2D(input)
+
+    -- Tensor with a unique range of values
+    local input = torch.FloatTensor({{2,  3,  5, 7},
+                                     {1, 10, 17, 6},
+                                     {0, 22, 14, 9}})
+    verifyMode2D(input)
+
+    -- Consistency between ties when there are two things with equal counts
+    local input = torch.FloatTensor({{2,  2,  3, 3},
+                                     {1,  1,  3, 3},
+                                     {2,  2,  1, 1},
+                                     {1,  1,  1, 1}})
+    verifyMode2D(input)
+
+    -- Larger example
+    local input = torch.FloatTensor(50, 100):apply(function(x) return torch.random(1, 10) end)
+    verifyMode2D(input)
+
+    -- Tests for 3D Tensors
+
+    -- Tensor of all the same values
+    local input = torch.FloatTensor(2, 4, 5):fill(1)
+    verifyMode3D(input)
+
+    -- Tensor with a unique range of values
+    local input = torch.FloatTensor(
+        {
+            {{2,  3,  5, 7},
+             {1, 10, 17, 6},
+             {0, 22, 14, 9}},
+
+            {{32, 88, 25,   4},
+             {21, 78, 57, 111},
+             {15, 68, 64, 117}}
+        }
+    )
+    verifyMode3D(input)
+
+    -- Handles ties when there are two things with equal counts
+    local input = torch.FloatTensor(
+        {
+            {{2,  2,  3, 3},
+             {1,  1,  3, 3},
+             {2,  2,  1, 1},
+             {1,  1,  1, 1}},
+
+            {{3,  3,  4, 4},
+             {2,  2,  4, 4},
+             {3,  3,  2, 2},
+             {2,  2,  2, 2}},
+        }
+    )
+    verifyMode3D(input)
+
+    -- Larger example
+    local input = torch.FloatTensor(14, 22, 32):apply(function(x) return torch.random(1, 10) end)
+    verifyMode3D(input)
+end
+
+function test.bigmode()
+    -- Examples that overflow fused-kernel
+    local input = torch.IntTensor(16384):apply(function(x) return torch.random(1, 100) end)
+    verifyMode1D(input)
+
+    local input = torch.FloatTensor(4096, 4):fill(1)
+    verifyMode2D(input, 1)
+
+    local input = torch.FloatTensor(4, 4096):fill(1)
+    verifyMode2D(input, 2)
+
+    local input = torch.FloatTensor(2, 2, 4096):fill(1)
+    verifyMode3D(input, 3)
+
+    local input = torch.FloatTensor(2, 4096, 2):fill(1)
+    verifyMode3D(input, 2)
+
+    local input = torch.FloatTensor(4096, 2, 2):fill(1)
+    verifyMode3D(input, 1)
 end
 
 function test.cat()
