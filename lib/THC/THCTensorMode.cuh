@@ -250,10 +250,14 @@ __global__ void computeMode(
   //
   // Again we reduce 2 elements in the thread's registers prior to the block-wide reduction
   struct ModeUnsignedBoolPair ubpp[2];
-  ubpp[0].flag = THCNumerics<T>::eq(input[linearOffset + (tidx * 2)], mode);
-  ubpp[0].val = tidx * 2;
-  ubpp[1].flag = THCNumerics<T>::eq(input[linearOffset + (tidx * 2 + 1)], mode);
-  ubpp[1].val = tidx * 2 + 1;
+  if (tidx * 2 < sliceSize) {
+    ubpp[0].flag = THCNumerics<T>::eq(input[linearOffset + (tidx * 2)], mode);
+    ubpp[0].val = tidx * 2;
+  }
+  if (tidx * 2 + 1 < sliceSize) {
+    ubpp[1].flag = THCNumerics<T>::eq(input[linearOffset + (tidx * 2 + 1)], mode);
+    ubpp[1].val = tidx * 2 + 1;
+  }
 
   // Then we perform a similar reduction to the one above, except this time we update
   // the element if the element at the base position is not equal to the mode and
