@@ -73,8 +73,9 @@ __device__ T reduceBlock(T* smem,
 }
 
 // Block-wide reduction where each thread locally reduces N
-// values before letting a single warp take over
-template <typename T, typename ReduceOp, int N, bool SyncAfterLocalReduction>
+// values before letting a single warp take over - assumes
+// threadVals is in registers, not shared memory
+template <typename T, typename ReduceOp, int N>
 __device__ T reduceBlockN(T *smem,
                          T threadVals[N],
                          int numVals,
@@ -88,11 +89,6 @@ __device__ T reduceBlockN(T *smem,
     ++offset;
     T next = offset < numVals ? threadVals[i] : init;
     local = reduceOp(local, next);
-  }
-
-  // Needed if threadVals points to the same shared memory as smem
-  if (SyncAfterLocalReduction) {
-    __syncthreads();
   }
 
   return reduceBlock<T, ReduceOp>(smem, blockDim.x < numVals ? blockDim.x : numVals, local, reduceOp, init);
