@@ -239,15 +239,15 @@ __device__ void radixSelect(const RadixConverter& conv,
   *topK = conv.deconvert(desired);
 }
 
-template <typename IndexType, int Dim, bool Order>
-__global__ void gatherTopK(TensorInfo<float, IndexType> input,
+template <typename T, typename IndexType, int Dim, bool Order>
+__global__ void gatherTopK(TensorInfo<T, IndexType> input,
                            IndexType inputSliceSize,
                            IndexType outputSliceSize, // aka `k`
 
                            IndexType numInputSlices,
                            IndexType inputWithinSliceStride,
 
-                           TensorInfo<float, IndexType> topK,
+                           TensorInfo<T, IndexType> topK,
                            IndexType numTopKSlices,
                            IndexType topKWithinSliceStride,
 
@@ -264,19 +264,19 @@ __global__ void gatherTopK(TensorInfo<float, IndexType> input,
 
   // Find the start offset for our slice
   IndexType sliceStartIndex =
-    IndexToOffset<float, IndexType, Dim>::get(slice, input);
+    IndexToOffset<T, IndexType, Dim>::get(slice, input);
   IndexType topKSliceStartIndex =
-    IndexToOffset<float, IndexType, Dim>::get(slice, topK);
+    IndexToOffset<T, IndexType, Dim>::get(slice, topK);
   IndexType indicesSliceStartIndex =
     IndexToOffset<long, IndexType, Dim>::get(slice, indices);
 
-  float* inputSliceStart = &input.data[sliceStartIndex];
-  float* topKSliceStart = &topK.data[topKSliceStartIndex];
+  T* inputSliceStart = &input.data[sliceStartIndex];
+  T* topKSliceStart = &topK.data[topKSliceStartIndex];
   long* indicesSliceStart = &indices.data[indicesSliceStartIndex];
 
   // Find the k-th highest element in our input
-  float topKValue = -1.0f;
-  radixSelect<float, unsigned int, IndexType, FloatToSortedInt, Order>(
+  T topKValue = ScalarConvert<int, T>::to(0);
+  radixSelect<T, unsigned int, IndexType, FloatToSortedInt, Order>(
     FloatToSortedInt(),
     inputSliceStart, outputSliceSize,
     inputSliceSize, inputWithinSliceStride,
@@ -301,13 +301,13 @@ __global__ void gatherTopK(TensorInfo<float, IndexType> input,
 
   for (IndexType i = threadIdx.x; i < numIterations; i += blockDim.x) {
     bool inRange = (i < inputSliceSize);
-    float v =
-      inRange ? doLdg(&inputSliceStart[i * inputWithinSliceStride]) : 0.0f;
+    T v =
+      inRange ? doLdg(&inputSliceStart[i * inputWithinSliceStride]) : ScalarConvert<int, T>::to(0);
     bool hasTopK;
     if (Order) {
-      hasTopK = inRange && (v > topKValue);
+      hasTopK = inRange && (THCNumerics<T>::gt(v, topKValue));
     } else {
-      hasTopK = inRange && (v < topKValue);
+      hasTopK = inRange && (THCNumerics<T>::lt(v, topKValue));
     }
 
     int index;
@@ -338,9 +338,9 @@ __global__ void gatherTopK(TensorInfo<float, IndexType> input,
 
   for (IndexType i = threadIdx.x; i < numIterations; i += blockDim.x) {
     bool inRange = (i < inputSliceSize);
-    float v =
-      inRange ? doLdg(&inputSliceStart[i * inputWithinSliceStride]) : 0.0f;
-    bool hasTopK = inRange && (v == topKValue);
+    T v =
+      inRange ? doLdg(&inputSliceStart[i * inputWithinSliceStride]) : ScalarConvert<int, T>::to(0);
+    bool hasTopK = inRange && (THCNumerics<T>::eq(v, topKValue));
 
     int index;
     int carry;
