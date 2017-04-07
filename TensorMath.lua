@@ -885,7 +885,7 @@ for k, Tensor_ in pairs(handledTypenames) do
              {name="boolean", default=0}}
     )
 
-    if Tensor == 'CudaTensor' then
+    if Tensor == 'CudaTensor' or Tensor == 'CudaByteTensor' then
       wrap("topk",
            cname("topk"),
            {{name=Tensor, default=true, returned=true},

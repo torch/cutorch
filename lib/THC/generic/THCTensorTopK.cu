@@ -2,7 +2,7 @@
 #define THC_GENERIC_FILE "generic/THCTensorTopK.cu"
 #else
 
-#if defined(THC_REAL_IS_FLOAT)
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_BYTE)
 
 THC_API void THCTensor_(topk)(THCState* state,
                                THCTensor *topK,
@@ -11,16 +11,16 @@ THC_API void THCTensor_(topk)(THCState* state,
                                long k, int dim, int dir, int sorted) {
   THAssert(topK != NULL && indices != NULL && input != NULL);
   THCAssertSameGPU(THCTensor_(checkGPU)(state, 3, topK, indices, input));
-  THCCheckTensorDims(state, topK, 2);
+  THArgCheck(THCTensor_(nDimension)(state, topK) <= MAX_CUTORCH_DIMS, 2, CUTORCH_DIM_WARNING);
   long dims = THCudaLongTensor_nDimension(state, indices);
-  THArgCheck(dims <= MAX_CUTORCH_DIMS, 2, CUTORCH_DIM_WARNING);
-  THCCheckTensorDims(state, input, 2);
-
+  THArgCheck(dims <= MAX_CUTORCH_DIMS, 3, CUTORCH_DIM_WARNING);
   int numDims = THCTensor_(nDimension)(state, input);
-  THArgCheck(dim >= 0 && dim < numDims, 3, "dim not in range");
+  THArgCheck(numDims <= MAX_CUTORCH_DIMS, 4, CUTORCH_DIM_WARNING);
+
+  THArgCheck(dim >= 0 && dim < numDims, 6, "dim not in range");
 
   long sliceSize = THCTensor_(size)(state, input, dim);
-  THArgCheck(k > 0 && k <= sliceSize, 2, "k not in range for dimension");
+  THArgCheck(k > 0 && k <= sliceSize, 5, "k not in range for dimension");
 
   // Build the output size, which is the dim being selected set to
   // size k

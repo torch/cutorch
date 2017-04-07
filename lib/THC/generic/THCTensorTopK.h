@@ -2,7 +2,7 @@
 #define THC_GENERIC_FILE "generic/THCTensorTopK.h"
 #else
 
-#if defined(THC_REAL_IS_FLOAT)
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_BYTE)
 
 /* Returns the set of all kth smallest (or largest) elements, depending */
 /* on `dir` */

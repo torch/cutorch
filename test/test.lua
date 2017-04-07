@@ -271,7 +271,6 @@ local function compareFloatAndCuda(x, fn, ...)
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
       if not isEqual(rcpu[k], rcuda[k], tolerance) then
-	      print(args)
 	      tester:assert(false, errstr)
       end
    end
@@ -3781,7 +3780,7 @@ function test.topk()
       -- FIXME: if the tensors ever contain equivalent values, then their indices
       -- could in fact be different.
 
-      if torch.Tensor.type(t) == 'torch.CudaTensor' then
+      if torch.Tensor.type(t) == 'torch.CudaTensor' or torch.Tensor.type(t) == 'torch.CudaByteTensor' then
          return t:topk(k, dim, dir, true)
       else
          local sorted, indices = t:sort(dim, dir)
@@ -3789,26 +3788,28 @@ function test.topk()
       end
    end
 
-   for tries = 1, 5 do
-      -- max size 2^20 for indexing
-      local t = createTestTensor(2 ^ 20)
-      local dim = chooseInt(1, t:nDimension())
-      local dimSize = t:size(dim)
-      local dir = chooseInt(1, 2) == 1
+   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor'}) do
+      for tries = 1, 5 do
+         -- max size 2^20 for indexing
+         local t = createTestTensor(2 ^ 20):type(typename)
+         local dim = chooseInt(1, t:nDimension())
+         local dimSize = t:size(dim)
+         local dir = chooseInt(1, 2) == 1
 
-      -- Test boundary conditions
-      local kTests = {1, dimSize}
+         -- Test boundary conditions
+         local kTests = {1, dimSize}
 
-      -- and some other random ones
-      table.insert(kTests, chooseInt(1, dimSize))
-      for i = 1, 2 do
-         -- some sizes that fit in our inplace kernel range (the dimSize one
-         -- will fall back to Thrust)
-         table.insert(kTests, chooseInt(1, math.min(2048, dimSize)))
-      end
+         -- and some other random ones
+         table.insert(kTests, chooseInt(1, dimSize))
+         for i = 1, 2 do
+            -- some sizes that fit in our inplace kernel range (the dimSize one
+            -- will fall back to Thrust)
+            table.insert(kTests, chooseInt(1, math.min(2048, dimSize)))
+         end
 
-      for k = 1, #kTests do
-         compareFloatAndCuda(t, runTopK, dim, kTests[k], dir)
+         for k = 1, #kTests do
+            compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 1, t, 'topk', kTests[k], dim, dir, true)
+         end
       end
    end
 end

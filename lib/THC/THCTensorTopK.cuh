@@ -28,6 +28,19 @@ struct TopKTypeConfig<float> {
   }
 };
 
+template <>
+struct TopKTypeConfig<unsigned char> {
+  typedef unsigned int RadixType;
+
+  static inline __device__ RadixType convert(unsigned char v) {
+    return v;
+  }
+
+  static inline __device__ float deconvert(RadixType v) {
+    return v;
+  }
+};
+
 // This function counts the distribution of all input values in a
 // slice we are selecting by radix digit at `radixDigitPos`, but only
 // those that pass the filter `((v & desiredMask) == desired)`.
