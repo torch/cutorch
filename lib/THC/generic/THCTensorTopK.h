@@ -1,0 +1,16 @@
+#ifndef THC_GENERIC_FILE
+#define THC_GENERIC_FILE "generic/THCTensorTopK.h"
+#else
+
+#if defined(THC_REAL_IS_FLOAT)
+
+/* Returns the set of all kth smallest (or largest) elements, depending */
+/* on `dir` */
+THC_API void THCTensor_(topk)(THCState* state,
+                               THCTensor* topK,
+                               THCudaLongTensor* indices,
+                               THCTensor* input,
+                               long k, int dim, int dir, int sorted);
+
+#endif // THC_REAL_IS_FLOAT
+#endif // THC_GENERIC_FILE

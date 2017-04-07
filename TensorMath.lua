@@ -885,6 +885,18 @@ for k, Tensor_ in pairs(handledTypenames) do
              {name="boolean", default=0}}
     )
 
+    if Tensor == 'CudaTensor' then
+      wrap("topk",
+           cname("topk"),
+           {{name=Tensor, default=true, returned=true},
+             {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
+             {name=Tensor},
+             {name="long", default=1},
+             {name="index", default=lastdim(3)},
+             {name="boolean", default=0},
+             {name="boolean", default=0}})
+    end
+
     wrap("mode",
          cname("mode"),
          {{name=Tensor, default=true, returned=true, noreadadd=true},
