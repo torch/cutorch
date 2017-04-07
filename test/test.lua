@@ -3788,7 +3788,7 @@ function test.topk()
       end
    end
 
-   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor'}) do
+   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor', 'torch.CudaCharTensor'}) do
       for tries = 1, 5 do
          -- max size 2^20 for indexing
          local t = createTestTensor(2 ^ 20):type(typename)

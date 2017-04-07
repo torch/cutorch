@@ -36,8 +36,21 @@ struct TopKTypeConfig<unsigned char> {
     return v;
   }
 
-  static inline __device__ float deconvert(RadixType v) {
+  static inline __device__ unsigned char deconvert(RadixType v) {
     return v;
+  }
+};
+
+template <>
+struct TopKTypeConfig<char> {
+  typedef unsigned int RadixType;
+
+  static inline __device__ RadixType convert(char v) {
+    return 128u + v;
+  }
+
+  static inline __device__ char deconvert(RadixType v) {
+    return static_cast<int>(v) - 128;
   }
 };
 
@@ -179,7 +192,7 @@ __device__ void radixSelect(DataType* data,
   // We start at the most significant digit in our radix, scanning
   // through to the least significant digit
 #pragma unroll
-  for (int digitPos = sizeof(BitDataType) * 8 - RADIX_BITS;
+  for (int digitPos = sizeof(DataType) * 8 - RADIX_BITS;
        digitPos >= 0;
        digitPos -= RADIX_BITS) {
 

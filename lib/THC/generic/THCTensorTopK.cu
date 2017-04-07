@@ -2,7 +2,7 @@
 #define THC_GENERIC_FILE "generic/THCTensorTopK.cu"
 #else
 
-#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_BYTE)
+#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_BYTE) || defined(THC_REAL_IS_CHAR)
 
 THC_API void THCTensor_(topk)(THCState* state,
                                THCTensor *topK,
