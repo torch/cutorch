@@ -1,24 +1,28 @@
 #ifndef THC_TENSOR_TOPK_CUH
 #define THC_TENSOR_TOPK_CUH
 
-// Converts a float to an integer representation with the same
-// sorting; i.e., for floats f1, f2:
-// if f1 < f2 then convert(f1) < convert(f2)
-// We use this to enable radix selection of floating-point values.
-// This also gives a relative order for NaNs, but that's ok, as they
-// will all be adjacent
-struct FloatToSortedInt {
-  inline __host__ __device__ FloatToSortedInt() {}
+template <typename T>
+struct TopKTypeConfig {};
 
-  inline __device__ unsigned int convert(float v) const {
-    unsigned int x = __float_as_int(v);
-    unsigned int mask = (x & 0x80000000) ? 0xffffffff : 0x80000000;
+template <>
+struct TopKTypeConfig<float> {
+  typedef unsigned int RadixType;
+
+  // Converts a float to an integer representation with the same
+  // sorting; i.e., for floats f1, f2:
+  // if f1 < f2 then convert(f1) < convert(f2)
+  // We use this to enable radix selection of floating-point values.
+  // This also gives a relative order for NaNs, but that's ok, as they
+  // will all be adjacent
+  static inline __device__ RadixType convert(float v) {
+    RadixType x = __float_as_int(v);
+    RadixType mask = (x & 0x80000000) ? 0xffffffff : 0x80000000;
 
     return (x ^ mask);
   }
 
-  inline __device__ float deconvert(unsigned int v) const {
-    unsigned int mask = (v & 0x80000000) ? 0x80000000 : 0xffffffff;
+  static inline __device__ float deconvert(RadixType v) {
+    RadixType mask = (v & 0x80000000) ? 0x80000000 : 0xffffffff;
 
     return __int_as_float(v ^ mask);
   }
@@ -31,9 +35,8 @@ struct FloatToSortedInt {
 // `smem` must have at least `RadixSize` elements.
 template <typename DataType, typename BitDataType,
           typename IndexType, typename CountType,
-          typename RadixConverter, int RadixSize, int RadixBits>
-__device__ void countRadixUsingMask(const RadixConverter& conv,
-                                    CountType counts[RadixSize],
+          int RadixSize, int RadixBits>
+__device__ void countRadixUsingMask(CountType counts[RadixSize],
                                     CountType* smem,
                                     BitDataType desired,
                                     BitDataType desiredMask,
@@ -55,7 +58,7 @@ __device__ void countRadixUsingMask(const RadixConverter& conv,
   // Scan over all the data. Upon a read, the warp will accumulate
   // counts per each digit in the radix using warp voting.
   for (IndexType i = threadIdx.x; i < sliceSize; i += blockDim.x) {
-    BitDataType val = conv.convert(doLdg(&data[i * withinSliceStride]));
+    BitDataType val = TopKTypeConfig<DataType>::convert(doLdg(&data[i * withinSliceStride]));
 
     bool hasVal = ((val & desiredMask) == desired);
     unsigned int digitInRadix = getBitfield(val, radixDigitPos, RadixBits);
@@ -93,9 +96,8 @@ __device__ void countRadixUsingMask(const RadixConverter& conv,
 
 // This finds the unique value `v` that matches the pattern
 // ((v & desired) == desiredMask) in our sorted int format
-template <typename DataType, typename IndexType, typename RadixConverter>
-__device__ float findPattern(const RadixConverter& conv,
-                             DataType* smem,
+template <typename DataType, typename IndexType>
+__device__ float findPattern(DataType* smem,
                              DataType* data,
                              IndexType sliceSize,
                              IndexType withinSliceStride,
@@ -112,7 +114,7 @@ __device__ float findPattern(const RadixConverter& conv,
     bool inRange = (i < sliceSize);
     DataType v = inRange ? doLdg(&data[i * withinSliceStride]) : (DataType) 0;
 
-    if (inRange && ((conv.convert(v) & desiredMask) == desired)) {
+    if (inRange && ((TopKTypeConfig<DataType>::convert(v) & desiredMask) == desired)) {
       // There should not be conflicts if we are using findPattern,
       // since the result is unique
       smem[0] = (DataType) 1;
@@ -139,10 +141,8 @@ __device__ float findPattern(const RadixConverter& conv,
 }
 
 // Returns the top-Kth element found in the data using radix selection
-template <typename DataType, typename BitDataType, typename IndexType,
-          typename RadixConverter, bool Order>
-__device__ void radixSelect(const RadixConverter& conv,
-                            DataType* data,
+template <typename DataType, typename BitDataType, typename IndexType, bool Order>
+__device__ void radixSelect(DataType* data,
                             IndexType k,
                             IndexType sliceSize,
                             IndexType withinSliceStride,
@@ -155,8 +155,8 @@ __device__ void radixSelect(const RadixConverter& conv,
   // We only consider elements x such that (x & desiredMask) == desired
   // Initially, we consider all elements of the array, so the above
   // statement is true regardless of input.
-  unsigned int desired = 0;
-  unsigned int desiredMask = 0;
+  BitDataType desired = 0;
+  BitDataType desiredMask = 0;
 
   // We are looking for the top kToFind-th element when iterating over
   // digits; this count gets reduced by elimination when counting
@@ -173,9 +173,9 @@ __device__ void radixSelect(const RadixConverter& conv,
     // Count radix distribution for the current position and reduce
     // across all threads
     countRadixUsingMask<DataType, BitDataType,
-                        IndexType, int, RadixConverter,
+                        IndexType, int,
                         RADIX_SIZE, RADIX_BITS>(
-                          conv, counts, smem,
+                          counts, smem,
                           desired, desiredMask, digitPos,
                           sliceSize, withinSliceStride, data);
 
@@ -198,8 +198,8 @@ __device__ void radixSelect(const RadixConverter& conv,
       /* However, we do not yet know what the actual element is. We */  \
       /* need to perform a search through the data to find the */       \
       /* element that matches this pattern. */                          \
-      *topK = findPattern<DataType, IndexType, RadixConverter>(         \
-        conv, (float*) smem, data, sliceSize,                           \
+      *topK = findPattern<DataType, IndexType>(                         \
+        (DataType*) smem, data, sliceSize,                              \
         withinSliceStride, desired, desiredMask);                       \
       return;                                                           \
     }                                                                   \
@@ -236,7 +236,7 @@ __device__ void radixSelect(const RadixConverter& conv,
 
   // There is no unique result, but there is a non-unique result
   // matching `desired` exactly
-  *topK = conv.deconvert(desired);
+  *topK = TopKTypeConfig<DataType>::deconvert(desired);
 }
 
 template <typename T, typename IndexType, int Dim, bool Order>
@@ -276,8 +276,7 @@ __global__ void gatherTopK(TensorInfo<T, IndexType> input,
 
   // Find the k-th highest element in our input
   T topKValue = ScalarConvert<int, T>::to(0);
-  radixSelect<T, unsigned int, IndexType, FloatToSortedInt, Order>(
-    FloatToSortedInt(),
+  radixSelect<T, typename TopKTypeConfig<T>::RadixType, IndexType, Order>(
     inputSliceStart, outputSliceSize,
     inputSliceSize, inputWithinSliceStride,
     smem, &topKValue);
