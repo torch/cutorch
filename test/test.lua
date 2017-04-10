@@ -3786,7 +3786,8 @@ function test.topk()
    counts['torch.CudaTensor'] = 2 ^ 20
    counts['torch.CudaLongTensor'] = 2 ^ 20
 
-   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor', 'torch.CudaCharTensor', 'torch.CudaShortTensor', 'torch.CudaIntTensor', 'torch.CudaLongTensor'}) do
+   for _, typename in ipairs(typenames) do
+      if typename ~= 'torch.CudaHalfTensor' and typename ~= 'torch.CudaDoubleTensor' then
       for tries = 1, 5 do
          local t = createTestTensor(counts[typename]):type(typename)
          local dim = chooseInt(1, t:nDimension())
@@ -3808,6 +3809,7 @@ function test.topk()
             compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 2, t, 'topk', kTests[k], dim, dir, true)
          end
       end
+   end
    end
 end
 

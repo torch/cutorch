@@ -126,7 +126,7 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
     BitDataType val = TopKTypeConfig<DataType>::convert(doLdg(&data[i * withinSliceStride]));
 
     bool hasVal = ((val & desiredMask) == desired);
-    unsigned int digitInRadix = getBitfield(val, radixDigitPos, RadixBits);
+    unsigned int digitInRadix = Bitfield<BitDataType>::getBitfield(val, radixDigitPos, RadixBits);
 
 #pragma unroll
     for (unsigned int j = 0; j < RadixSize; ++j) {
@@ -254,9 +254,9 @@ __device__ void radixSelect(DataType* data,
     /* threads will return from the function. */                        \
     if (count == 1 && kToFind == 1) {                                   \
       /* There is a unique answer. */                                   \
-      desired = setBitfield(desired, i, digitPos, RADIX_BITS);          \
+      desired = Bitfield<BitDataType>::setBitfield(desired, i, digitPos, RADIX_BITS);          \
       desiredMask =                                                     \
-        setBitfield(desiredMask, RADIX_MASK, digitPos, RADIX_BITS);     \
+        Bitfield<BitDataType>::setBitfield(desiredMask, RADIX_MASK, digitPos, RADIX_BITS);     \
                                                                         \
       /* The answer is now the unique element v such that: */           \
       /* (v & desiredMask) == desired */                                \
@@ -270,9 +270,9 @@ __device__ void radixSelect(DataType* data,
     }                                                                   \
                                                                         \
     if (count >= kToFind) {                                             \
-      desired = setBitfield(desired, i, digitPos, RADIX_BITS);          \
+      desired = Bitfield<BitDataType>::setBitfield(desired, i, digitPos, RADIX_BITS);          \
       desiredMask =                                                     \
-        setBitfield(desiredMask, RADIX_MASK, digitPos, RADIX_BITS);     \
+        Bitfield<BitDataType>::setBitfield(desiredMask, RADIX_MASK, digitPos, RADIX_BITS);     \
                                                                         \
       /* The top-Kth element v must now be one such that: */            \
       /* (v & desiredMask == desired) */                                \
