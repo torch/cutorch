@@ -3776,22 +3776,18 @@ function test.sort()
 end
 
 function test.topk()
-   local function runTopK(t, dim, k, dir)
-      -- FIXME: if the tensors ever contain equivalent values, then their indices
-      -- could in fact be different.
+   -- need to ensure unique values for index checking, so for the first pass we create Tensors
+   -- with sizes less than the maximum range of values for that type
+   local counts = {}
+   counts['torch.CudaByteTensor'] = 255
+   counts['torch.CudaCharTensor'] = 255
+   counts['torch.CudaShortTensor'] = 65536
+   counts['torch.CudaIntTensor'] = 2 ^ 20
+   counts['torch.CudaTensor'] = 2 ^ 20
 
-      if torch.Tensor.type(t) == 'torch.CudaTensor' or torch.Tensor.type(t) == 'torch.CudaByteTensor' then
-         return t:topk(k, dim, dir, true)
-      else
-         local sorted, indices = t:sort(dim, dir)
-         return sorted:narrow(dim, 1, k), indices:narrow(dim, 1, k)
-      end
-   end
-
-   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor', 'torch.CudaCharTensor'}) do
+   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor', 'torch.CudaCharTensor', 'torch.CudaShortTensor', 'torch.CudaIntTensor'}) do
       for tries = 1, 5 do
-         -- max size 2^20 for indexing
-         local t = createTestTensor(2 ^ 20):type(typename)
+         local t = createTestTensor(counts[typename]):type(typename)
          local dim = chooseInt(1, t:nDimension())
          local dimSize = t:size(dim)
          local dir = chooseInt(1, 2) == 1
@@ -3808,7 +3804,7 @@ function test.topk()
          end
 
          for k = 1, #kTests do
-            compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 1, t, 'topk', kTests[k], dim, dir, true)
+            compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 2, t, 'topk', kTests[k], dim, dir, true)
          end
       end
    end

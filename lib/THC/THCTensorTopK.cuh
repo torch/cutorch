@@ -50,7 +50,33 @@ struct TopKTypeConfig<char> {
   }
 
   static inline __device__ char deconvert(RadixType v) {
-    return static_cast<int>(v) - 128;
+    return v - 128;
+  }
+};
+
+template <>
+struct TopKTypeConfig<short> {
+  typedef unsigned int RadixType;
+
+  static inline __device__ RadixType convert(short v) {
+    return 32768u + v;
+  }
+
+  static inline __device__ short deconvert(RadixType v) {
+    return v - 32768;
+  }
+};
+
+template <>
+struct TopKTypeConfig<int> {
+  typedef unsigned int RadixType;
+
+  static inline __device__ RadixType convert(int v) {
+    return 2147483648u + v;
+  }
+
+  static inline __device__ short deconvert(RadixType v) {
+    return v - 2147483648;
   }
 };
 
