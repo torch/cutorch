@@ -3784,8 +3784,9 @@ function test.topk()
    counts['torch.CudaShortTensor'] = 65536
    counts['torch.CudaIntTensor'] = 2 ^ 20
    counts['torch.CudaTensor'] = 2 ^ 20
+   counts['torch.CudaLongTensor'] = 2 ^ 20
 
-   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor', 'torch.CudaCharTensor', 'torch.CudaShortTensor', 'torch.CudaIntTensor'}) do
+   for _, typename in ipairs({'torch.CudaTensor', 'torch.CudaByteTensor', 'torch.CudaCharTensor', 'torch.CudaShortTensor', 'torch.CudaIntTensor', 'torch.CudaLongTensor'}) do
       for tries = 1, 5 do
          local t = createTestTensor(counts[typename]):type(typename)
          local dim = chooseInt(1, t:nDimension())

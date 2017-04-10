@@ -75,8 +75,21 @@ struct TopKTypeConfig<int> {
     return 2147483648u + v;
   }
 
-  static inline __device__ short deconvert(RadixType v) {
-    return v - 2147483648;
+  static inline __device__ int deconvert(RadixType v) {
+    return v - 2147483648u;
+  }
+};
+
+template <>
+struct TopKTypeConfig<long> {
+  typedef unsigned long long int RadixType;
+
+  static inline __device__ RadixType convert(long v) {
+    return 9223372036854775808ull + v;
+  }
+
+  static inline __device__ long deconvert(RadixType v) {
+    return v - 9223372036854775808ull;
   }
 };
 
