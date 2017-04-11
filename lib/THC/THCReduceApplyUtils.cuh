@@ -105,7 +105,6 @@ __device__ T reduceBlock(T* smem,
   return threadVal;
 }
 
-
 // Block-wide reduction where each thread locally reduces N
 // values before letting a single warp take over - assumes
 // threadVals is in registers, not shared memory
