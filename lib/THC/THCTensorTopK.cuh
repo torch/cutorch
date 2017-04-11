@@ -93,6 +93,22 @@ struct TopKTypeConfig<long> {
   }
 };
 
+template <>
+struct TopKTypeConfig<double> {
+  typedef unsigned long long int RadixType;
+
+  static inline __device__ RadixType convert(double v) {
+    RadixType x = __double_as_longlong(v);
+    RadixType mask = -((x >> 63)) | 0x8000000000000000;
+    return (x ^ mask);
+  }
+
+  static inline __device__ double deconvert(RadixType v) {
+    RadixType mask = ((v >> 63) - 1) | 0x8000000000000000;
+    return __longlong_as_double(v ^ mask);
+  }
+};
+
 // This function counts the distribution of all input values in a
 // slice we are selecting by radix digit at `radixDigitPos`, but only
 // those that pass the filter `((v & desiredMask) == desired)`.
@@ -126,7 +142,7 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
     BitDataType val = TopKTypeConfig<DataType>::convert(doLdg(&data[i * withinSliceStride]));
 
     bool hasVal = ((val & desiredMask) == desired);
-    unsigned int digitInRadix = Bitfield<BitDataType>::getBitfield(val, radixDigitPos, RadixBits);
+    BitDataType digitInRadix = Bitfield<BitDataType>::getBitfield(val, radixDigitPos, RadixBits);
 
 #pragma unroll
     for (unsigned int j = 0; j < RadixSize; ++j) {
@@ -161,13 +177,13 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
 
 // This finds the unique value `v` that matches the pattern
 // ((v & desired) == desiredMask) in our sorted int format
-template <typename DataType, typename IndexType>
+template <typename DataType, typename BitDataType, typename IndexType>
 __device__ float findPattern(DataType* smem,
                              DataType* data,
                              IndexType sliceSize,
                              IndexType withinSliceStride,
-                             unsigned int desired,
-                             unsigned int desiredMask) {
+                             BitDataType desired,
+                             BitDataType desiredMask) {
   if (threadIdx.x < 32) {
     smem[threadIdx.x] = (DataType) 0;
   }
@@ -247,6 +263,7 @@ __device__ void radixSelect(DataType* data,
     // All threads participate in the comparisons below to know the
     // final result
 
+
 #define CHECK_RADIX(i)                                                  \
     int count = counts[i];                                              \
                                                                         \
@@ -263,7 +280,7 @@ __device__ void radixSelect(DataType* data,
       /* However, we do not yet know what the actual element is. We */  \
       /* need to perform a search through the data to find the */       \
       /* element that matches this pattern. */                          \
-      *topK = findPattern<DataType, IndexType>(                         \
+      *topK = findPattern<DataType, BitDataType, IndexType>(                         \
         (DataType*) smem, data, sliceSize,                              \
         withinSliceStride, desired, desiredMask);                       \
       return;                                                           \

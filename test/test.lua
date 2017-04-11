@@ -3785,9 +3785,10 @@ function test.topk()
    counts['torch.CudaIntTensor'] = 2 ^ 20
    counts['torch.CudaTensor'] = 2 ^ 20
    counts['torch.CudaLongTensor'] = 2 ^ 20
+   counts['torch.CudaDoubleTensor'] =  2 ^ 20
 
    for _, typename in ipairs(typenames) do
-      if typename ~= 'torch.CudaHalfTensor' and typename ~= 'torch.CudaDoubleTensor' then
+      if typename ~= 'torch.CudaHalfTensor' then
       for tries = 1, 5 do
          local t = createTestTensor(counts[typename]):type(typename)
          local dim = chooseInt(1, t:nDimension())

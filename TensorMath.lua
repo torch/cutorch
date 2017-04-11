@@ -885,7 +885,7 @@ for k, Tensor_ in pairs(handledTypenames) do
              {name="boolean", default=0}}
     )
 
-    if Tensor ~= 'CudaHalfTensor' and Tensor ~= 'CudaDoubleTensor' then
+    if Tensor ~= 'CudaHalfTensor' then
       wrap("topk",
            cname("topk"),
            {{name=Tensor, default=true, returned=true},
