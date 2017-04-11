@@ -72,6 +72,76 @@ __device__ T reduceBlock(T* smem,
   return r;
 }
 
+// Return value is in threadVals for threadIdx.x == 0
+template <typename T, typename ReduceOp, int N>
+__device__ void reduceNBlock(T *smem,
+                             T threadVals[N],
+                             int numVals,
+                             ReduceOp reduceOp,
+                             T init) {
+  if (numVals == 0) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) {
+      threadVals[i] = init;
+    }
+    return;
+  }
+
+  if (threadIdx.x < numVals) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) {
+      smem[threadIdx.x * N + i] = threadVals[i];
+    }
+  }
+  __syncthreads();
+
+  if ((threadIdx.x / warpSize) == 0) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) {
+      threadVals[i] = threadIdx.x < numVals ? smem[threadIdx.x * N + i] : init;
+    }
+
+    for (int i = warpSize + threadIdx.x; i < numVals; i += warpSize) {
+#pragma unroll
+      for (int j = 0; j < N; ++j) {
+        threadVals[j] = reduceOp(threadVals[j], smem[i * N + j]);
+      }
+    }
+
+#pragma unroll
+    for (int i = 0; i < N; ++i) {
+      smem[threadIdx.x * N + i] = threadVals[i];
+    }
+  }
+  __syncthreads();
+
+  if (threadIdx.x == 0) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) {
+      threadVals[i] = smem[i];
+    }
+
+    int numLanesParticipating = min(numVals, warpSize);
+
+    if (numLanesParticipating == 32) {
+#pragma unroll
+      for (int i = 1; i < 32; ++i) {
+#pragma unroll
+        for (int j = 0; j < N; ++j) {
+          threadVals[j] = reduceOp(threadVals[j], smem[i * N + j]);
+        }
+      }
+    } else {
+      for (int i = 1; i < numLanesParticipating; ++i) {
+#pragma unroll
+        for (int j = 0; j < N; ++j) {
+          threadVals[j] = reduceOp(threadVals[j], smem[i * N + j]);
+        }
+      }
+    }
+  }
+}
+
 // Block-wide reduction where each thread locally reduces N
 // values before letting a single warp take over - assumes
 // threadVals is in registers, not shared memory
