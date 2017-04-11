@@ -2,8 +2,6 @@
 #define THC_GENERIC_FILE "generic/THCTensorTopK.cu"
 #else
 
-#if defined(THC_REAL_IS_FLOAT) || defined(THC_REAL_IS_BYTE) || defined(THC_REAL_IS_CHAR) || defined(THC_REAL_IS_SHORT) || defined(THC_REAL_IS_INT) || defined(THC_REAL_IS_LONG) || defined(THC_REAL_IS_DOUBLE)
-
 THC_API void THCTensor_(topk)(THCState* state,
                                THCTensor *topK,
                                THCudaLongTensor *indices,
@@ -157,7 +155,5 @@ THC_API void THCTensor_(topk)(THCState* state,
 
   THCudaCheck(cudaGetLastError());
 }
-
-#endif // THC_REAL_IS_FLOAT
 
 #endif // THC_GENERIC_FILE

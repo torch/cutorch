@@ -109,6 +109,22 @@ struct TopKTypeConfig<double> {
   }
 };
 
+template <>
+struct TopKTypeConfig<half> {
+  typedef unsigned int RadixType;
+
+  static inline __device__ RadixType convert(half v) {
+    RadixType x = __half_as_ushort(v);
+    RadixType mask = -((x >> 15)) | 0x8000;
+    return (x ^ mask);
+  }
+
+  static inline __device__ half deconvert(RadixType v) {
+    RadixType mask = ((v >> 15) - 1) | 0x8000;
+    return __ushort_as_half(v ^ mask);
+  }
+};
+
 // This function counts the distribution of all input values in a
 // slice we are selecting by radix digit at `radixDigitPos`, but only
 // those that pass the filter `((v & desiredMask) == desired)`.
@@ -178,14 +194,14 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
 // This finds the unique value `v` that matches the pattern
 // ((v & desired) == desiredMask) in our sorted int format
 template <typename DataType, typename BitDataType, typename IndexType>
-__device__ float findPattern(DataType* smem,
+__device__ DataType findPattern(DataType* smem,
                              DataType* data,
                              IndexType sliceSize,
                              IndexType withinSliceStride,
                              BitDataType desired,
                              BitDataType desiredMask) {
   if (threadIdx.x < 32) {
-    smem[threadIdx.x] = (DataType) 0;
+    smem[threadIdx.x] = ScalarConvert<int, DataType>::to(0);
   }
   __syncthreads();
 
@@ -193,12 +209,12 @@ __device__ float findPattern(DataType* smem,
   IndexType numIterations = THCRoundUp(sliceSize, (IndexType) blockDim.x);
   for (IndexType i = threadIdx.x; i < numIterations; i += blockDim.x) {
     bool inRange = (i < sliceSize);
-    DataType v = inRange ? doLdg(&data[i * withinSliceStride]) : (DataType) 0;
+    DataType v = inRange ? doLdg(&data[i * withinSliceStride]) : ScalarConvert<int, DataType>::to(0);
 
     if (inRange && ((TopKTypeConfig<DataType>::convert(v) & desiredMask) == desired)) {
       // There should not be conflicts if we are using findPattern,
       // since the result is unique
-      smem[0] = (DataType) 1;
+      smem[0] = ScalarConvert<int, DataType>::to(1);
       smem[1] = v; // can't use val as the flag, since it could be 0
     }
 
@@ -210,7 +226,7 @@ __device__ float findPattern(DataType* smem,
     __syncthreads();
 
     // Check to see if a thread found the value
-    if (found != (DataType) 0) {
+    if (THCNumerics<DataType>::ne(found, ScalarConvert<int, DataType>::to(0))) {
       // all threads return this value
       return val;
     }
@@ -218,7 +234,7 @@ __device__ float findPattern(DataType* smem,
 
   // should not get here
   assert(false);
-  return (DataType) 0;
+  return ScalarConvert<int, DataType>::to(0);
 }
 
 // Returns the top-Kth element found in the data using radix selection
