@@ -53,7 +53,7 @@ __device__ void reduceNValuesInBlock(T *smem,
   // followed by the 32 outputs for the second threadVal, etc.
   int numLanesParticipating = min(numVals, warpSize);
 
-  if (numVals > warpSize && threadIdx.x < numLanesParticipating) {
+  if (numVals > warpSize && ((threadIdx.x / warpSize) == 0 )) {
 #pragma unroll
     for (int i = 0; i < N; ++i) {
       threadVals[i] = threadIdx.x < numVals ? threadVals[i] : init;
