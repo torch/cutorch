@@ -19,7 +19,9 @@ __device__ __forceinline__ IndexType getLinearBlockId() {
     blockIdx.x;
 }
 
-// Return value is in threadVals for threadIdx.x == 0
+// Reduce N values concurrently, i.e. suppose N = 2, and there are 4 threads:
+// (1, 2), (3, 4), (5, 6), (7, 8), then the return in threadVals for thread 0
+// is (1 + 3 + 5 + 7, 2 + 4 + 6 + 8) = (16, 20)
 template <typename T, typename ReduceOp, int N>
 __device__ void reduceNValuesInBlock(T *smem,
                              T threadVals[N],
@@ -51,10 +53,10 @@ __device__ void reduceNValuesInBlock(T *smem,
   // followed by the 32 outputs for the second threadVal, etc.
   int numLanesParticipating = min(numVals, warpSize);
 
-  if ((threadIdx.x / warpSize) == 0) {
+  if (numVals > warpSize && threadIdx.x < numLanesParticipating) {
 #pragma unroll
     for (int i = 0; i < N; ++i) {
-      threadVals[i] = threadIdx.x < numVals ? smem[i * numVals + threadIdx.x] : init;
+      threadVals[i] = threadIdx.x < numVals ? threadVals[i] : init;
     }
 
     for (int i = warpSize + threadIdx.x; i < numVals; i += warpSize) {
@@ -72,11 +74,6 @@ __device__ void reduceNValuesInBlock(T *smem,
   __syncthreads();
 
   if (threadIdx.x == 0) {
-#pragma unroll
-    for (int i = 0; i < N; ++i) {
-      threadVals[i] = smem[i * numLanesParticipating];
-    }
-
     if (numLanesParticipating == 32) {
 #pragma unroll
       for (int i = 0; i < N; ++i) {
