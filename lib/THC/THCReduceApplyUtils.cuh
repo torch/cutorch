@@ -1,6 +1,7 @@
 #ifndef THC_REDUCE_APPLY_UTILS_INC
 #define THC_REDUCE_APPLY_UTILS_INC
 
+#include <algorithm>
 #include <cuda.h>
 #include <assert.h>
 #include "THCGeneral.h"
@@ -17,6 +18,16 @@ __device__ __forceinline__ IndexType getLinearBlockId() {
   return blockIdx.z * gridDim.y * gridDim.x +
     blockIdx.y * gridDim.x +
     blockIdx.x;
+}
+
+// Returns the minimum size of shared memory required of performing N reductions
+// across a block, with each reduction having at most numVals individual elements
+// to reduce. Note that internally, because reductions operate (at the shared memory
+// level) with N elements per thread in the block, so we have to use min(numvals,
+// max block size) to determine this count.
+template <typename T, int N>
+int reduceSmemSize(int numVals) {
+  return std::min(numVals, 1024) * N * sizeof(T);
 }
 
 // Reduce N values concurrently, i.e. suppose N = 2, and there are 4 threads:
