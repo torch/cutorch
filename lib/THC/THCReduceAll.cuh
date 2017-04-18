@@ -200,7 +200,7 @@ void callReduceAll(THCState* state,
     }
 
     getPass1ReduceBlockGrid<InT, AccT>(state, totalElements, grid, block);
-    size_t smemSize = reduceSmemSize<AccT, 1>(block.x);
+    size_t smemSize = reduceSmemSize<AccT, 1>(state, block.x);
 
     kernelReduceAllPass1<ModifyOp, ReduceOp, ReduceAccOp, InT, AccT, IndexType, ADims>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
@@ -209,7 +209,7 @@ void callReduceAll(THCState* state,
 
     int numPass1Blocks = grid.x;
     getPass2ReduceBlockGrid<InT, AccT>(state, totalElements, grid, block);
-    smemSize = reduceSmemSize<AccT, 1>(block.x);
+    smemSize = reduceSmemSize<AccT, 1>(state, block.x);
 
     kernelReduceAllPass2<ReduceAccOp, AccT, IndexType>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
@@ -221,7 +221,7 @@ void callReduceAll(THCState* state,
     }
   } else {
     getSinglePassReduceBlockGrid<InT, AccT>(totalElements, grid, block);
-    size_t smemSize = reduceSmemSize<AccT, 1>(block.x);
+    size_t smemSize = reduceSmemSize<AccT, 1>(state, block.x);
 
     kernelReduceAll<ModifyOp, ReduceOp, ReduceAccOp, InT, AccT, IndexType, ADims>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(

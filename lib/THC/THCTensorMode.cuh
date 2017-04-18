@@ -78,10 +78,10 @@ struct MatchReduceOp {
 };
 
 template <typename T, unsigned int Power2Size>
-int modeSmemSize() {
+int modeSmemSize(THCState *state) {
   int sliceElementSize = sizeof(T) * Power2Size;
   int sortScanSize = 2 * Power2Size * sizeof(unsigned int);
-  int reductionSize = reduceSmemSize<ModeUnsignedPair, 1>(Power2Size);
+  int reductionSize = reduceSmemSize<ModeUnsignedPair, 1>(state, Power2Size);
 
   return sliceElementSize + (sortScanSize > reductionSize ? sortScanSize : reductionSize);
 }

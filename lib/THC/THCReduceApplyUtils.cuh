@@ -26,7 +26,7 @@ __device__ __forceinline__ IndexType getLinearBlockId() {
 // level) with N elements per thread in the block, so we have to use min(numvals,
 // max block size) to determine this count.
 template <typename T, int N>
-int reduceSmemSize(int numVals) {
+int reduceSmemSize(THCState *state, int numVals) {
   return THCRoundUp(std::min(numVals, 1024), 32) * N * sizeof(T);
 }
 

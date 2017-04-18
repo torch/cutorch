@@ -95,7 +95,7 @@ void THCTensor_(renormRows)(struct THCState* state,
   dim3 grid(rows < numSM * 4 ? rows : numSM * 4);
   dim3 block(THCRoundUp(cols < maxThreads ? cols : maxThreads, (long) props->warpSize));
 
-  int smem = reduceSmemSize<real, 1>(cols);
+  int smem = reduceSmemSize<real, 1>(state, cols);
 
   renormRowsL1<real>
     <<<grid, block, smem,
@@ -162,7 +162,7 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
     dim3 block(THCRoundUp(numCategories < maxThreads ? numCategories : maxThreads, props->warpSize));
     dim3 grid(numDist < numSM * 4 ? numDist : numSM * 4);
     // smem required for reduction + prefix sums
-    int smemSize = (block.x * sizeof(real)) + reduceSmemSize<accreal, 1>(numCategories);
+    int smemSize = (block.x * sizeof(real)) + reduceSmemSize<accreal, 1>(state, numCategories);
     sampleMultinomialOnce<real, accreal>
       <<<grid, block,
          smemSize,

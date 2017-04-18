@@ -198,7 +198,7 @@ bool THC_reduceDim(THCState* state,
     }
 
     block = getContigReduceBlock(outElements, reductionSize);
-    smemSize = reduceSmemSize<typename TensorUtils<TensorType>::DataType, 1>(block.x);
+    smemSize = reduceSmemSize<typename TensorUtils<TensorType>::DataType, 1>(state, block.x);
   } else {
     if (!getNoncontigReduceGrid(outElements, grid)) {
       return false;
