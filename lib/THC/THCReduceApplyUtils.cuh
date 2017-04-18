@@ -118,7 +118,11 @@ __device__ T reduceBlock(T* smem,
 
 // Block-wide reduction where each thread locally reduces N
 // values before letting a single warp take over - assumes
-// threadVals is in registers, not shared memory
+// threadVals is in registers, not shared memory. Note that
+// numVals in this case is the number of values in the overall
+// reduction, i.e. if there are 512 threads with N=2, and say
+// there are 768 elements in the input block, then numVals is 768,
+// not, say, 384 (i.e. 768 / N=2)
 template <typename T, typename ReduceOp, int N>
 __device__ T reduceBlockWithNThreadLocalReductions(T *smem,
                          T threadVals[N],
@@ -135,7 +139,7 @@ __device__ T reduceBlockWithNThreadLocalReductions(T *smem,
     local = reduceOp(local, next);
   }
 
-  return reduceBlock<T, ReduceOp>(smem, blockDim.x < numVals ? blockDim.x : numVals, local, reduceOp, init);
+  return reduceBlock<T, ReduceOp>(smem, THCCeilDiv(numVals, N), local, reduceOp, init);
 }
 
 // Make sure the given tensor doesn't have too many dimensions
