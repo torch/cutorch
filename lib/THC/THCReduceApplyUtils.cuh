@@ -27,7 +27,7 @@ __device__ __forceinline__ IndexType getLinearBlockId() {
 // max block size) to determine this count.
 template <typename T, int N>
 int reduceSmemSize(int numVals) {
-  return std::min(numVals, 1024) * N * sizeof(T);
+  return THCRoundUp(std::min(numVals, 1024), 32) * N * sizeof(T);
 }
 
 // Reduce N values concurrently, i.e. suppose N = 2, and there are 4 threads:
