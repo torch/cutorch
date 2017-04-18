@@ -56,11 +56,29 @@ struct ModeUnsignedBoolPair {
   bool flag;
 };
 
+template <>
+struct THCWarpUtils<ModeUnsignedBoolPair> {
+  static __device__ __forceinline__ ModeUnsignedBoolPair shflxor(ModeUnsignedBoolPair val, unsigned int mask) {
+    val.val = __shfl_xor(val.val, mask);
+    val.flag = (bool) __shfl_xor((int) val.flag, mask);
+    return val;
+  }
+};
+
 // In the kernel below, we have a common pattern of reducing (unsigned int, unsigned int)
 // pairs of data
 struct ModeUnsignedPair {
   unsigned int val;
   unsigned int index;
+};
+
+template <>
+struct THCWarpUtils<ModeUnsignedPair> {
+  static __device__ __forceinline__ ModeUnsignedPair shflxor(ModeUnsignedPair val, unsigned int mask) {
+    val.val = __shfl_xor(val.val, mask);
+    val.index = __shfl_xor(val.index, mask);
+    return val;
+  }
 };
 
 template <typename T>
