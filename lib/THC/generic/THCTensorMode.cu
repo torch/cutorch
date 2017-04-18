@@ -198,7 +198,7 @@ THC_API void THCTensor_(mode)(THCState *state,
   // 2. uses one block per slice, so number of slices must be less than the maximum number of blocks for
   // a kernel launch
   // 3. Can use 32-bit index math for indexing (mainly just for implementation conciseness, could be changed)
-  if (sliceSize <= MAX_BLOCK_SIZE &&
+  if (sliceSize <= MAX_BLOCK_SIZE * 2 &&
       slices <= MAX_GRID_SIZE &&
       TensorUtils<THCTensor>::canUse32BitIndexMath(state, input)) {
     // Beginning our optimized implementation. First thing we want to do is to transpose
@@ -248,15 +248,15 @@ THC_API void THCTensor_(mode)(THCState *state,
         HANDLE_MODE(1024)
         break;
       case 128:
-      case 64:
         HANDLE_MODE(128)
         break;
+      case 64:
       case 32:
       case 16:
       case 8:
       case 4:
       case 2:
-        HANDLE_MODE(32)
+        HANDLE_MODE(64) // block size should be at least 1 full warp
         break;
       case 1:
       default:
