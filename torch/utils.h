@@ -26,7 +26,7 @@
 # define TORCH_API TORCH_EXTERNC
 #endif
 
-#if LUA_VERSION_NUM == 501
+#ifndef HAS_LUAL_SETFUNCS
 /*
 ** Adapted from Lua 5.2.0
 */
