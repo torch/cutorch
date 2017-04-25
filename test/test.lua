@@ -271,7 +271,6 @@ local function compareFloatAndCuda(x, fn, ...)
 			       .. "are different for function '%s'", tostring(fn)))
    for k, _ in ipairs(rcpu) do
       if not isEqual(rcpu[k], rcuda[k], tolerance) then
-	      print(args)
 	      tester:assert(false, errstr)
       end
    end
@@ -3776,39 +3775,67 @@ function test.sort()
    tester:assert(isEqual(gather_cpu, gather_gpu), 'indices mismatch')
 end
 
-function test.topk()
-   local function runTopK(t, dim, k, dir)
-      -- FIXME: if the tensors ever contain equivalent values, then their indices
-      -- could in fact be different.
-
-      if torch.Tensor.type(t) == 'torch.CudaTensor' then
-         return t:topk(k, dim, dir, true)
-      else
-         local sorted, indices = t:sort(dim, dir)
-         return sorted:narrow(dim, 1, k), indices:narrow(dim, 1, k)
+local function explore(typename, func, t, topk, indices)
+   if t:nDimension() == 1 then
+      func(typename, t, topk, indices)
+   else
+      for i = 1, t:size(1) do
+         explore(typename, func, t[i], topk[i], indices[i])
       end
    end
+end
 
-   for tries = 1, 5 do
-      -- max size 2^20 for indexing
-      local t = createTestTensor(2 ^ 20)
-      local dim = chooseInt(1, t:nDimension())
-      local dimSize = t:size(dim)
-      local dir = chooseInt(1, 2) == 1
+function test.topk()
+   -- need to ensure unique values for index checking, so for the first pass we create Tensors
+   -- with sizes less than the maximum range of values for that type
+   local counts = {}
+   counts['torch.CudaByteTensor'] = 255
+   counts['torch.CudaCharTensor'] = 255
+   counts['torch.CudaShortTensor'] = 65536
+   counts['torch.CudaIntTensor'] = 2 ^ 20
+   counts['torch.CudaTensor'] = 2 ^ 20
+   counts['torch.CudaLongTensor'] = 2 ^ 20
+   counts['torch.CudaDoubleTensor'] =  2 ^ 20
+   counts['torch.CudaHalfTensor'] = 32768
 
-      -- Test boundary conditions
-      local kTests = {1, dimSize}
+   for _, typename in ipairs(typenames) do
+      for tries = 1, 5 do
+         local t = createTestTensor(counts[typename]):type(typename)
+         local dim = chooseInt(1, t:nDimension())
+         local dimSize = t:size(dim)
+         local dir = chooseInt(1, 2) == 1
 
-      -- and some other random ones
-      table.insert(kTests, chooseInt(1, dimSize))
-      for i = 1, 2 do
-         -- some sizes that fit in our inplace kernel range (the dimSize one
-         -- will fall back to Thrust)
-         table.insert(kTests, chooseInt(1, math.min(2048, dimSize)))
-      end
+         -- Test boundary conditions
+         local kTests = {1, dimSize}
 
-      for k = 1, #kTests do
-         compareFloatAndCuda(t, runTopK, dim, kTests[k], dir)
+         -- and some other random ones
+         table.insert(kTests, chooseInt(1, dimSize))
+         for i = 1, 2 do
+            -- some sizes that fit in our inplace kernel range (the dimSize one
+            -- will fall back to Thrust)
+            table.insert(kTests, chooseInt(1, math.min(2048, dimSize)))
+         end
+
+         for k = 1, #kTests do
+            compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 1, t, 'topk', kTests[k], dim, dir, true)
+
+            -- verify that indices picked yield topk value in original tensor
+            local topk, indices = t:topk(kTests[k], dim, dir, true)
+            local verify = function(typename, t, topk, indices)
+               t = t:type(t2cpu[typename])
+               indices = indices:long()
+               topk = topk:type(t2cpu[typename])
+               for i = 1, indices:size(1) do
+                  tester:assert(t[indices[i]] == topk[i])
+               end
+            end
+
+            local tt  = t:transpose(dim, t:nDimension())
+            local ttk = topk:transpose(dim, topk:nDimension())
+            local tti = indices:transpose(dim, indices:nDimension())
+
+            explore(typename, verify, tt, ttk, tti)
+         end
       end
    end
 end
