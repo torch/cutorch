@@ -114,12 +114,11 @@ __device__ void warpReduceBlock(T *smem, T threadVals[N], int numVals, ReduceOp 
   }
   __syncthreads();
 
-#pragma unroll
-  for (int i = 0; i < N; ++i) {
-    threadVals[i] = (threadIdx.x < (blockDim.x / warpSize)) ? smem[lane + (i * warpSize)] : init;
-  }
-
   if (warp == 0) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) {
+      threadVals[i] = (threadIdx.x < (blockDim.x / warpSize)) ? smem[lane + (i * warpSize)] : init;
+    }
     warpReduce<T, ReduceOp, N>(threadVals, reduceOp);
   }
 }
