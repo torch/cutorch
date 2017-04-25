@@ -166,18 +166,19 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
 #pragma unroll
     for (unsigned int j = 0; j < RadixSize; ++j) {
       bool vote = hasVal && (digitInRadix == j);
-      counts[j] += __popc(__ballot(vote));
+      counts[j] += vote;
     }
   }
 
-  // Now, for each warp, sum values
-  if (getLaneId() == 0) {
+  reduceNValuesInBlock<CountType, AddOp<CountType>, RadixSize>(
+      smem, counts, blockDim.x, AddOp<CountType>(), 0);
+
+  if (threadIdx.x == 0) {
 #pragma unroll
     for (unsigned int i = 0; i < RadixSize; ++i) {
-      atomicAdd(&smem[i], counts[i]);
+      smem[i] = counts[i];
     }
   }
-
   __syncthreads();
 
   // For each thread, read in the total counts
@@ -193,6 +194,10 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
 #define RADIX_BITS 2 // digits are base-(2 ^ RADIX_BITS)
 #define RADIX_SIZE 4 // 2 ^ RADIX_BITS
 #define RADIX_MASK (RADIX_SIZE - 1)
+
+int topkSmemSize(THCState *state, long sliceSize) {
+  return reduceSmemSize<unsigned int, RADIX_SIZE>(state, sliceSize);
+}
 
 // This finds the unique value `v` that matches the pattern
 // ((v & desired) == desiredMask) in our sorted int format
@@ -356,7 +361,7 @@ __global__ void gatherTopK(TensorInfo<T, IndexType> input,
                            IndexType indicesWithinSliceStride) {
   // Indices are limited to integer fp precision, so counts can fit in
   // int32, regardless of IndexType
-  __shared__ int smem[32]; // one per each warp, up to warp limit
+  extern __shared__ int smem[]; // one per each warp, up to warp limit
 
   IndexType slice = getLinearBlockId<IndexType>();
   if (slice >= numInputSlices) {
