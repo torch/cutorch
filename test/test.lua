@@ -3775,6 +3775,16 @@ function test.sort()
    tester:assert(isEqual(gather_cpu, gather_gpu), 'indices mismatch')
 end
 
+local function explore(typename, func, t, topk, indices)
+   if t:nDimension() == 1 then
+      func(typename, t, topk, indices)
+   else
+      for i = 1, t:size(1) do
+         explore(typename, func, t[i], topk[i], indices[i])
+      end
+   end
+end
+
 function test.topk()
    -- need to ensure unique values for index checking, so for the first pass we create Tensors
    -- with sizes less than the maximum range of values for that type
@@ -3807,7 +3817,24 @@ function test.topk()
          end
 
          for k = 1, #kTests do
-            compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 2, t, 'topk', kTests[k], dim, dir, true)
+            compareCPUAndCUDATypeTensorArgsWithLimit(typename, nil, 1, t, 'topk', kTests[k], dim, dir, true)
+
+            -- verify that indices picked yield topk value in original tensor
+            local topk, indices = t:topk(kTests[k], dim, dir, true)
+            local verify = function(typename, t, topk, indices)
+               t = t:type(t2cpu[typename])
+               indices = indices:long()
+               topk = topk:type(t2cpu[typename])
+               for i = 1, indices:size(1) do
+                  tester:assert(t[indices[i]] == topk[i])
+               end
+            end
+
+            local tt  = t:transpose(dim, t:nDimension())
+            local ttk = topk:transpose(dim, topk:nDimension())
+            local tti = indices:transpose(dim, indices:nDimension())
+
+            explore(typename, verify, tt, ttk, tti)
          end
       end
    end

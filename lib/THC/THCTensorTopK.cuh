@@ -59,6 +59,7 @@ struct TopKTypeConfig<short> {
   typedef unsigned int RadixType;
 
   static inline __device__ RadixType convert(short v) {
+    assert(sizeof(short) == 2);
     return 32768u + v;
   }
 
@@ -72,6 +73,7 @@ struct TopKTypeConfig<int> {
   typedef unsigned int RadixType;
 
   static inline __device__ RadixType convert(int v) {
+    assert(sizeof(int) == 4);
     return 2147483648u + v;
   }
 
@@ -85,6 +87,7 @@ struct TopKTypeConfig<long> {
   typedef unsigned long long int RadixType;
 
   static inline __device__ RadixType convert(long v) {
+    assert(sizeof(long) == 8);
     return 9223372036854775808ull + v;
   }
 
