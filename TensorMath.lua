@@ -744,7 +744,8 @@ for k, Tensor_ in pairs(handledTypenames) do
             {{name=Tensor, default=true, returned=true},
                {name='CudaLongTensor', default=true, returned=true},
                {name=Tensor},
-               {name="index"}})
+               {name="index"},
+               {name="boolean", default=true, invisible=true}})
     end
 
     for _,name in ipairs({"cmin", "cmax"}) do
@@ -795,7 +796,8 @@ for k, Tensor_ in pairs(handledTypenames) do
          cname("sum"),
          {{name=Tensor, default=true, returned=true},
             {name=Tensor},
-            {name="index"}})
+            {name="index"},
+            {name="boolean", default=true, invisible=true}})
 
     for _, name in ipairs({"cumsum", "cumprod"}) do
         wrap(name,
@@ -812,7 +814,8 @@ for k, Tensor_ in pairs(handledTypenames) do
          cname("prod"),
          {{name=Tensor, default=true, returned=true},
             {name=Tensor},
-            {name="index"}})
+            {name="index"},
+            {name="boolean", default=true, invisible=true}})
 
     wrap("mean",
          cname("meanall"),
@@ -821,7 +824,8 @@ for k, Tensor_ in pairs(handledTypenames) do
          cname("mean"),
          {{name=Tensor, default=true, returned=true},
             {name=Tensor},
-            {name="index"}})
+            {name="index"},
+            {name="boolean", default=true, invisible=true}})
 
     wrap("maskedFill",
          cname("maskedFill"),
@@ -900,7 +904,8 @@ for k, Tensor_ in pairs(handledTypenames) do
          {{name=Tensor, default=true, returned=true, noreadadd=true},
              {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
              {name=Tensor},
-             {name="index", default=lastdim(3)}})
+             {name="index", default=lastdim(3)},
+             {name="boolean", default=true, invisible=true}})
 
     wrap("squeeze",
          cname("squeeze"),
@@ -1072,7 +1077,8 @@ for k, Tensor_ in pairs(handledTypenames) do
            {{name=Tensor, default=true, returned=true},
             {name=Tensor},
             {name=real},
-            {name="index"}})
+            {name="index"},
+            {name="boolean", default=true, invisible=true}})
 
       wrap("renorm",
            cname("renorm"),
@@ -1099,7 +1105,8 @@ for k, Tensor_ in pairs(handledTypenames) do
               {{name=Tensor, default=true, returned=true},
                {name=Tensor},
                {name="index"},
-               {name="boolean", default=false}})
+               {name="boolean", default=false},
+               {name="boolean", default=true, invisible=true}})
       end
 
       wrap("tril",
@@ -1641,7 +1648,8 @@ wrap("mode",
      {{name=Tensor, default=true, returned=true, noreadadd=true},
        {name="CudaLongTensor", default=true, returned=true, noreadadd=true},
        {name=Tensor},
-       {name="index", default=lastdim(3)}})
+       {name="index", default=lastdim(3)},
+       {name="boolean", default=true, invisible=true}})
 
 do
    local Tensor = Tensor
@@ -1792,7 +1800,8 @@ wrap("sum",
      cname("sum"),
      {{name=Tensor, default=true, returned=true},
         {name=Tensor},
-        {name="index"}})
+        {name="index"},
+        {name="boolean", default=true, invisible=true}})
 
 for _, name in ipairs({"cumsum", "cumprod"}) do
   wrap(name,
@@ -1809,7 +1818,8 @@ wrap("prod",
      cname("prod"),
      {{name=Tensor, default=true, returned=true},
         {name=Tensor},
-        {name="index"}})
+        {name="index"},
+        {name="boolean", default=true, invisible=true}})
 
 for _,name in ipairs({"min", "max"}) do
    wrap(name,
@@ -1820,7 +1830,8 @@ for _,name in ipairs({"min", "max"}) do
         {{name=Tensor, default=true, returned=true},
            {name='CudaLongTensor', default=true, returned=true},
            {name=Tensor},
-           {name="index"}})
+           {name="index"},
+           {name="boolean", default=true, invisible=true}})
 end
 
 for _,name in ipairs({"cmin", "cmax"}) do
@@ -2120,7 +2131,8 @@ wrap("mean",
      cname("mean"),
      {{name=Tensor, default=true, returned=true},
         {name=Tensor},
-        {name="index"}})
+        {name="index"},
+        {name="boolean", default=true, invisible=true}})
 
 for _,name in ipairs({"var", "std"}) do
    wrap(name,
@@ -2131,7 +2143,8 @@ for _,name in ipairs({"var", "std"}) do
         {{name=Tensor, default=true, returned=true},
          {name=Tensor},
          {name="index"},
-         {name="boolean", default=false}})
+         {name="boolean", default=false},
+         {name="boolean", default=true, invisible=true}})
 end
 
 wrap("norm",
@@ -2143,7 +2156,8 @@ wrap("norm",
      {{name=Tensor, default=true, returned=true},
       {name=Tensor},
       {name=real},
-      {name="index"}})
+      {name="index"},
+      {name="boolean", default=true, invisible=true}})
 
 wrap("renorm",
      cname("renorm"),
