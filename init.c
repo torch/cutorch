@@ -642,8 +642,8 @@ static int cutorch_getDevice(lua_State *L)
 
 static int cutorch_deviceReset(lua_State *L)
 {
-  printf("WARNING: cutorch.deviceReset has been depreceated."
-	 " Just remove the call from your code.\n");
+  THCudaCheck(cudaDeviceSynchronize());
+  THCudaCheck(cudaDeviceReset());
   return 0;
 }
 
