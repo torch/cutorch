@@ -26,6 +26,20 @@ INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/torch")
 SET(src Storage.c init.c Tensor.c TensorMath.c TensorOperator.c torch/utils.c)
 SET(luasrc init.lua Tensor.lua FFI.lua test/test.lua)
 
+set(CMAKE_REQUIRED_INCLUDES ${LUA_INCDIR})
+include(CheckCSourceCompiles)
+check_c_source_compiles("
+#include <lauxlib.h>
+int main()
+{
+  long i = sizeof(&luaL_setfuncs);
+  return 0;
+}
+" HAS_LUAL_SETFUNCS)
+if(HAS_LUAL_SETFUNCS)
+  add_definitions(-DHAS_LUAL_SETFUNCS)
+endif()
+
 ADD_TORCH_WRAP(cudatensormathwrap TensorMath.lua)
 
 ADD_TORCH_PACKAGE(cutorch "${src}" "${luasrc}")
