@@ -2,14 +2,14 @@ package = "cutorch"
 version = "scm-1"
 
 source = {
-   url = "git://github.com/torch/cutorch.git",
+   url = "git://github.com/elikosan/cutorch.git",
 }
 
 description = {
    summary = "Torch CUDA Implementation",
    detailed = [[
    ]],
-   homepage = "https://github.com/torch/cutorch",
+   homepage = "https://github.com/elikosan/cutorch",
    license = "BSD"
 }
 
