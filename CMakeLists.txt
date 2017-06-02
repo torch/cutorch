@@ -27,7 +27,7 @@ SET(src Storage.c init.c Tensor.c TensorMath.c TensorOperator.c torch/utils.c)
 SET(luasrc init.lua Tensor.lua FFI.lua test/test.lua)
 
 set(CMAKE_REQUIRED_INCLUDES  ${LUA_INCDIR})
-set(CMAKE_REQUIRED_LIBRARIES ${LUA_LIBDIR})
+set(CMAKE_REQUIRED_LIBRARIES ${LUA_LIBDIR}/${LUALIB})
 include(CheckCSourceCompiles)
 check_c_source_compiles("
 #include <lauxlib.h>
