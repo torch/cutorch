@@ -662,7 +662,7 @@ void THCTensor_(free)(THCState *state, THCTensor *self)
   if(!self)
     return;
 
-  if(self->flag & TH_TENSOR_REFCOUNTED)
+  if((self->flag & TH_TENSOR_REFCOUNTED) && (THAtomicGet(&self->refcount)>0))
   {
     if(THAtomicDecrementRef(&self->refcount))
     {
