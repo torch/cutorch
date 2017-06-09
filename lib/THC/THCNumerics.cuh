@@ -111,7 +111,7 @@ struct THCNumerics<long> {
 #ifdef CUDA_HALF_TENSOR
 template <>
 struct THCNumerics<half> {
-#if __CUDA_VERSION__ < 9000
+#if CUDA_VERSION < 9000
   static inline __host__ __device__ half min() { half h; h.x = 0xfbff; return h; }
   static inline __host__ __device__ half max() { half h; h.x = 0x7bff; return h; }
 #else
