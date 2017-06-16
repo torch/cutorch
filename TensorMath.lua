@@ -1051,6 +1051,19 @@ for k, Tensor_ in pairs(handledTypenames) do
            {name="int"},
            {name="boolean", default=false}})
 
+     wrap("multinomialAliasSetup_",
+	  cname("multinomialAliasSetup"),
+	  {{name=Tensor},
+	     {name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
+	     {name=Tensor, default=true, returned=true, method={default='nil'}}})
+
+     
+     wrap("multinomialAlias_",
+	  cname("multinomialAliasDraw"),
+	  {{name="CudaLongTensor", default=true, returned=true, method={default='nil'}},
+	     {name="CudaLongTensor"},
+	     {name=Tensor}
+})
      for _,f in ipairs({{name='uniform', a=0, b=1},
                         {name='cauchy', a=0, b=1},
                         {name='normal', a=0, b=1},
@@ -1934,6 +1947,20 @@ wrap("multinomial",
         {name="int"},
         {name="boolean", default=false}})
 
+wrap("multinomialAliasSetup_",
+     cname("multinomialAliasSetup"),
+     {{name=Tensor},
+	{name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
+	{name=Tensor, default=true, returned=true, method={default='nil'}}})
+
+
+wrap("multinomialAlias_",
+     cname("multinomialAliasDraw"),
+     {{name="CudaLongTensor", default=true, returned=true, method={default='nil'}},
+	{name="CudaLongTensor"},
+	{name=Tensor}
+})
+      
 wrap("clamp",
      cname("clamp"),
      {{name=Tensor, default=true, returned=true, method={default='nil'}},

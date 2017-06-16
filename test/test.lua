@@ -3233,6 +3233,50 @@ function test.multinomial_vector()
    end
 end
 
+function test.multinomial_alias()
+   for tries = 1, 10 do
+      local n_class = torch.random(100)
+      local prob_dist = torch.CudaTensor(n_class):uniform()
+      local n_sample = torch.random(100)
+      local dim_1 = torch.random(10)
+      for _, typename in ipairs(float_typenames) do
+	 if typename ~= 'torch.CudaHalfTensor' then
+	    -- Get the probability distribution
+             local pd = prob_dist:type(typename)
+	     local state = torch.multinomialAliasSetup(pd)
+
+	     -- Checking the validity of the setup tables
+	     tester:assert(state[1]:min() >= 0, "alias indices has an index below or equal to 0(cold)")
+	     tester:assert(state[1]:max() < n_class, state[1]:max().." alias indices has an index exceeding num_class(cold)")
+
+	     --Checking the same things if the memory is already allocated
+	     local state = torch.multinomialAliasSetup(pd, state)
+	     tester:assert(state[1]:min() >= 0, "alias indices has an index below or equal to 0(hot)")
+	     tester:assert(state[1]:max() < n_class, state[1]:max().." alias indices has an index exceeding num_class(hot)")
+
+	     --Generating a 1d and a 2d long tensor to be filled with indices
+	     local sample_indices = torch.CudaLongTensor(n_sample)
+	     local sample_indices_dim2 = torch.CudaLongTensor(n_sample/dim_1, dim_1)
+	     local state = {state[1], state[2]:type('torch.CudaTensor')}
+	     cutorch.synchronize()
+	     torch.multinomialAlias(sample_indices, state)
+	     cutorch.synchronize()
+	     torch.multinomialAlias(sample_indices_dim2:view(-1), state)
+
+	     --Checking the validity of the sampled indices
+             tester:assert(sample_indices_dim2:dim() == 2, "wrong sample_indices dim")
+             tester:assert(sample_indices_dim2:size(2) == dim_1, "wrong number of samples")
+	     tester:assert(sample_indices:min() > 0, sample_indices:min().."sampled indices has an index below or equal to 0")
+	     tester:assert(sample_indices:max() <= n_class, sample_indices:max().."indices has an index exceeding num_class")
+	     tester:assert(sample_indices_dim2:min() > 0, sample_indices_dim2:min().."sampled indices has an index below or equal to 0")
+	     tester:assert(sample_indices_dim2:max() <= n_class, sample_indices_dim2:max().."indices has an index exceeding num_class")
+   
+         end
+      end
+   end
+end
+
+
 function test.get_device()
     local device_count = cutorch.getDeviceCount()
     local tensors = { }
