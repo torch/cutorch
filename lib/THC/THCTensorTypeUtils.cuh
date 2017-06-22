@@ -153,7 +153,7 @@ struct ScalarNegate<half> {
     half out = v;
 #else
     __half_raw out;
-    out.x = *(unsigned short *)&v;
+    out.x = reinterpret_cast<unsigned short>(v);
 #endif
     out.x ^= 0x8000; // toggle sign bit
     return out;
@@ -179,8 +179,8 @@ inline bool operator==(half a, half b) {
   return a.x == b.x;
 #else
   __half_raw araw, braw;
-  araw.x = *(unsigned short *)&a;
-  braw.x = *(unsigned short *)&b;
+  araw.x = reinterpret_cast<unsigned short>(a);
+  braw.x = reinterpret_cast<unsigned short>(b);
   return araw.x == braw.x;
 #endif
 }
@@ -190,8 +190,8 @@ inline bool operator!=(half a, half b) {
     return a.x != b.x;
 #else
   __half_raw araw, braw;
-  araw.x = *(unsigned short *)&a;
-  braw.x = *(unsigned short *)&b;
+  araw.x = reinterpret_cast<unsigned short>(a);
+  braw.x = reinterpret_cast<unsigned short>(b);
   return araw.x != braw.x;
 #endif
 }
