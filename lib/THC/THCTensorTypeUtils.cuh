@@ -152,8 +152,7 @@ struct ScalarNegate<half> {
 #if CUDA_VERSION < 9000
     half out = v;
 #else
-    __half_raw out;
-    out.x = reinterpret_cast<unsigned short>(v);
+    __half_raw out = __half_raw(v);
 #endif
     out.x ^= 0x8000; // toggle sign bit
     return out;
@@ -179,8 +178,8 @@ inline bool operator==(half a, half b) {
   return a.x == b.x;
 #else
   __half_raw araw, braw;
-  araw.x = reinterpret_cast<unsigned short>(a);
-  braw.x = reinterpret_cast<unsigned short>(b);
+  araw = __half_raw(a);
+  braw = __half_raw(b);
   return araw.x == braw.x;
 #endif
 }
@@ -190,8 +189,8 @@ inline bool operator!=(half a, half b) {
     return a.x != b.x;
 #else
   __half_raw araw, braw;
-  araw.x = reinterpret_cast<unsigned short>(a);
-  braw.x = reinterpret_cast<unsigned short>(b);
+  araw = __half_raw(a);
+  braw = __half_raw(b);
   return araw.x != braw.x;
 #endif
 }

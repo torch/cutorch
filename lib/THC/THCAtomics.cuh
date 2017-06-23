@@ -110,7 +110,7 @@ static inline  __device__ void atomicAdd(half *address, half val) {
     __half_raw hsum;
     hsum.x = (size_t)address & 2 ? (old >> 16) : (old & 0xffff);
     half tmpres = THCNumerics<half>::add(hsum, val);
-    hsum.x = reinterpret_cast<unsigned short>(tmpres);
+    hsum = __half_raw(tmpres);
 #endif
     old = (size_t)address & 2 ? (old & 0xffff) | (hsum.x << 16) : (old & 0xffff0000) | hsum.x;
     old = atomicCAS(address_as_ui, assumed, old);
