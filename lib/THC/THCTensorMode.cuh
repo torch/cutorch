@@ -56,11 +56,29 @@ struct ModeUnsignedBoolPair {
   bool flag;
 };
 
+template <>
+struct THCWarpUtils<ModeUnsignedBoolPair> {
+  static __device__ __forceinline__ ModeUnsignedBoolPair shflxor(ModeUnsignedBoolPair val, unsigned int mask) {
+    val.val = __shfl_xor(val.val, mask);
+    val.flag = (bool) __shfl_xor((int) val.flag, mask);
+    return val;
+  }
+};
+
 // In the kernel below, we have a common pattern of reducing (unsigned int, unsigned int)
 // pairs of data
 struct ModeUnsignedPair {
   unsigned int val;
   unsigned int index;
+};
+
+template <>
+struct THCWarpUtils<ModeUnsignedPair> {
+  static __device__ __forceinline__ ModeUnsignedPair shflxor(ModeUnsignedPair val, unsigned int mask) {
+    val.val = __shfl_xor(val.val, mask);
+    val.index = __shfl_xor(val.index, mask);
+    return val;
+  }
 };
 
 template <typename T>
@@ -76,6 +94,15 @@ struct MatchReduceOp {
     return b.flag ? b : a;
   }
 };
+
+template <typename T, unsigned int Power2Size>
+int modeSmemSize(THCState *state) {
+  int sliceElementSize = sizeof(T) * Power2Size;
+  int sortScanSize = 2 * Power2Size * sizeof(unsigned int);
+  int reductionSize = reduceSmemSize<ModeUnsignedPair, 1>(state, Power2Size);
+
+  return sliceElementSize + (sortScanSize > reductionSize ? sortScanSize : reductionSize);
+}
 
 // The mode kernel has the following characteristics: It uses internal shared memory
 // buffers of Power2Size, which must be greater than the number of elements. Additionally,
@@ -271,6 +298,7 @@ __global__ void computeMode(
   // Finally, we have the mode, and an index where it occurs. We use a single thread
   // to place this in the appropriate output position
   if (tidx == 0) {
+    assert(match.flag);
     long index = TH_INDEX_BASE + match.val;
 
     unsigned int outputOffset = IndexToOffset<T, unsigned int, -1>::get(blockId, values);

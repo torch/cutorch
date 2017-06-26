@@ -93,10 +93,12 @@ void THCTensor_(renormRows)(struct THCState* state,
   int maxThreads = props->maxThreadsPerBlock;
 
   dim3 grid(rows < numSM * 4 ? rows : numSM * 4);
-  dim3 block(cols < maxThreads ? cols : maxThreads);
+  dim3 block(THCRoundUp(cols < maxThreads ? cols : maxThreads, (long) props->warpSize));
+
+  int smem = reduceSmemSize<real, 1>(state, cols);
 
   renormRowsL1<real>
-    <<<grid, block, block.x * sizeof(real),
+    <<<grid, block, smem,
     THCState_getCurrentStream(state)>>>(THCTensor_(data)(state, t),
                                         rows, cols);
 }
@@ -157,11 +159,13 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
     THAssert(props != NULL);
     int numSM = props->multiProcessorCount;
     int maxThreads = props->maxThreadsPerBlock;
-    dim3 block(numCategories < maxThreads ? numCategories : maxThreads);
+    dim3 block(THCRoundUp(numCategories < maxThreads ? numCategories : maxThreads, props->warpSize));
     dim3 grid(numDist < numSM * 4 ? numDist : numSM * 4);
+    // smem required for reduction + prefix sums
+    int smemSize = (block.x * sizeof(real)) + reduceSmemSize<accreal, 1>(state, numCategories);
     sampleMultinomialOnce<real, accreal>
       <<<grid, block,
-         block.x * (sizeof(real) * sizeof(accreal)),
+         smemSize,
          THCState_getCurrentStream(state)>>>(
       THCudaLongTensor_data(state, self),
       numDist,

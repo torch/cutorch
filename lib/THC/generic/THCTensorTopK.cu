@@ -28,9 +28,11 @@ THC_API void THCTensor_(topk)(THCState* state,
   THCudaLongTensor_resize(state, indices, topKSize, NULL);
   THLongStorage_free(topKSize);
 
+  int smem = topkSmemSize(state, sliceSize);
+
 #define RUN_K(INDEX_T, DIM, DIR)                                        \
   gatherTopK<real, INDEX_T, DIM, DIR>                                         \
-    <<<grid, block, 0, THCState_getCurrentStream(state)>>>(             \
+    <<<grid, block, smem, THCState_getCurrentStream(state)>>>(             \
       inputInfo,                                                        \
       sliceSize,                                                        \
       k,                                                                \

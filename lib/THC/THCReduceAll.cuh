@@ -162,14 +162,14 @@ inline void getPass2ReduceBlockGrid(THCState* state, ptrdiff_t elements,
                                     dim3& grid, dim3& block) {
   grid = dim3(1);
   // We only need as many threads as there were blocks originally
-  block = dim3(getTwoPassBlocks<InT, AccT>(state, elements));
+  block = dim3((int) THCRoundUp(getTwoPassBlocks<InT, AccT>(state, elements), (ptrdiff_t) 32));
 }
 
 template <typename InT, typename AccT>
 inline void getSinglePassReduceBlockGrid(ptrdiff_t elements,
                                          dim3& grid, dim3& block) {
   grid = dim3(1);
-  block = dim3(THC_REDUCE_ALL_BLOCK_SIZE);
+  block = dim3(THCRoundUp((int) std::min(elements, (ptrdiff_t) THC_REDUCE_ALL_BLOCK_SIZE), 32));
 }
 
 template <typename ModifyOp,
@@ -200,7 +200,7 @@ void callReduceAll(THCState* state,
     }
 
     getPass1ReduceBlockGrid<InT, AccT>(state, totalElements, grid, block);
-    size_t smemSize = block.x * sizeof(AccT);
+    size_t smemSize = reduceSmemSize<AccT, 1>(state, block.x);
 
     kernelReduceAllPass1<ModifyOp, ReduceOp, ReduceAccOp, InT, AccT, IndexType, ADims>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
@@ -209,7 +209,7 @@ void callReduceAll(THCState* state,
 
     int numPass1Blocks = grid.x;
     getPass2ReduceBlockGrid<InT, AccT>(state, totalElements, grid, block);
-    smemSize = block.x * sizeof(AccT);
+    smemSize = reduceSmemSize<AccT, 1>(state, block.x);
 
     kernelReduceAllPass2<ReduceAccOp, AccT, IndexType>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
@@ -221,7 +221,7 @@ void callReduceAll(THCState* state,
     }
   } else {
     getSinglePassReduceBlockGrid<InT, AccT>(totalElements, grid, block);
-    size_t smemSize = block.x * sizeof(AccT);
+    size_t smemSize = reduceSmemSize<AccT, 1>(state, block.x);
 
     kernelReduceAll<ModifyOp, ReduceOp, ReduceAccOp, InT, AccT, IndexType, ADims>
       <<<grid, block, smemSize, THCState_getCurrentStream(state)>>>(
