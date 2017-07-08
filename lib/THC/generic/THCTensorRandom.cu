@@ -276,9 +276,6 @@ THC_API void THCTensor_(multinomialAliasSetup)(THCState *state, THCTensor *_prob
   THCudaLongTensor *larger_short = THCudaLongTensor_newWithSize1d(state, inputsize);
   
   THCudaLongTensor_resize1d(state, _J, inputsize);
-  THCudaLongTensor_fill(state, _J, 0);	
-  THCudaLongTensor_fill(state, larger_short, 0);
-  THCudaLongTensor_fill(state, smaller_short, 0);
   THCTensor_(resize1d)(state, _q, inputsize);
   
   real one = ScalarConvert<long, real>::to(1);
@@ -289,6 +286,9 @@ THC_API void THCTensor_(multinomialAliasSetup)(THCState *state, THCTensor *_prob
 								     THCTensor_(data)(state, _probs),
 								     THCudaLongTensor_data(state, smaller),
 								     THCudaLongTensor_data(state, larger),
+								     THCudaLongTensor_data(state, _J),
+								     THCudaLongTensor_data(state, smaller_short),
+								     THCudaLongTensor_data(state, larger_short),
 								     one, inputsize
 								     );
   

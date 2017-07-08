@@ -51,9 +51,12 @@ multinomialAliasDrawKernel(int size, long *output, long *J, T *q, long K,  T *un
 
 template <typename T>
 __global__ void
-aliasMultinomialFilter(T *q, T *probs, long *smaller, long *larger, T one, long inputsize){
+aliasMultinomialFilter(T *q, T *probs, long *smaller, long *larger, long *J_data, long *larger_short_data, long *smaller_short_data, T one, long inputsize){
   long idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
   if (idx < inputsize) {
+    larger_short_data[idx] = 0;
+    smaller_short_data[idx] = 0;
+    J_data[idx]= 0;
     T val = THCNumerics<T>::mul(probs[idx], ScalarConvert<long, T>::to(inputsize));
     if (THCNumerics<T>::lt(val, one)) {
       smaller[idx] =  idx+1;

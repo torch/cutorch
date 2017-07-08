@@ -149,21 +149,17 @@ cutorch.setHeapTracking(true)
 
 
 function torch.multinomialAliasSetup(probs, state)
-    local prob_tbl, alias_tbl
-    if state then 
-      assert(torch.type(state) == 'table')
+   if torch.type(state) == 'table' then 
       state[1], state[2] = torch.multinomialAliasSetup_(probs, state[1], state[2])
-    else 
-      prob_tbl, alias_tbl = torch.multinomialAliasSetup_(probs)
-      state = {prob_tbl, alias_tbl}
+   else
+      state = {}
+      state[1], state[2] = torch.multinomialAliasSetup_(probs)
     end
     return state
  end
 
 function torch.multinomialAlias(output, state)
-   local prob_tbl, alias_tbl
-   prob_tbl, alias_tbl = state[1], state[2]
-   torch.CudaTensor.multinomialAlias_(output, prob_tbl, alias_tbl)
+   torch.CudaTensor.multinomialAlias_(output, state[1], state[2])
    return output
 end
 return cutorch
