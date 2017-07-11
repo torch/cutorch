@@ -146,4 +146,20 @@ end
 -- for garbage collection
 cutorch.setHeapTracking(true)
 
+
+
+function torch.multinomialAliasSetup(probs, state)
+   if torch.type(state) == 'table' then 
+      state[1], state[2] = torch.multinomialAliasSetup_(probs, state[1], state[2])
+   else
+      state = {}
+      state[1], state[2] = torch.multinomialAliasSetup_(probs)
+    end
+    return state
+ end
+
+function torch.multinomialAlias(output, state)
+   torch.CudaTensor.multinomialAlias_(output, state[1], state[2])
+   return output
+end
 return cutorch
