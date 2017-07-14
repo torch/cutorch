@@ -1113,6 +1113,7 @@ for k, Tensor_ in pairs(handledTypenames) do
          wrap(name,
               cname(name .. "all"),
               {{name=Tensor},
+               {name="boolean", default=false},
                {name=accreal, creturned=true}},
               cname(name),
               {{name=Tensor, default=true, returned=true},
