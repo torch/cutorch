@@ -1057,7 +1057,7 @@ for k, Tensor_ in pairs(handledTypenames) do
 	     {name='CudaLongTensor', default=true, returned=true, method={default='nil'}},
 	     {name=Tensor, default=true, returned=true, method={default='nil'}}})
 
-     
+
      wrap("multinomialAlias_",
 	  cname("multinomialAliasDraw"),
 	  {{name="CudaLongTensor", default=true, returned=true, method={default='nil'}},
@@ -1961,7 +1961,7 @@ wrap("multinomialAlias_",
 	{name="CudaLongTensor"},
 	{name=Tensor}
 })
-      
+
 wrap("clamp",
      cname("clamp"),
      {{name=Tensor, default=true, returned=true, method={default='nil'}},
@@ -2166,6 +2166,7 @@ for _,name in ipairs({"var", "std"}) do
    wrap(name,
         cname(name .. "all"),
         {{name=Tensor},
+         {name="boolean", default=false},
          {name=real, creturned=true}},
         cname(name),
         {{name=Tensor, default=true, returned=true},
