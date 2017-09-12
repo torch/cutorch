@@ -2,14 +2,14 @@ package = "cutorch"
 version = "scm-1"
 
 source = {
-   url = "git://github.com/torch/cutorch.git",
+   url = "git://github.com/elikosan/cutorch.git",
 }
 
 description = {
    summary = "Torch CUDA Implementation",
    detailed = [[
    ]],
-   homepage = "https://github.com/torch/cutorch",
+   homepage = "https://github.com/elikosan/cutorch",
    license = "BSD"
 }
 
@@ -23,13 +23,13 @@ build = {
 
 jopts=$(getconf _NPROCESSORS_CONF)
 
-echo "Building on $jopts cores"
-cmake -E make_directory build && cd build && cmake .. -DLUALIB=$(LUALIB) -DLUA_INCDIR=$(LUA_INCDIR) -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) -j$jopts install
+echo "Building on $(jopts) cores"
+cmake -E make_directory build && cd build && cmake .. -DLUALIB="$(LUALIB)" -DLUA_INCDIR="$(LUA_INCDIR)" -DCMAKE_CXX_FLAGS="$(CMAKE_CXX_FLAGS)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) -j$jopts install
 ]],
 	platforms = {
       windows = {
    build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DLUALIB=$(LUALIB) -DLUA_INCDIR=$(LUA_INCDIR) -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) install
+cmake -E make_directory build && cd build && cmake .. -DLUALIB="" -DLUA_INCDIR="$(LUA_INCDIR)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) install
 ]]
 	  }
    },
