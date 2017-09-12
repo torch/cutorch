@@ -277,7 +277,7 @@ sampleMultinomialOnce(long* dest,
 
 template <typename T>
 __global__ void
-sampleMultinomialWithReplacement(curandStateMtgp32* state,
+sampleMultinomialWithReplacement(T* uniform_idx,
                                  int totalSamples,
                                  long* dest,
                                  long distributions,
@@ -285,9 +285,7 @@ sampleMultinomialWithReplacement(curandStateMtgp32* state,
                                  T* normDistPrefixSum) {
   // At the moment, each warp computes one sample value in the binary
   // search due to divergence. It seems possible to compute multiple
-  // values and limit divergence though later on. However, no matter
-  // what, all block threads must participate in the curand_uniform
-  // call to update the generator state.
+  // values and limit divergence though later on.
 
   // The block determines the distribution for which we generate a point
   for (long curDist = blockIdx.x;
@@ -299,7 +297,7 @@ sampleMultinomialWithReplacement(curandStateMtgp32* state,
       int sample = sampleBase + threadIdx.y;
 
       // All threads participate in this
-      T r = ScalarConvert<float, T>::to(curand_uniform(&state[blockIdx.x]));
+      T r = uniform_idx[sample];
 
       if (threadIdx.x == 0 && sample < totalSamples) {
         // Find the bucket that a uniform sample lies in
@@ -333,6 +331,7 @@ sampleMultinomialWithoutReplacement(curandStateMtgp32* state,
 
   // The block and warp determines the distribution for which we
   // generate a point
+  T zero = ScalarConvert<int, T>::to(0);
   for (long curDistBase = blockIdx.x * blockDim.y;
        curDistBase < distributions;
        curDistBase += gridDim.x * blockDim.y) {
@@ -341,7 +340,7 @@ sampleMultinomialWithoutReplacement(curandStateMtgp32* state,
 
     // All threads must participate in this
     T r = ScalarConvert<float, T>::to(curand_uniform(&state[blockIdx.x]));
-
+    
     if (threadIdx.x == 0 && curDist < distributions) {
       // Find the bucket that a uniform sample lies in
       int choice = binarySearchForMultinomial<T>(
@@ -354,7 +353,7 @@ sampleMultinomialWithoutReplacement(curandStateMtgp32* state,
 
       // Without replacement, so update the original probability so it
       // is not considered a second time
-      origDist[curDist * categories + choice] = ScalarConvert<int, T>::to(0);
+      origDist[curDist * categories + choice] = zero;
     }
   }
 }

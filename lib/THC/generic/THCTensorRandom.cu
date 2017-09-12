@@ -231,13 +231,21 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
       // distribution concurrently.
       dim3 grid(numDist < MAX_NUM_BLOCKS ? numDist : MAX_NUM_BLOCKS);
 
+      
+      //Create the matrix of uniformly sampled numbers
+      THCTensor *uniform_idx = THCTensor_(newWithSize1d)(state, n_sample);
+      THCTensor_(uniform)(state, uniform_idx, 0, 1);
+      
+      
       sampleMultinomialWithReplacement
         <<<grid, block, 0, THCState_getCurrentStream(state)>>>(
-          gen->gen_states,
-          n_sample,
-          THCudaLongTensor_data(state, self),
-          numDist, numCategories,
-          THCTensor_(data)(state, prefixSum));
+	   THCTensor_(data)(state, uniform_idx),
+	   n_sample,
+	   THCudaLongTensor_data(state, self),
+	   numDist, numCategories,
+	   THCTensor_(data)(state, prefixSum));
+      
+      THCTensor_(free)(state, uniform_idx);
     } else {
       // Sample without replacement
 
@@ -266,13 +274,13 @@ THC_API void THCTensor_(multinomial)(struct THCState *state,
         // recalculate our distribution
         sampleMultinomialWithoutReplacement
           <<<grid, block, 0, THCState_getCurrentStream(state)>>>(
-            gen->gen_states,
-            n_sample,
-            sample,
-            THCudaLongTensor_data(state, self),
-            numDist, numCategories,
-            THCTensor_(data)(state, origDist),
-            THCTensor_(data)(state, prefixSum));
+	     gen->gen_states,
+	     n_sample,	     
+	     sample,	     
+	     THCudaLongTensor_data(state, self),
+	     numDist, numCategories,
+	     THCTensor_(data)(state, origDist),
+	     THCTensor_(data)(state, prefixSum));
       }
     }
 
